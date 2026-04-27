@@ -30,6 +30,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     ],
     blockedPermissions: [],
   },
+  ios: {
+    bundleIdentifier: "ai.krishisaathi.app",
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
+    },
+  },
   plugins: [
     "expo-router",
     "expo-localization",

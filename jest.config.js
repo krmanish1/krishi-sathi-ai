@@ -26,7 +26,6 @@ module.exports = {
       testMatch: ["<rootDir>/**/*.test.tsx", "<rootDir>/**/*.test.jsx"],
       testPathIgnorePatterns: ["/node_modules/", "maestro/"],
       setupFiles: ["<rootDir>/jest.setup.js"],
-      setupFilesAfterEnv: ["@testing-library/jest-native/extend-expect"],
       moduleNameMapper: {
         "^@/app/(.*)$": "<rootDir>/app/$1",
         "^@/features/(.*)$": "<rootDir>/src/features/$1",
