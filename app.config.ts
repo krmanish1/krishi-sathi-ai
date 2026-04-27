@@ -3,7 +3,8 @@ import { ExpoConfig, ConfigContext } from "expo/config";
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: "KrishiSaathi AI",
-  slug: "krishisaathi-ai",
+  slug: "krishi-sathi-ai",
+  owner: "krmanishs-organization",
   scheme: "krishisaathi",
   version: "0.1.0",
   orientation: "portrait",
@@ -44,6 +45,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ],
   experiments: { typedRoutes: true },
   extra: {
+    eas: {
+      projectId: "3efbd78c-90d8-49f9-8dfe-4cf9a9009f76",
+    },
     apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://10.0.2.2:8000",
     useNativeGemma: process.env.EXPO_PUBLIC_USE_NATIVE_GEMMA ?? "0",
     nativeGemmaModelPath: process.env.EXPO_PUBLIC_NATIVE_GEMMA_MODEL_PATH ?? "",
