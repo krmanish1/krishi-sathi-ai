@@ -1,0 +1,140 @@
+import { useState } from "react";
+import { View, Text, Pressable, Image, ActivityIndicator, ScrollView, Alert } from "react-native";
+import { router } from "expo-router";
+import { useTranslation } from "react-i18next";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import { postQueryImage } from "@/shared/api/endpoints";
+import { useFarmerId } from "@/shared/auth/AuthProvider";
+import { ApiError } from "@/shared/api/errors";
+
+export default function ScanScreen() {
+  const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const farmerId = useFarmerId();
+  const [localUri, setLocalUri] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [ref, setRef] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+
+  const pick = async (src: "camera" | "library") => {
+    setErr(null);
+    setRef(null);
+    const perm =
+      src === "camera"
+        ? await ImagePicker.requestCameraPermissionsAsync()
+        : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      setErr(t("scan.permission"));
+      return;
+    }
+    const res =
+      src === "camera"
+        ? await ImagePicker.launchCameraAsync({
+            quality: 0.85,
+            allowsEditing: true,
+            aspect: [4, 3],
+          })
+        : await ImagePicker.launchImageLibraryAsync({
+            quality: 0.85,
+            allowsEditing: true,
+            aspect: [4, 3],
+          });
+    if (res.canceled || !res.assets[0]) {
+      return;
+    }
+    setLocalUri(res.assets[0].uri);
+  };
+
+  const upload = async () => {
+    if (!localUri || !farmerId) {
+      return;
+    }
+    setErr(null);
+    setUploading(true);
+    try {
+      const m = await ImageManipulator.manipulateAsync(localUri, [{ resize: { width: 1024 } }], {
+        compress: 0.8,
+        format: ImageManipulator.SaveFormat.JPEG,
+      });
+      const r = await postQueryImage({ uri: m.uri, farmerId, purpose: "crop_disease" });
+      setRef(r.image_ref);
+      Alert.alert(t("scan.done"), r.image_ref);
+    } catch (e) {
+      const msg =
+        e instanceof ApiError ? e.message : e instanceof Error ? e.message : t("errors.generic");
+      setErr(msg);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <View
+      className="flex-1 bg-page"
+      style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
+    >
+      <View className="flex-row items-center border-b border-border/60 bg-card px-4 py-3">
+        <Pressable
+          accessibilityRole="button"
+          hitSlop={12}
+          onPress={() => router.back()}
+          className="mr-2 rounded-full p-1"
+        >
+          <MaterialCommunityIcons name="arrow-left" size={24} color="#0D631B" />
+        </Pressable>
+        <Text className="font-display text-lg text-title-green">{t("scan.title")}</Text>
+      </View>
+      <ScrollView className="flex-1" contentContainerStyle={{ padding: 16 }}>
+        <Text className="mb-4 font-body text-ink-muted">{t("scan.body")}</Text>
+        {localUri ? (
+          <Image
+            source={{ uri: localUri }}
+            className="mb-4 aspect-[4/3] w-full rounded-2xl bg-muted"
+            resizeMode="cover"
+            accessibilityLabel={t("scan.preview")}
+          />
+        ) : null}
+        {err ? <Text className="mb-2 text-sm text-danger">{err}</Text> : null}
+        {ref ? (
+          <Text className="mb-2 font-mono text-xs text-ink-muted" selectable>
+            {t("scan.ref", { id: ref })}
+          </Text>
+        ) : null}
+        <View className="gap-2">
+          <Pressable
+            className="border-primary min-h-[48px] items-center justify-center rounded-2xl border bg-card"
+            onPress={() => {
+              void pick("camera");
+            }}
+          >
+            <Text className="font-body-semibold text-title-green">{t("scan.camera")}</Text>
+          </Pressable>
+          <Pressable
+            className="border-primary min-h-[48px] items-center justify-center rounded-2xl border bg-card"
+            onPress={() => {
+              void pick("library");
+            }}
+          >
+            <Text className="font-body-semibold text-title-green">{t("scan.library")}</Text>
+          </Pressable>
+          <Pressable
+            className="mt-2 min-h-[48px] items-center justify-center rounded-2xl bg-brand"
+            disabled={!localUri || !farmerId || uploading}
+            onPress={() => {
+              void upload();
+            }}
+          >
+            {uploading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text className="font-body-semibold text-white">{t("scan.upload")}</Text>
+            )}
+          </Pressable>
+        </View>
+      </ScrollView>
+    </View>
+  );
+}

@@ -1,0 +1,7 @@
+# Run: maestro test maestro/flow.yaml
+appId: ${APP_ID}
+---
+- launchApp
+- assertVisible: "Krishi|Home|घर"
+- tapOn: "Assistant|सहायक"
+- assertVisible: "Send|भेजें"

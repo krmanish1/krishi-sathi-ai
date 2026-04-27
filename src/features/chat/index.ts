@@ -1,0 +1,10 @@
+/**
+ * Public API for the chat feature.
+ * Import from `@/features/chat`, not from internal file paths, unless you have a real reason.
+ */
+export { guessDeviceIntent } from "./guessDeviceIntent";
+export { MAIN_THREAD_ID, appendMessage, clearThread, listThreadMessages } from "./chatMessagesRepo";
+export type { ChatMessageRow } from "./chatMessagesRepo";
+export { CHAT_THREAD_QUERY_KEY, useChatThread } from "./useChatThread";
+export { CONFIDENCE_THRESHOLD_LOW, useSendChatMessage } from "./useSendQuery";
+export type { SendQueryInput } from "./useSendQuery";

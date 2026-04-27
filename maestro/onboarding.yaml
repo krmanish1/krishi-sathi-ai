@@ -1,0 +1,7 @@
+# Run: APP_ID=ai.krishisaathi.app maestro test maestro/onboarding.yaml
+appId: ${APP_ID}
+---
+- launchApp
+- assertVisible: "Krishi|Home|घर"
+- tapOn: "Assistant|सहायक"
+- assertVisible: "Send|भेजें"

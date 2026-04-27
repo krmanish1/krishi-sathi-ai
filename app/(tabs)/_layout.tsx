@@ -1,33 +1,76 @@
-import { Tabs } from 'expo-router';
-import React from 'react';
+import { Tabs } from "expo-router";
+import { useTranslation } from "react-i18next";
+import { Platform } from "react-native";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 
-import { HapticTab } from '@/components/haptic-tab';
-import { IconSymbol } from '@/components/ui/icon-symbol';
-import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
-
+export default function TabsLayout() {
+  const { t } = useTranslation();
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
-        tabBarButton: HapticTab,
-      }}>
+        tabBarActiveTintColor: "#0D631B",
+        tabBarInactiveTintColor: "#78716C",
+        tabBarLabelStyle: {
+          fontSize: 11,
+          fontFamily: "PlusJakartaSans_600SemiBold",
+          letterSpacing: 0.6,
+          textTransform: "uppercase" as const,
+        },
+        tabBarStyle: {
+          height: Platform.OS === "ios" ? 96 : 88,
+          paddingTop: 8,
+          paddingBottom: Platform.OS === "ios" ? 24 : 12,
+          backgroundColor: "rgba(255,255,255,0.96)",
+          borderTopWidth: 0,
+          borderTopLeftRadius: 32,
+          borderTopRightRadius: 32,
+          ...Platform.select({
+            ios: {
+              shadowColor: "#000",
+              shadowOpacity: 0.08,
+              shadowRadius: 20,
+              shadowOffset: { width: 0, height: -4 },
+            },
+            android: { elevation: 10 },
+          }),
+        },
+      }}
+    >
       <Tabs.Screen
-        name="index"
+        name="home"
         options={{
-          title: 'Home',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
+          title: t("tabs.home"),
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="home-outline" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
-        name="explore"
+        name="chat"
         options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+          title: t("tabs.assistant"),
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="message-text-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="mandi"
+        options={{
+          title: t("tabs.markets"),
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="storefront-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: t("tabs.profile"),
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="account-circle-outline" size={size} color={color} />
+          ),
         }}
       />
     </Tabs>

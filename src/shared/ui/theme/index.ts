@@ -1,0 +1,1 @@
+export { figma } from "./tokens";

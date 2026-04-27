@@ -1,0 +1,1 @@
+export { voiceStt } from "./voiceClient";

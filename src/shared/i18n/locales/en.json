@@ -1,0 +1,99 @@
+{
+  "app": { "name": "Krishi AI Saathi" },
+  "network": {
+    "offline": "You are offline. Schemes, mandi, and on-device answers still work where available.",
+    "degraded": "Connection is slow. If something fails, try again in a moment."
+  },
+  "onboarding": {
+    "welcome": "Your farm. Your language. Your assistant.",
+    "pickLanguage": "Choose your language",
+    "pickLocation": "Where is your farm?",
+    "stateLabel": "State",
+    "districtLabel": "District",
+    "continue": "Continue",
+    "downloadingModel": "Preparing your assistant",
+    "modelProgress": "Setting things up for offline use"
+  },
+  "tabs": {
+    "home": "Home",
+    "assistant": "Assistant",
+    "markets": "Markets",
+    "profile": "Profile"
+  },
+  "home": {
+    "headerTitle": "Krishi AI Saathi",
+    "greetingName": "Ram Ram, {{name}} Ji!",
+    "cacheLine": "Viewing cached data from today, {{time}}.",
+    "offlinePill": "Offline Mode Active",
+    "syncTitle": "Sync Pending",
+    "syncBody": "2 updates (Soil Health, Pest Alert) are waiting for internet to sync.",
+    "retrySync": "Retry Sync",
+    "docsTitle": "Offline Docs",
+    "doc1": "Fertilizer Mix Guide",
+    "doc2": "Pest Identification",
+    "doc3": "Water Management",
+    "storage": "STORAGE USED: 45MB / 1GB",
+    "cachedWeather": "CACHED WEATHER",
+    "weatherSample": "Partly Cloudy — {{place}}",
+    "humidity": "HUMIDITY",
+    "rainChance": "RAIN CHANCE",
+    "marketTitle": "Market Prices",
+    "mandiLabel": "MANDI: {{place}}",
+    "priceFootnote": "Prices last updated 18 hours ago. Market trends may have changed.",
+    "pending": "PENDING",
+    "sowingTitle": "Check Cached Sowing\nGuide",
+    "sowingSub": "Plan your next harvest even without a network. Downloaded guide for Cotton and Bajra is available offline.",
+    "viewGuide": "View Offline Guide",
+    "fabLabel": "Speak to Assistant",
+    "tempSample": "32°C"
+  },
+  "chat": {
+    "placeholder": "Ask about crops, weather, or schemes",
+    "send": "Send",
+    "title": "Assistant",
+    "subtitle": "On-device and online answers, based on your connection.",
+    "empty": "Start by asking a question about your farm below.",
+    "loading": "Loading chat",
+    "sourceOnDevice": "On this phone",
+    "sourceOnline": "From server",
+    "speak": "Listen",
+    "tryOnline": "Get a fuller online answer"
+  },
+  "mandi": {
+    "title": "Mandi prices",
+    "region": "{{district}}, {{state}} (saved for your area)",
+    "empty": "No mandi prices loaded yet. Pull down to sync the latest for your state and district, or finish onboarding if you have not completed it.",
+    "mandiPlace": "Mandi: {{place}}"
+  },
+  "profile": {
+    "title": "Profile & settings",
+    "appLanguage": "App language",
+    "lang": { "en": "English", "hi": "हिंदी" },
+    "twinName": "Your name",
+    "crops": "Crops (comma separated)",
+    "cropsHint": "e.g. Wheat, Mustard",
+    "save": "Save profile",
+    "saved": "Saved"
+  },
+  "scan": {
+    "title": "Scan crop",
+    "body": "Take a photo or pick from gallery. We resize and send it securely for analysis.",
+    "camera": "Camera",
+    "library": "Photo library",
+    "upload": "Upload for analysis",
+    "done": "Upload complete",
+    "ref": "Reference: {{id}}",
+    "preview": "Selected crop image",
+    "permission": "Camera or photo access was denied. Enable it in system settings."
+  },
+  "errors": {
+    "generic": "Something went wrong.",
+    "networkBusy": "Network is busy. Answering from your device.",
+    "retryLater": "Please try again in a moment.",
+    "validation": "Please check your input.",
+    "imageTooLarge": "Image is too large.",
+    "imageUnsupported": "Image format not supported.",
+    "imageExpired": "Image expired. Uploading again.",
+    "farmerMissing": "Session refreshed. Please try again."
+  }
+}

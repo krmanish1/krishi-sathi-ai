@@ -1,0 +1,4 @@
+{
+  "platforms": ["android", "ios"],
+  "name": "gemma-llm"
+}
