@@ -95,7 +95,9 @@ export default function ChatScreen() {
   const send = useSendChatMessage();
   const [draft, setDraft] = useState("");
   const [listening, setListening] = useState(false);
+  const [preferOnline, setPreferOnline] = useState(false);
   const listRef = useRef<FlatList<ChatMessageRow>>(null);
+  const canUseOnline = connectivity === "online" || connectivity === "degraded";
   useEffect(() => {
     if (!voiceStt) {
       return;
@@ -137,9 +139,12 @@ export default function ChatScreen() {
       if (opt?.forceBackend) {
         payload.forceBackend = true;
       }
-      void send.mutateAsync(payload);
+      if (!opt?.forceBackend && preferOnline && canUseOnline) {
+        payload.forceBackend = true;
+      }
+      void send.mutateAsync(payload).catch(() => undefined);
     },
-    [farmerId, language, state, district, connectivity, send],
+    [farmerId, language, state, district, connectivity, send, preferOnline, canUseOnline],
   );
 
   const onSend = () => {
@@ -204,6 +209,40 @@ export default function ChatScreen() {
       <View className="border-b border-border/60 bg-card px-4 py-3">
         <Text className="font-display text-lg text-title-green">{t("chat.title")}</Text>
         <Text className="font-body text-sm text-ink-muted">{t("chat.subtitle")}</Text>
+        <View className="mt-2 flex-row items-center justify-between">
+          <View className="flex-row items-center gap-2">
+            <Text className="font-body-semibold text-xs uppercase tracking-wide text-ink-muted">
+              {t("chat.modeAuto")}
+            </Text>
+            <View
+              className={`rounded-full px-2 py-1 ${preferOnline && canUseOnline ? "bg-brand/10" : "bg-muted"}`}
+            >
+              <Text
+                className={`font-body-semibold text-xs ${preferOnline && canUseOnline ? "text-brand" : "text-ink-muted"}`}
+              >
+                {preferOnline && canUseOnline ? t("chat.modeOnline") : t("chat.modeOffline")}
+              </Text>
+            </View>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ selected: preferOnline, disabled: !canUseOnline }}
+            onPress={() => {
+              if (!canUseOnline) {
+                return;
+              }
+              setPreferOnline((p) => !p);
+            }}
+            className={`rounded-full px-3 py-2 ${canUseOnline ? "bg-brand/10" : "bg-muted"}`}
+          >
+            <Text className={`font-body-semibold text-xs ${canUseOnline ? "text-brand" : "text-ink-muted"}`}>
+              {t("chat.modeOnline")}
+            </Text>
+          </Pressable>
+        </View>
+        {!canUseOnline ? (
+          <Text className="mt-1 font-body text-xs text-ink-muted">{t("chat.modeDisabled")}</Text>
+        ) : null}
       </View>
 
       <FlatList
@@ -240,7 +279,7 @@ export default function ChatScreen() {
                   skipUserMessage: true,
                   forceBackend: true,
                 };
-                void send.mutateAsync(p);
+                void send.mutateAsync(p).catch(() => undefined);
               }}
               onSpeak={onSpeak}
               busy={send.isPending}

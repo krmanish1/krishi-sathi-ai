@@ -1,9 +1,4 @@
 import { Platform } from "react-native";
-import { ExpoSpeechRecognitionModule } from "expo-speech-recognition";
-import type {
-  ExpoSpeechRecognitionErrorEvent,
-  ExpoSpeechRecognitionResultEvent,
-} from "expo-speech-recognition";
 
 /**
  * Voice adapter used by chat screen. We keep a small compatibility layer
@@ -18,36 +13,76 @@ type VoiceCompat = {
   removeAllListeners: () => void;
 };
 
+type NativeSpeechRecognitionModule = {
+  requestPermissionsAsync: () => Promise<{ granted: boolean }>;
+  addListener: (eventName: string, listener: (event: unknown) => void) => { remove: () => void };
+  start: (options: {
+    lang: string;
+    interimResults: boolean;
+    maxAlternatives: number;
+    continuous: boolean;
+  }) => void;
+  stop: () => void;
+};
+
+type WebSpeechRecognitionLike = {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  maxAlternatives: number;
+  onresult: ((event: unknown) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+
 let resultSub: { remove: () => void } | null = null;
 let errorSub: { remove: () => void } | null = null;
 let endSub: { remove: () => void } | null = null;
+let nativeSpeechModule: NativeSpeechRecognitionModule | null = null;
+
+if (Platform.OS !== "web") {
+  try {
+    const loaded = require("expo-speech-recognition") as {
+      ExpoSpeechRecognitionModule?: NativeSpeechRecognitionModule;
+    };
+    nativeSpeechModule = loaded.ExpoSpeechRecognitionModule ?? null;
+  } catch {
+    nativeSpeechModule = null;
+  }
+}
 
 const voiceCompat: VoiceCompat = {
   async start(lang: string) {
-    const permission = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
+    if (!nativeSpeechModule) {
+      throw new Error("Speech recognition unavailable in this runtime");
+    }
+    const permission = await nativeSpeechModule.requestPermissionsAsync();
     if (!permission.granted) {
       throw new Error("Speech recognition permission not granted");
     }
     if (!resultSub) {
-      resultSub = ExpoSpeechRecognitionModule.addListener("result", (event: ExpoSpeechRecognitionResultEvent) => {
-        const values = event.results.map((r) => r.transcript).filter(Boolean);
+      resultSub = nativeSpeechModule.addListener("result", (event) => {
+        const maybeEvent = event as { results?: Array<{ transcript?: string }>; isFinal?: boolean };
+        const values = (maybeEvent.results ?? []).map((r) => r.transcript ?? "").filter(Boolean);
         voiceCompat.onSpeechResults?.({ value: values });
-        if (event.isFinal) {
+        if (maybeEvent.isFinal) {
           voiceCompat.onSpeechEnd?.();
         }
       });
     }
     if (!errorSub) {
-      errorSub = ExpoSpeechRecognitionModule.addListener("error", (_event: ExpoSpeechRecognitionErrorEvent) => {
+      errorSub = nativeSpeechModule.addListener("error", () => {
         voiceCompat.onSpeechError?.();
       });
     }
     if (!endSub) {
-      endSub = ExpoSpeechRecognitionModule.addListener("end", () => {
+      endSub = nativeSpeechModule.addListener("end", () => {
         voiceCompat.onSpeechEnd?.();
       });
     }
-    ExpoSpeechRecognitionModule.start({
+    nativeSpeechModule.start({
       lang,
       interimResults: true,
       maxAlternatives: 1,
@@ -55,7 +90,7 @@ const voiceCompat: VoiceCompat = {
     });
   },
   async stop() {
-    ExpoSpeechRecognitionModule.stop();
+    nativeSpeechModule?.stop();
   },
   removeAllListeners() {
     resultSub?.remove();
@@ -67,4 +102,52 @@ const voiceCompat: VoiceCompat = {
   },
 };
 
-export const voiceStt: VoiceCompat | null = Platform.OS === "web" ? null : voiceCompat;
+let webRecognition: WebSpeechRecognitionLike | null = null;
+
+const webVoiceCompat: VoiceCompat = {
+  async start(lang: string) {
+    const webApi = globalThis as {
+      webkitSpeechRecognition?: new () => WebSpeechRecognitionLike;
+      SpeechRecognition?: new () => WebSpeechRecognitionLike;
+    };
+    const Ctor = webApi.SpeechRecognition ?? webApi.webkitSpeechRecognition;
+    if (!Ctor) {
+      throw new Error("Web Speech API unavailable");
+    }
+    webRecognition = new Ctor();
+    webRecognition.lang = lang;
+    webRecognition.interimResults = true;
+    webRecognition.maxAlternatives = 1;
+    webRecognition.continuous = false;
+    webRecognition.onresult = (event) => {
+      const maybeEvent = event as { results?: ArrayLike<ArrayLike<{ transcript?: string }>> };
+      const first = maybeEvent.results?.[0];
+      const transcript = first?.[0]?.transcript;
+      if (transcript) {
+        voiceStt?.onSpeechResults?.({ value: [transcript] });
+      }
+    };
+    webRecognition.onerror = () => {
+      voiceStt?.onSpeechError?.();
+    };
+    webRecognition.onend = () => {
+      voiceStt?.onSpeechEnd?.();
+    };
+    webRecognition.start();
+  },
+  async stop() {
+    webRecognition?.stop();
+  },
+  removeAllListeners() {
+    if (!webRecognition) {
+      return;
+    }
+    webRecognition.onresult = null;
+    webRecognition.onerror = null;
+    webRecognition.onend = null;
+    webRecognition = null;
+  },
+};
+
+export const voiceStt: VoiceCompat | null =
+  Platform.OS === "web" ? webVoiceCompat : nativeSpeechModule ? voiceCompat : null;

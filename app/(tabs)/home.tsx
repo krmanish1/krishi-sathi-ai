@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
 import { format } from "date-fns";
@@ -8,6 +9,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useOnboarding } from "@/features/onboarding/store";
 import { useConnectivity } from "@/shared/network/useConnectivity";
+import { runInitialSync } from "@/features/onboarding/useInitialSync";
+import { useMandiFromBundle } from "@/features/mandi/mandiFromBundle";
 
 export default function HomeScreen() {
   const { t } = useTranslation();
@@ -16,10 +19,24 @@ export default function HomeScreen() {
   const district = useOnboarding((s) => s.district);
   const state = useOnboarding((s) => s.state);
   const connectivity = useConnectivity();
-  const isOffline = connectivity === "offline" || connectivity === "degraded";
+  const isOffline = connectivity === "offline";
+  const isOnlineMode = connectivity === "online" || connectivity === "degraded";
   const timeLabel = format(new Date(), "hh:mm a");
   const placeLabel =
     district && state ? `${district}, ${state}` : t("home.weatherSample", { place: "—" });
+  const { data: mandiData, refetch: refetchMandi } = useMandiFromBundle();
+  const mandiRows = mandiData?.rows ?? [];
+  const primaryMandi = mandiRows[0];
+  const secondaryMandi = mandiRows[1];
+
+  useEffect(() => {
+    if (!state || !district || !isOnlineMode) {
+      return;
+    }
+    void runInitialSync({ state, district })
+      .then(() => refetchMandi())
+      .catch(() => undefined);
+  }, [state, district, isOnlineMode, refetchMandi]);
 
   return (
     <View className="flex-1 bg-page">
@@ -133,73 +150,170 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Sync pending */}
-        <View className="mb-6 rounded-bento border-2 border-dashed border-border bg-card p-[26px]">
-          <View className="size-10 items-center justify-center rounded-full bg-coral">
-            <MaterialCommunityIcons name="sync-alert" size={18} color="#1A1C1C" />
+        {!isOnlineMode ? (
+          <View className="mb-6 rounded-bento border-2 border-dashed border-border bg-card p-[26px]">
+            <View className="size-10 items-center justify-center rounded-full bg-coral">
+              <MaterialCommunityIcons name="sync-alert" size={18} color="#1A1C1C" />
+            </View>
+            <Text className="mt-3 font-display text-xl text-ink">{t("home.syncTitle")}</Text>
+            <Text className="mt-2 font-body text-sm leading-relaxed text-ink-muted">
+              {t("home.syncBody")}
+            </Text>
+            <Pressable
+              className="mt-4 flex-row items-center gap-1 self-start"
+              onPress={() => undefined}
+            >
+              <Text className="font-body-semibold text-sm text-brand">{t("home.retrySync")}</Text>
+              <MaterialCommunityIcons name="chevron-right" size={16} color="#0D631B" />
+            </Pressable>
           </View>
-          <Text className="mt-3 font-display text-xl text-ink">{t("home.syncTitle")}</Text>
-          <Text className="mt-2 font-body text-sm leading-relaxed text-ink-muted">
-            {t("home.syncBody")}
-          </Text>
-          <Pressable
-            className="mt-4 flex-row items-center gap-1 self-start"
-            onPress={() => undefined}
-          >
-            <Text className="font-body-semibold text-sm text-brand">{t("home.retrySync")}</Text>
-            <MaterialCommunityIcons name="chevron-right" size={16} color="#0D631B" />
-          </Pressable>
-        </View>
+        ) : null}
 
-        {/* Market prices */}
-        <View className="mb-6 rounded-bento bg-card p-6">
-          <View className="flex-row items-start justify-between">
-            <Text className="font-display text-lg text-ink">{t("home.marketTitle")}</Text>
-            <View className="flex-row items-center gap-1">
-              <View className="size-2 rounded-full bg-amber" />
-              <Text className="font-body-semibold text-[10px] uppercase text-amber">
-                {t("home.pending")}
+        {/* Online bento / Offline market block */}
+        {isOnlineMode ? (
+          <View className="mb-6">
+            <View className="mb-4 flex-row gap-4">
+              <View className="h-40 flex-1 justify-between rounded-3xl bg-brand p-4">
+                <View>
+                  <MaterialCommunityIcons name="sprout" size={18} color="#CBFFC2" />
+                  <Text className="mt-1 font-body-medium text-xs text-[#CBFFC2]">Recommended</Text>
+                  <Text className="font-display text-4xl text-[#CBFFC2]">Wheat</Text>
+                </View>
+                <View className="rounded-xl bg-white/20 p-2">
+                  <Text className="font-body-semibold text-[10px] uppercase text-[#CBFFC2]">
+                    Profit Potential
+                  </Text>
+                  <Text className="font-body-semibold text-2xl text-[#CBFFC2]">High ↗</Text>
+                </View>
+              </View>
+              <View className="h-40 flex-1 justify-between rounded-3xl bg-card p-4">
+                <View>
+                  <MaterialCommunityIcons name="cash-multiple" size={20} color="#7A5649" />
+                  <Text className="mt-1 font-body-medium text-xs text-ink-muted">Mandi Price</Text>
+                  <Text className="font-display text-4xl text-ink">{primaryMandi?.price ?? "—"}</Text>
+                </View>
+                <View className="flex-row items-center justify-between">
+                  <Text
+                    className={`font-body-semibold text-sm ${
+                      primaryMandi?.up === false
+                        ? "text-danger"
+                        : primaryMandi?.up === true
+                          ? "text-success"
+                          : "text-ink-muted"
+                    }`}
+                  >
+                    {primaryMandi?.changeLabel ?? "—"}
+                  </Text>
+                  <MaterialCommunityIcons
+                    name={
+                      primaryMandi?.up === false
+                        ? "arrow-down"
+                        : primaryMandi?.up === true
+                          ? "arrow-up"
+                          : "minus"
+                    }
+                    size={14}
+                    color={primaryMandi?.up === false ? "#BA1A1A" : primaryMandi?.up === true ? "#0D631B" : "#78716C"}
+                  />
+                </View>
+              </View>
+            </View>
+            <View className="mb-4 flex-row items-center justify-between">
+              <Text className="font-display text-3xl text-ink">Quick Actions</Text>
+              <Text className="font-body-semibold text-base text-brand">View All</Text>
+            </View>
+            <View className="mb-6 flex-row justify-between gap-3">
+              {[
+                { icon: "microphone-outline", label: "ASK AI" },
+                { icon: "calendar-month-outline", label: "CROP\nPLANNING" },
+                { icon: "camera-outline", label: "UPLOAD\nPHOTO" },
+                { icon: "gavel", label: "GOVT\nSCHEMES" },
+              ].map((item) => (
+                <View key={item.label} className="flex-1 items-center">
+                  <View className="w-full items-center rounded-3xl bg-muted py-5">
+                    <MaterialCommunityIcons name={item.icon as never} size={20} color="#0D631B" />
+                  </View>
+                  <Text className="mt-2 text-center font-body-semibold text-[10px] uppercase text-ink-muted">
+                    {item.label}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        ) : (
+          <View className="mb-6 rounded-bento bg-card p-6">
+            <View className="flex-row items-start justify-between">
+              <Text className="font-display text-lg text-ink">{t("home.marketTitle")}</Text>
+              <View className="flex-row items-center gap-1">
+                <View className="size-2 rounded-full bg-amber" />
+                <Text className="font-body-semibold text-[10px] uppercase text-amber">
+                  {t("home.pending")}
+                </Text>
+              </View>
+            </View>
+            <View className="mt-4 gap-4 opacity-90">
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center gap-3">
+                  <MaterialCommunityIcons name="barley" size={22} color="#1A1C1C" />
+                  <View>
+                    <Text className="font-body-semibold text-sm text-ink">
+                      {primaryMandi?.label ?? "Wheat"}
+                    </Text>
+                    <Text className="font-body-medium text-[10px] uppercase tracking-tight text-ink">
+                      {t("home.mandiLabel", { place: primaryMandi?.place ?? "—" })}
+                    </Text>
+                  </View>
+                </View>
+                <View className="items-end">
+                  <Text className="font-body-semibold text-sm text-ink">{primaryMandi?.price ?? "—"}</Text>
+                  <Text
+                    className={`font-body-semibold text-[10px] ${
+                      primaryMandi?.up === false
+                        ? "text-danger"
+                        : primaryMandi?.up === true
+                          ? "text-success"
+                          : "text-ink-muted"
+                    }`}
+                  >
+                    {primaryMandi?.changeLabel ?? "—"}
+                  </Text>
+                </View>
+              </View>
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center gap-3">
+                  <MaterialCommunityIcons name="leaf" size={20} color="#1A1C1C" />
+                  <View>
+                    <Text className="font-body-semibold text-sm text-ink">
+                      {secondaryMandi?.label ?? "Mustard"}
+                    </Text>
+                    <Text className="font-body-medium text-[10px] uppercase tracking-tight text-ink">
+                      {t("home.mandiLabel", { place: secondaryMandi?.place ?? "—" })}
+                    </Text>
+                  </View>
+                </View>
+                <View className="items-end">
+                  <Text className="font-body-semibold text-sm text-ink">{secondaryMandi?.price ?? "—"}</Text>
+                  <Text
+                    className={`font-body-semibold text-[10px] ${
+                      secondaryMandi?.up === false
+                        ? "text-danger"
+                        : secondaryMandi?.up === true
+                          ? "text-success"
+                          : "text-ink-muted"
+                    }`}
+                  >
+                    {secondaryMandi?.changeLabel ?? "—"}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View className="mt-4 border-t border-muted pt-4">
+              <Text className="font-body text-[11px] italic leading-snug text-ink-muted">
+                {t("home.priceFootnote")}
               </Text>
             </View>
           </View>
-          <View className="mt-4 gap-4 opacity-90">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center gap-3">
-                <MaterialCommunityIcons name="barley" size={22} color="#1A1C1C" />
-                <View>
-                  <Text className="font-body-semibold text-sm text-ink">Wheat</Text>
-                  <Text className="font-body-medium text-[10px] uppercase tracking-tight text-ink">
-                    {t("home.mandiLabel", { place: "KARNAL" })}
-                  </Text>
-                </View>
-              </View>
-              <View className="items-end">
-                <Text className="font-body-semibold text-sm text-ink">₹2,125</Text>
-                <Text className="font-body-semibold text-[10px] text-danger">-2.1%</Text>
-              </View>
-            </View>
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center gap-3">
-                <MaterialCommunityIcons name="leaf" size={20} color="#1A1C1C" />
-                <View>
-                  <Text className="font-body-semibold text-sm text-ink">Mustard</Text>
-                  <Text className="font-body-medium text-[10px] uppercase tracking-tight text-ink">
-                    {t("home.mandiLabel", { place: "REWARI" })}
-                  </Text>
-                </View>
-              </View>
-              <View className="items-end">
-                <Text className="font-body-semibold text-sm text-ink">₹5,450</Text>
-                <Text className="font-body-semibold text-[10px] text-success">+1.4%</Text>
-              </View>
-            </View>
-          </View>
-          <View className="mt-4 border-t border-muted pt-4">
-            <Text className="font-body text-[11px] italic leading-snug text-ink-muted">
-              {t("home.priceFootnote")}
-            </Text>
-          </View>
-        </View>
+        )}
 
         {/* Sowing CTA */}
         <LinearGradient
@@ -220,23 +334,45 @@ export default function HomeScreen() {
           </Pressable>
         </LinearGradient>
 
-        {/* Offline docs */}
-        <View className="mb-8 rounded-bento bg-muted p-6">
-          <Text className="font-display text-lg text-ink">{t("home.docsTitle")}</Text>
-          <View className="mt-4 gap-3">
-            {[t("home.doc1"), t("home.doc2"), t("home.doc3")].map((label) => (
-              <View key={label} className="flex-row items-center gap-2">
-                <MaterialCommunityIcons name="file-document-outline" size={15} color="#40493D" />
-                <Text className="font-body-medium text-sm text-ink-muted">{label}</Text>
+        {!isOnlineMode ? (
+          <View className="mb-8 rounded-bento bg-muted p-6">
+            <Text className="font-display text-lg text-ink">{t("home.docsTitle")}</Text>
+            <View className="mt-4 gap-3">
+              {[t("home.doc1"), t("home.doc2"), t("home.doc3")].map((label) => (
+                <View key={label} className="flex-row items-center gap-2">
+                  <MaterialCommunityIcons name="file-document-outline" size={15} color="#40493D" />
+                  <Text className="font-body-medium text-sm text-ink-muted">{label}</Text>
+                </View>
+              ))}
+            </View>
+            <View className="mt-4 border-t border-border pt-4">
+              <Text className="font-body-semibold text-[10px] uppercase tracking-wider text-ink-muted">
+                {t("home.storage")}
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <View className="mb-8 rounded-3xl overflow-hidden">
+            <LinearGradient
+              colors={["rgba(0,0,0,0.65)", "rgba(0,0,0,0.2)"]}
+              start={{ x: 0, y: 1 }}
+              end={{ x: 0, y: 0 }}
+              style={{ padding: 20, minHeight: 176, justifyContent: "flex-end", backgroundColor: "#14532D" }}
+            >
+              <View className="self-start rounded bg-[#8C6800] px-2 py-1">
+                <Text className="font-body-semibold text-[10px] uppercase tracking-widest text-[#FFEFD6]">
+                  EXPERT TIP
+                </Text>
               </View>
-            ))}
+              <Text className="mt-2 font-display text-4xl text-white">
+                Protect your Wheat{"\n"}from Yellow Rust
+              </Text>
+              <Text className="mt-1 font-body text-base text-white/90">
+                AI detected high humidity in your region. Learn prevention steps.
+              </Text>
+            </LinearGradient>
           </View>
-          <View className="mt-4 border-t border-border pt-4">
-            <Text className="font-body-semibold text-[10px] uppercase tracking-wider text-ink-muted">
-              {t("home.storage")}
-            </Text>
-          </View>
-        </View>
+        )}
       </ScrollView>
 
       {/* FAB — match Figma: assistant / voice */}

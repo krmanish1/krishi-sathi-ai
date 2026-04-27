@@ -1,4 +1,4 @@
-import { Text, View, FlatList, RefreshControl, ActivityIndicator } from "react-native";
+import { Text, View, FlatList, RefreshControl, ActivityIndicator, Alert } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useQueryClient } from "@tanstack/react-query";
@@ -29,6 +29,8 @@ export default function MandiScreen() {
     try {
       await runInitialSync({ state, district });
       await qc.invalidateQueries({ queryKey: MANDI_QUERY_KEY });
+    } catch {
+      Alert.alert(t("errors.retryLater"));
     } finally {
       setSyncing(false);
     }

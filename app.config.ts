@@ -7,6 +7,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   owner: "krmanishs-organization",
   scheme: "krishisaathi",
   version: "0.1.0",
+  runtimeVersion: {
+    policy: "appVersion",
+  },
+  updates: {
+    // Avoid startup crashes when remote OTA download fails.
+    checkAutomatically: "ON_ERROR_RECOVERY",
+    fallbackToCacheTimeout: 0,
+    useEmbeddedUpdate: true,
+  },
   orientation: "portrait",
   userInterfaceStyle: "automatic",
   icon: "./assets/images/icon.png",
