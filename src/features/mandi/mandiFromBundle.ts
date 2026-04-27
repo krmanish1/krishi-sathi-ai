@@ -12,21 +12,56 @@ export type MandiPriceRow = {
   up: boolean | null;
 };
 
+const readString = (o: Record<string, unknown>, keys: string[]): string | null => {
+  for (const key of keys) {
+    const value = o[key];
+    if (typeof value === "string" && value.trim().length > 0) {
+      return value.trim();
+    }
+  }
+  return null;
+};
+
+const readNumber = (o: Record<string, unknown>, keys: string[]): number | null => {
+  for (const key of keys) {
+    const value = o[key];
+    if (typeof value === "number" && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === "string") {
+      const cleaned = value.replace(/[^\d.-]/g, "");
+      const parsed = Number(cleaned);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+  return null;
+};
+
 function rowFromUnknown(u: unknown, i: number): MandiPriceRow {
   if (u && typeof u === "object") {
     const o = u as Record<string, unknown>;
     const label =
-      (typeof o.crop === "string" && o.crop) ||
-      (typeof o.commodity === "string" && o.commodity) ||
-      (typeof o.name === "string" && o.name) ||
+      readString(o, ["crop", "commodity", "commodity_name", "name", "item", "produce"]) ??
       `Item ${i + 1}`;
-    const priceRaw = o.price ?? o.rate;
+    const numericPrice = readNumber(o, [
+      "price",
+      "rate",
+      "modal_price",
+      "mandi_price",
+      "price_per_quintal",
+      "avg_price",
+    ]);
+    const rawPrice = o.price ?? o.rate ?? o.modal_price ?? o.mandi_price;
     const price =
-      typeof priceRaw === "number"
-        ? `₹${priceRaw.toLocaleString("en-IN")}`
-        : String(priceRaw ?? "—");
+      numericPrice != null
+        ? `₹${numericPrice.toLocaleString("en-IN")}`
+        : typeof rawPrice === "string" && rawPrice.trim().length > 0
+          ? rawPrice
+          : "—";
     const place =
-      typeof o.mandi === "string" ? o.mandi : typeof o.place === "string" ? o.place : "—";
+      readString(o, ["mandi", "place", "market", "market_name", "mandi_name", "district"]) ?? "—";
     const ch = o.change_pct ?? o.change;
     let up: boolean | null = null;
     let changeLabel = "—";

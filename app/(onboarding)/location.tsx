@@ -1,5 +1,14 @@
 import { useEffect, useState } from "react";
-import { Text, TextInput, View, Pressable, ActivityIndicator, Alert, Linking } from "react-native";
+import {
+  Text,
+  TextInput,
+  View,
+  Pressable,
+  ActivityIndicator,
+  Alert,
+  Linking,
+  ScrollView,
+} from "react-native";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -70,7 +79,11 @@ export default function LocationScreen() {
         </Pressable>
       </View>
 
-      <View className="flex-1 px-6">
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 24 }}
+        showsVerticalScrollIndicator={false}
+      >
         <View className="mb-5 mt-4">
           <View className="self-start rounded-full bg-coral px-4 py-1.5">
             <Text className="font-body-semibold text-xs uppercase tracking-widest text-earth">
@@ -167,7 +180,7 @@ export default function LocationScreen() {
             <Text className="font-body text-sm text-ink-muted">Detecting your location...</Text>
           </View>
         ) : null}
-      </View>
+      </ScrollView>
 
       <View
         className="px-6 pb-5 pt-4"

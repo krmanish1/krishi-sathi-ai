@@ -9,7 +9,8 @@ import {
   useMandiFromBundle,
   type MandiPriceRow,
 } from "@/features/mandi/mandiFromBundle";
-import { useState, memo } from "react";
+import { useState, memo, useEffect, useCallback } from "react";
+import { useConnectivity } from "@/shared/network/useConnectivity";
 
 export default function MandiScreen() {
   const { t } = useTranslation();
@@ -19,8 +20,12 @@ export default function MandiScreen() {
   const district = useOnboarding((s) => s.district);
   const { data, isLoading, refetch, isRefetching } = useMandiFromBundle();
   const [syncing, setSyncing] = useState(false);
+  const connectivity = useConnectivity();
 
-  const onRefresh = async () => {
+  const rows = data?.rows ?? [];
+  const canSync = connectivity === "online" || connectivity === "degraded";
+
+  const onRefresh = useCallback(async () => {
     if (!state || !district) {
       await refetch();
       return;
@@ -34,7 +39,14 @@ export default function MandiScreen() {
     } finally {
       setSyncing(false);
     }
-  };
+  }, [state, district, refetch, qc, t]);
+
+  useEffect(() => {
+    if (!state || !district || !canSync || rows.length > 0) {
+      return;
+    }
+    void onRefresh();
+  }, [state, district, canSync, rows.length, onRefresh]);
 
   return (
     <View className="flex-1 bg-page" style={{ paddingTop: insets.top }}>
@@ -51,7 +63,7 @@ export default function MandiScreen() {
       ) : (
         <FlatList
           className="flex-1 px-4 pt-2"
-          data={data?.rows ?? []}
+          data={rows}
           keyExtractor={(_, i) => `m-${i}`}
           ItemSeparatorComponent={() => <View className="h-px bg-border" />}
           refreshControl={
