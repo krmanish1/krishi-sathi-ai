@@ -7,9 +7,10 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "android": { "buildType": "apk" },
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://nikesh2290-krishisaathi-backend.hf.space",
-        "EXPO_PUBLIC_USE_NATIVE_GEMMA": "0"
+        "EXPO_PUBLIC_USE_NATIVE_GEMMA": "1"
       }
     },
     "preview": {
@@ -17,13 +18,15 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://nikesh2290-krishisaathi-backend.hf.space",
-        "EXPO_PUBLIC_USE_NATIVE_GEMMA": "0"
+        "EXPO_PUBLIC_USE_NATIVE_GEMMA": "1"
       }
     },
     "production": {
+      "android": { "buildType": "apk" },
+      "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://nikesh2290-krishisaathi-backend.hf.space",
-        "EXPO_PUBLIC_USE_NATIVE_GEMMA": "0"
+        "EXPO_PUBLIC_USE_NATIVE_GEMMA": "1"
       }
     }
   },
