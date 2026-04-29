@@ -17,6 +17,7 @@ export type SendQueryInput = {
   district: string;
   connectivity: Connectivity;
   imageRef?: string;
+  imageLocalUri?: string;
   /** Re-ask on server without writing another user row (e.g. low-confidence CTA). */
   skipUserMessage?: boolean;
   forceBackend?: boolean;
@@ -49,6 +50,7 @@ export function useSendChatMessage() {
         source: null,
         confidence: null,
         created_at: Date.now(),
+        ...(p.imageLocalUri ? { imageLocalUri: p.imageLocalUri } : {}),
       };
       qc.setQueryData<ChatMessageRow[]>(
         CHAT_THREAD_QUERY_KEY(MAIN_THREAD_ID),

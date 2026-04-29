@@ -11,6 +11,8 @@ export type ChatMessageRow = {
   source: "ondevice" | "backend" | null;
   confidence: number | null;
   created_at: number;
+  /** Client-only: local image URI shown in optimistic bubble. Never persisted to DB. */
+  imageLocalUri?: string;
 };
 
 export async function listThreadMessages(
