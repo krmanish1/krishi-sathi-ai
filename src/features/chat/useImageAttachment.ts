@@ -1,5 +1,7 @@
 import { useState } from "react";
+import { Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import * as ImageManipulator from "expo-image-manipulator";
 import { postQueryImage } from "@/shared/api";
 import type { ImagePurpose } from "./guessImagePurpose";
 
@@ -43,7 +45,17 @@ export function useImageAttachment(): ImageAttachment {
     setIsUploading(true);
     setUploadError(null);
     try {
-      const result = await postQueryImage({ uri: pickedUri, farmerId, purpose });
+      // On native, re-encode to JPEG so HEIC/PNG/etc from iOS gallery are accepted by the server
+      let uploadUri = pickedUri;
+      if (Platform.OS !== "web") {
+        const manipulated = await ImageManipulator.manipulateAsync(
+          pickedUri,
+          [],
+          { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG },
+        );
+        uploadUri = manipulated.uri;
+      }
+      const result = await postQueryImage({ uri: uploadUri, farmerId, purpose });
       return result.image_ref;
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Upload failed";

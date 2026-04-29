@@ -47,20 +47,20 @@ const callOnDevice = async (
 
 // Backend may return text as a Python repr list:
 // "[{'type': 'thinking', ...}, {'type': 'text', 'text': 'actual reply'}]"
-// Extract only the 'text'-type blocks.
+// Extract only the 'text'-type blocks. Text value may be single- or double-quoted
+// (Python uses double quotes when the string contains apostrophes).
 export function extractTextContent(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed.startsWith("[{")) return raw;
-  const re = /'type':\s*'text'[^}]*?'text':\s*'((?:[^'\\]|\\.)*)'/gs;
-  const parts = [...trimmed.matchAll(re)].map((m) => {
-    const captured = m[1] ?? "";
-    return captured
+  const unescape = (s: string) =>
+    s
       .replace(/\\n/g, "\n")
       .replace(/\\t/g, "\t")
       .replace(/\\'/g, "'")
       .replace(/\\\\/g, "\\")
       .replace(/\\"/g, '"');
-  });
+  const re = /'type':\s*'text'.*?'text':\s*(?:'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)")/gs;
+  const parts = [...trimmed.matchAll(re)].map((m) => unescape((m[1] ?? m[2]) ?? ""));
   return parts.length > 0 ? parts.join("\n\n") : raw;
 }
 

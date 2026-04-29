@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import { getApiBaseUrl } from "@/shared/config/env";
 import { TIMEOUTS_MS } from "@/shared/config/constants";
 import { apiFetch } from "./client";
@@ -18,12 +19,44 @@ export const postQuery = (req: QueryRequest, signal?: AbortSignal) =>
     ...(signal ? { signal } : {}),
   });
 
-export const postQueryImage = (
+const toJpegBlob = (source: Blob): Promise<Blob> =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(source);
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { URL.revokeObjectURL(objectUrl); reject(new Error("Canvas unavailable")); return; }
+      ctx.drawImage(img, 0, 0);
+      canvas.toBlob(
+        (result) => { URL.revokeObjectURL(objectUrl); result ? resolve(result) : reject(new Error("JPEG conversion failed")); },
+        "image/jpeg",
+        0.85,
+      );
+    };
+    img.onerror = () => { URL.revokeObjectURL(objectUrl); reject(new Error("Image load failed")); };
+    img.src = objectUrl;
+  });
+
+export const postQueryImage = async (
   params: { uri: string; farmerId: string; purpose: "crop_disease" | "soil_photo" | "pest_id" },
   signal?: AbortSignal,
 ) => {
   const fd = new FormData();
-  fd.append("image", { uri: params.uri, type: "image/jpeg", name: "image.jpg" } as unknown as Blob);
+  if (Platform.OS === "web") {
+    // On web, fetch the blob: URI and convert to JPEG — server rejects webp/other formats
+    const res = await fetch(params.uri);
+    let blob = await res.blob();
+    if (blob.type !== "image/jpeg" && blob.type !== "image/png") {
+      blob = await toJpegBlob(blob);
+    }
+    fd.append("image", blob, "image.jpg");
+  } else {
+    // React Native FormData extension: {uri, type, name} is handled by RN's fetch
+    fd.append("image", { uri: params.uri, type: "image/jpeg", name: "image.jpg" } as unknown as Blob);
+  }
   fd.append("farmer_id", params.farmerId);
   fd.append("purpose", params.purpose);
   return apiFetch<ImageUploadResponse>("/api/v1/query/image", {

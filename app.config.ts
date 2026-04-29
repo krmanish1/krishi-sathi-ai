@@ -26,6 +26,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   android: {
     package: "ai.krishisaathi.app",
+    softwareKeyboardLayoutMode: "resize",
     adaptiveIcon: {
       foregroundImage: "./assets/images/adaptive-icon.png",
       backgroundColor: "#0B3D2E",

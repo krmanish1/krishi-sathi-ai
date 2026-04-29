@@ -75,6 +75,7 @@
     "removeImage": "Remove image",
     "imageUploadFailed": "Image upload failed. Try again or remove image.",
     "imageRequiresInternet": "Image analysis requires internet connection.",
+    "imageAttached": "Image ready to send",
     "analyzeImagePrompt": "Please analyze this image."
   },
   "mandi": {
