@@ -44,6 +44,7 @@ let nativeSpeechModule: NativeSpeechRecognitionModule | null = null;
 
 if (Platform.OS !== "web") {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const loaded = require("expo-speech-recognition") as {
       ExpoSpeechRecognitionModule?: NativeSpeechRecognitionModule;
     };
@@ -64,7 +65,7 @@ const voiceCompat: VoiceCompat = {
     }
     if (!resultSub) {
       resultSub = nativeSpeechModule.addListener("result", (event) => {
-        const maybeEvent = event as { results?: Array<{ transcript?: string }>; isFinal?: boolean };
+        const maybeEvent = event as { results?: { transcript?: string }[]; isFinal?: boolean };
         const values = (maybeEvent.results ?? []).map((r) => r.transcript ?? "").filter(Boolean);
         voiceCompat.onSpeechResults?.({ value: values });
         if (maybeEvent.isFinal) {

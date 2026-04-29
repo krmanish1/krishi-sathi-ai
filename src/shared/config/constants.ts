@@ -1,8 +1,8 @@
 export const TIMEOUTS_MS = {
-  query: 10_000,
-  queryImage: 5_000,
+  query: 90_000,
+  queryImage: 30_000,
   syncBundle: 15_000,
-  health: 3_000,
+  health: 5_000,
 } as const;
 
 export const CONFIDENCE_THRESHOLD_LOW = 0.7;

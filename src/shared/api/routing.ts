@@ -5,13 +5,6 @@ import type { Connectivity, DeviceIntent, OnDeviceModel } from "./types";
 import { ApiError } from "./errors";
 import { postQuery } from "./endpoints";
 
-const ONDEVICE_INTENTS: ReadonlySet<DeviceIntent> = new Set([
-  "weather",
-  "crop_plan",
-  "general",
-  "alert",
-]);
-
 export type AgentQuery = {
   text: string;
   language: Language;
@@ -52,6 +45,25 @@ const callOnDevice = async (
   };
 };
 
+// Backend may return text as a Python repr list:
+// "[{'type': 'thinking', ...}, {'type': 'text', 'text': 'actual reply'}]"
+// Extract only the 'text'-type blocks.
+export function extractTextContent(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("[{")) return raw;
+  const re = /'type':\s*'text'[^}]*?'text':\s*'((?:[^'\\]|\\.)*)'/gs;
+  const parts = [...trimmed.matchAll(re)].map((m) => {
+    const captured = m[1] ?? "";
+    return captured
+      .replace(/\\n/g, "\n")
+      .replace(/\\t/g, "\t")
+      .replace(/\\'/g, "'")
+      .replace(/\\\\/g, "\\")
+      .replace(/\\"/g, '"');
+  });
+  return parts.length > 0 ? parts.join("\n\n") : raw;
+}
+
 const callBackend = async (q: AgentQuery, ctx: AgentContext): Promise<AgentResponse> => {
   const r = await postQuery({
     farmer_id: ctx.farmerId,
@@ -73,7 +85,7 @@ const callBackend = async (q: AgentQuery, ctx: AgentContext): Promise<AgentRespo
     },
   });
   return {
-    text: r.text,
+    text: extractTextContent(r.text),
     structured: r.structured,
     confidence: r.confidence_score,
     source: "backend",
@@ -92,19 +104,8 @@ export const askAgent = async (
   if (ctx.connectivity === "offline") {
     return callOnDevice(q, ctx);
   }
-  if (opts?.forceBackend) {
-    try {
-      return await callBackend(q, ctx);
-    } catch (e) {
-      if (e instanceof ApiError && e.fallbackHint === "USE_ONDEVICE") {
-        return callOnDevice(q, ctx, "network_busy");
-      }
-      throw e;
-    }
-  }
-  if (ONDEVICE_INTENTS.has(q.intent)) {
-    return callOnDevice(q, ctx);
-  }
+  // Online or degraded: always try backend first; fall back to on-device only when
+  // the server explicitly signals it can't serve this request.
   try {
     return await callBackend(q, ctx);
   } catch (e) {

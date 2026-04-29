@@ -31,9 +31,9 @@ export function useFarmerTwin() {
         }
         return {
           farmer_id: farmerId,
-          language: lang,
+          preferred_language: lang,
           location: { state: locState ?? "—", district: locDistrict ?? "—" },
-          crops: [],
+          current_crops: [],
         };
       }
       try {
@@ -47,9 +47,9 @@ export function useFarmerTwin() {
         ) {
           const draft: FarmerTwin = {
             farmer_id: farmerId,
-            language: lang,
+            preferred_language: lang,
             location: { state: locState ?? "—", district: locDistrict ?? "—" },
-            crops: [],
+            current_crops: [],
           };
           await setCachedTwin(farmerId, draft);
           return draft;

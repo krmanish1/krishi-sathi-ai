@@ -35,7 +35,7 @@ export default function ProfileScreen() {
     }
     queueMicrotask(() => {
       setName(twin.name ?? "");
-      setCrops(twin.crops?.map((c) => c.name).join(", ") ?? "");
+      setCrops(twin.current_crops?.map((c) => c.name).join(", ") ?? "");
     });
   }, [twin]);
 
@@ -121,12 +121,12 @@ export default function ProfileScreen() {
                 const nm = name.trim();
                 const lg: Language = APP_LANG.includes(i18n.language as Language)
                   ? (i18n.language as Language)
-                  : twin.language;
+                  : ((twin.preferred_language as Language | null) ?? "en");
                 const next: FarmerTwin = {
                   farmer_id: twin.farmer_id,
-                  language: lg,
+                  preferred_language: lg,
                   location: twin.location,
-                  crops: names.map((n) => ({ name: n, area_acres: 0 })),
+                  current_crops: names.map((n) => ({ name: n, area_acres: 0 })),
                   ...(nm ? { name: nm } : {}),
                   ...(twin.livestock ? { livestock: twin.livestock } : {}),
                 };

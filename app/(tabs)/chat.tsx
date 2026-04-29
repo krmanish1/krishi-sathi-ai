@@ -8,7 +8,9 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  StyleSheet,
 } from "react-native";
+import Markdown from "react-native-markdown-display";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Speech from "expo-speech";
@@ -16,14 +18,55 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useOnboarding } from "@/features/onboarding/store";
 import { useAuthReady, useFarmerId } from "@/shared/auth/AuthProvider";
 import { useConnectivity } from "@/shared/network/useConnectivity";
-import { useChatThread } from "@/features/chat/useChatThread";
-import { useSendChatMessage, CONFIDENCE_THRESHOLD_LOW } from "@/features/chat/useSendQuery";
-import type { ChatMessageRow } from "@/features/chat/chatMessagesRepo";
-import type { SendQueryInput } from "@/features/chat/useSendQuery";
+import { useChatThread, useSendChatMessage, CONFIDENCE_THRESHOLD_LOW } from "@/features/chat";
+import type { ChatMessageRow } from "@/features/chat";
+import type { SendQueryInput } from "@/features/chat";
 import { voiceStt } from "@/shared/voice/voiceClient";
 import type { Language } from "@/shared/config/constants";
 
+const mdStyles = StyleSheet.create({
+  body: { color: "#1C1917", fontSize: 15, lineHeight: 22 },
+  paragraph: { marginTop: 0, marginBottom: 6 },
+  bullet_list: { marginBottom: 6 },
+  ordered_list: { marginBottom: 6 },
+  list_item: { marginBottom: 2 },
+  strong: { fontWeight: "700" },
+  em: { fontStyle: "italic" },
+  code_inline: {
+    backgroundColor: "#F5F5F4",
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    fontFamily: "monospace",
+    fontSize: 13,
+  },
+  fence: {
+    backgroundColor: "#F5F5F4",
+    borderRadius: 6,
+    padding: 10,
+    marginBottom: 6,
+    fontFamily: "monospace",
+    fontSize: 13,
+  },
+  heading1: { fontSize: 18, fontWeight: "700", marginBottom: 6 },
+  heading2: { fontSize: 16, fontWeight: "700", marginBottom: 4 },
+  heading3: { fontSize: 15, fontWeight: "600", marginBottom: 4 },
+});
+
 const localeForSpeech = (lng: string) => (lng === "hi" ? "hi-IN" : "en-US");
+
+function TypingIndicator() {
+  return (
+    <View className="mb-3 max-w-[92%] self-start">
+      <View className="rounded-2xl border border-border bg-card px-4 py-3">
+        <View className="flex-row items-center gap-1.5">
+          <View className="h-2 w-2 rounded-full bg-ink-muted" style={{ opacity: 0.7 }} />
+          <View className="h-2 w-2 rounded-full bg-ink-muted" style={{ opacity: 0.45 }} />
+          <View className="h-2 w-2 rounded-full bg-ink-muted" style={{ opacity: 0.2 }} />
+        </View>
+      </View>
+    </View>
+  );
+}
 
 function MessageBubble({
   item,
@@ -43,28 +86,32 @@ function MessageBubble({
   const { t } = useTranslation();
   const isUser = item.role === "user";
   return (
-    <View className={`mb-3 max-w-[92%] ${isUser ? "self-end" : "self-start"}`}>
+    <View className={`mb-3 max-w-[88%] ${isUser ? "self-end" : "self-start"}`}>
       <View
-        className={`rounded-2xl px-4 py-3 ${isUser ? "bg-brand" : "border border-border bg-card"}`}
+        className={`rounded-2xl px-4 py-3 ${
+          isUser ? "bg-brand" : "border border-border bg-card"
+        }`}
       >
-        <Text className={`font-body text-base leading-6 ${isUser ? "text-white" : "text-ink"}`}>
-          {item.text}
-        </Text>
+        {isUser ? (
+          <Text className="font-body text-base leading-6 text-white">{item.text}</Text>
+        ) : (
+          <Markdown style={mdStyles}>{item.text}</Markdown>
+        )}
         {!isUser && item.source ? (
           <Text className="mt-1 font-body text-xs text-ink-muted">
             {item.source === "ondevice" ? t("chat.sourceOnDevice") : t("chat.sourceOnline")}
             {item.confidence != null ? ` · ${(item.confidence * 100).toFixed(0)}%` : ""}
           </Text>
         ) : null}
-        {!isUser && item.role === "assistant" ? (
+        {!isUser ? (
           <Pressable
             accessibilityRole="button"
-            className="mt-2 min-h-[40px] flex-row items-center gap-1 self-end"
+            className="mt-2 min-h-[32px] flex-row items-center gap-1 self-end"
             onPress={() => onSpeak(item.text)}
             hitSlop={8}
           >
-            <MaterialCommunityIcons name="volume-medium" size={20} color="#0D631B" />
-            <Text className="font-body-semibold text-sm text-brand">{t("chat.speak")}</Text>
+            <MaterialCommunityIcons name="volume-medium" size={18} color="#6B7280" />
+            <Text className="font-body text-xs text-ink-muted">{t("chat.speak")}</Text>
           </Pressable>
         ) : null}
         {showEscalation && !isUser && prev?.role === "user" ? (
@@ -95,35 +142,25 @@ export default function ChatScreen() {
   const send = useSendChatMessage();
   const [draft, setDraft] = useState("");
   const [listening, setListening] = useState(false);
-  const [preferOnline, setPreferOnline] = useState(false);
   const listRef = useRef<FlatList<ChatMessageRow>>(null);
-  const canUseOnline = connectivity === "online" || connectivity === "degraded";
+  const isOnline = connectivity === "online" || connectivity === "degraded";
+
   useEffect(() => {
-    if (!voiceStt) {
-      return;
-    }
+    if (!voiceStt) return;
     const onRes = (e: { value?: string[] }) => {
       const v = e.value?.[0];
-      if (v) {
-        setDraft((d) => (d ? `${d} ${v}` : v));
-      }
+      if (v) setDraft((d) => (d ? `${d} ${v}` : v));
     };
-    const onEnd = () => {
-      setListening(false);
-    };
+    const onEnd = () => setListening(false);
     voiceStt.onSpeechResults = onRes;
     voiceStt.onSpeechError = onEnd;
     voiceStt.onSpeechEnd = onEnd;
-    return () => {
-      voiceStt?.removeAllListeners();
-    };
+    return () => { voiceStt?.removeAllListeners(); };
   }, []);
 
   const sendPayload = useCallback(
     (text: string, opt?: { skipUserMessage?: boolean; forceBackend?: boolean }) => {
-      if (!farmerId) {
-        return;
-      }
+      if (!farmerId) return;
       setDraft("");
       const payload: SendQueryInput = {
         text,
@@ -132,32 +169,21 @@ export default function ChatScreen() {
         state,
         district,
         connectivity,
+        ...(opt?.skipUserMessage ? { skipUserMessage: true } : {}),
+        ...(opt?.forceBackend ? { forceBackend: true } : {}),
       };
-      if (opt?.skipUserMessage) {
-        payload.skipUserMessage = true;
-      }
-      if (opt?.forceBackend) {
-        payload.forceBackend = true;
-      }
-      if (!opt?.forceBackend && preferOnline && canUseOnline) {
-        payload.forceBackend = true;
-      }
       void send.mutateAsync(payload).catch(() => undefined);
     },
-    [farmerId, language, state, district, connectivity, send, preferOnline, canUseOnline],
+    [farmerId, language, state, district, connectivity, send],
   );
 
   const onSend = () => {
-    if (!draft.trim() || send.isPending) {
-      return;
-    }
+    if (!draft.trim() || send.isPending) return;
     sendPayload(draft);
   };
 
   const toggleVoice = async () => {
-    if (!voiceStt) {
-      return;
-    }
+    if (!voiceStt) return;
     try {
       if (listening) {
         await voiceStt.stop();
@@ -206,45 +232,24 @@ export default function ChatScreen() {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={insets.top + 8}
     >
-      <View className="border-b border-border/60 bg-card px-4 py-3">
-        <Text className="font-display text-lg text-title-green">{t("chat.title")}</Text>
-        <Text className="font-body text-sm text-ink-muted">{t("chat.subtitle")}</Text>
-        <View className="mt-2 flex-row items-center justify-between">
-          <View className="flex-row items-center gap-2">
-            <Text className="font-body-semibold text-xs uppercase tracking-wide text-ink-muted">
-              {t("chat.modeAuto")}
-            </Text>
-            <View
-              className={`rounded-full px-2 py-1 ${preferOnline && canUseOnline ? "bg-brand/10" : "bg-muted"}`}
-            >
-              <Text
-                className={`font-body-semibold text-xs ${preferOnline && canUseOnline ? "text-brand" : "text-ink-muted"}`}
-              >
-                {preferOnline && canUseOnline ? t("chat.modeOnline") : t("chat.modeOffline")}
-              </Text>
-            </View>
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityState={{ selected: preferOnline, disabled: !canUseOnline }}
-            onPress={() => {
-              if (!canUseOnline) {
-                return;
-              }
-              setPreferOnline((p) => !p);
-            }}
-            className={`rounded-full px-3 py-2 ${canUseOnline ? "bg-brand/10" : "bg-muted"}`}
-          >
-            <Text className={`font-body-semibold text-xs ${canUseOnline ? "text-brand" : "text-ink-muted"}`}>
-              {t("chat.modeOnline")}
-            </Text>
-          </Pressable>
+      {/* Header */}
+      <View className="flex-row items-center justify-between border-b border-border/60 bg-card px-4 py-3">
+        <View className="flex-1">
+          <Text className="font-display text-lg text-title-green">{t("chat.title")}</Text>
+          <Text className="font-body text-xs text-ink-muted">{t("chat.subtitle")}</Text>
         </View>
-        {!canUseOnline ? (
-          <Text className="mt-1 font-body text-xs text-ink-muted">{t("chat.modeDisabled")}</Text>
-        ) : null}
+        <View
+          className={`rounded-full px-3 py-1 ${isOnline ? "bg-brand/10" : "bg-muted"}`}
+        >
+          <Text
+            className={`font-body-semibold text-xs ${isOnline ? "text-brand" : "text-ink-muted"}`}
+          >
+            {isOnline ? t("chat.modeOnline") : t("chat.modeOffline")}
+          </Text>
+        </View>
       </View>
 
+      {/* Message list */}
       <FlatList
         ref={listRef}
         className="flex-1 px-3 pt-3"
@@ -253,33 +258,20 @@ export default function ChatScreen() {
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
         renderItem={({ item, index }) => {
           const prev = index > 0 ? messages[index - 1] : undefined;
-          const canEscalateUI =
+          const canEscalate =
             item.role === "assistant" &&
             item.source === "ondevice" &&
             item.confidence != null &&
             item.confidence < CONFIDENCE_THRESHOLD_LOW &&
-            (connectivity === "online" || connectivity === "degraded");
-          const isLast = index === messages.length - 1;
+            isOnline;
           return (
             <MessageBubble
               item={item}
               prev={prev}
-              showEscalation={canEscalateUI && isLast && prev?.role === "user"}
+              showEscalation={canEscalate && index === messages.length - 1 && prev?.role === "user"}
               onTryOnline={(userText) => {
-                if (!userText) {
-                  return;
-                }
-                const p: SendQueryInput = {
-                  text: userText,
-                  farmerId: farmerId!,
-                  language,
-                  state,
-                  district,
-                  connectivity,
-                  skipUserMessage: true,
-                  forceBackend: true,
-                };
-                void send.mutateAsync(p).catch(() => undefined);
+                if (!userText) return;
+                sendPayload(userText, { skipUserMessage: true, forceBackend: true });
               }}
               onSpeak={onSpeak}
               busy={send.isPending}
@@ -289,18 +281,21 @@ export default function ChatScreen() {
         ListEmptyComponent={
           <Text className="px-2 py-8 text-center font-body text-ink-muted">{t("chat.empty")}</Text>
         }
+        ListFooterComponent={send.isPending ? <TypingIndicator /> : null}
       />
 
+      {/* Error banner */}
       {send.isError ? (
         <View className="bg-danger/10 px-4 py-2">
-          <Text className="text-center text-sm text-danger">
+          <Text className="text-center font-body text-sm text-danger">
             {send.error instanceof Error ? send.error.message : t("errors.generic")}
           </Text>
         </View>
       ) : null}
 
+      {/* Input row */}
       <View
-        className="border-t border-border/60 bg-card px-2 pb-2"
+        className="border-t border-border/60 bg-card px-3 pt-2"
         style={{ paddingBottom: insets.bottom + 8 }}
       >
         <View className="flex-row items-end gap-2">
@@ -308,26 +303,25 @@ export default function ChatScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityState={{ selected: listening }}
-              onPress={() => {
-                void toggleVoice();
-              }}
-              className="mb-1 p-2"
+              onPress={() => { void toggleVoice(); }}
+              className="mb-1 p-1"
             >
               <MaterialCommunityIcons
                 name={listening ? "microphone" : "microphone-outline"}
-                size={28}
+                size={26}
                 color={listening ? "#B45309" : "#0D631B"}
               />
             </Pressable>
           ) : null}
           <TextInput
-            className="max-h-28 min-h-[48px] flex-1 rounded-2xl border border-border bg-muted px-4 py-3 font-body text-ink"
+            className="max-h-28 min-h-[48px] flex-1 rounded-2xl border border-border bg-muted px-4 py-3 font-body text-base text-ink"
             placeholder={t("chat.placeholder")}
             placeholderTextColor="#78716C"
             value={draft}
             onChangeText={setDraft}
             multiline
             editable={!send.isPending}
+            returnKeyType="send"
             onSubmitEditing={onSend}
             blurOnSubmit={false}
           />
@@ -335,13 +329,9 @@ export default function ChatScreen() {
             accessibilityRole="button"
             onPress={onSend}
             disabled={!draft.trim() || send.isPending}
-            className="mb-1 rounded-full bg-brand p-3 opacity-100 disabled:opacity-40"
+            className="mb-1 rounded-full bg-brand p-3 disabled:opacity-40"
           >
-            {send.isPending ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <MaterialCommunityIcons name="send" size={24} color="#fff" />
-            )}
+            <MaterialCommunityIcons name="send" size={22} color="#fff" />
           </Pressable>
         </View>
       </View>

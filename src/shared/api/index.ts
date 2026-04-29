@@ -1,5 +1,8 @@
 export { apiFetch } from "./client";
 export type { ApiFetchOptions } from "./client";
+export { ApiStatusProvider, useApiStatus } from "./apiStatus";
+export type { ApiStatus } from "./apiStatus";
+export { ServerWakingBanner } from "./ServerWakingBanner";
 export {
   getFarmerTwin,
   getHealth,
@@ -10,7 +13,7 @@ export {
 } from "./endpoints";
 export { ApiError, mapError, parseErrorResponse } from "./errors";
 export type { MappedError } from "./errors";
-export { askAgent } from "./routing";
+export { askAgent, extractTextContent } from "./routing";
 export type { AgentContext, AgentQuery, AgentResponse, AskAgentOptions } from "./routing";
 export type {
   Connectivity,

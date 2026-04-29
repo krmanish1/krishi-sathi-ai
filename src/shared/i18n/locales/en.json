@@ -4,6 +4,10 @@
     "offline": "You are offline. Schemes, mandi, and on-device answers still work where available.",
     "degraded": "Connection is slow. If something fails, try again in a moment."
   },
+  "server": {
+    "waking": "Connecting to server…",
+    "down": "Server unavailable — using on-device mode"
+  },
   "onboarding": {
     "welcome": "Your farm. Your language. Your assistant.",
     "pickLanguage": "Choose your language",
@@ -92,7 +96,11 @@
     "done": "Upload complete",
     "ref": "Reference: {{id}}",
     "preview": "Selected crop image",
-    "permission": "Camera or photo access was denied. Enable it in system settings."
+    "permission": "Camera or photo access was denied. Enable it in system settings.",
+    "diagnosisRequest": "Analyse this crop image",
+    "uploading": "Uploading image…",
+    "retryUpload": "Retry",
+    "error": "Could not send image for analysis"
   },
   "errors": {
     "generic": "Something went wrong.",

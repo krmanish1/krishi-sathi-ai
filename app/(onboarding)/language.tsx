@@ -8,7 +8,7 @@ import type { Language } from "@/shared/config/constants";
 import { useOnboarding } from "@/features/onboarding/store";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const CHOICES: Array<{ key: Language; title: string; subtitle: string; icon: string; iconBg: string }> = [
+const CHOICES: { key: Language; title: string; subtitle: string; icon: string; iconBg: string }[] = [
   { key: "hi", title: "हिंदी", subtitle: "Hindi", icon: "translate-variant", iconBg: "#FFF7ED" },
   { key: "en", title: "English", subtitle: "English", icon: "alphabetical-variant", iconBg: "#EFF6FF" },
 ];

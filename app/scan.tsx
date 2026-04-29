@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, Pressable, Image, ActivityIndicator, ScrollView, Alert } from "react-native";
+import { View, Text, Pressable, Image, ActivityIndicator, ScrollView } from "react-native";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -7,21 +7,29 @@ import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { postQueryImage } from "@/shared/api/endpoints";
+import { appendMessage, useSendChatMessage } from "@/features/chat";
 import { useFarmerId } from "@/shared/auth/AuthProvider";
+import { useOnboarding } from "@/features/onboarding/store";
+import { useConnectivity } from "@/shared/network/useConnectivity";
 import { ApiError } from "@/shared/api/errors";
+import type { Language } from "@/shared/config/constants";
 
 export default function ScanScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const farmerId = useFarmerId();
+  const language = (useOnboarding((s) => s.language) ?? "en") as Language;
+  const state = useOnboarding((s) => s.state) ?? "—";
+  const district = useOnboarding((s) => s.district) ?? "—";
+  const connectivity = useConnectivity();
+  const send = useSendChatMessage();
   const [localUri, setLocalUri] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [ref, setRef] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const busy = uploading || send.isPending;
 
   const pick = async (src: "camera" | "library") => {
     setErr(null);
-    setRef(null);
     const perm =
       src === "camera"
         ? await ImagePicker.requestCameraPermissionsAsync()
@@ -32,36 +40,37 @@ export default function ScanScreen() {
     }
     const res =
       src === "camera"
-        ? await ImagePicker.launchCameraAsync({
-            quality: 0.85,
-            allowsEditing: true,
-            aspect: [4, 3],
-          })
-        : await ImagePicker.launchImageLibraryAsync({
-            quality: 0.85,
-            allowsEditing: true,
-            aspect: [4, 3],
-          });
-    if (res.canceled || !res.assets[0]) {
-      return;
-    }
+        ? await ImagePicker.launchCameraAsync({ quality: 0.85, allowsEditing: true, aspect: [4, 3] })
+        : await ImagePicker.launchImageLibraryAsync({ quality: 0.85, allowsEditing: true, aspect: [4, 3] });
+    if (res.canceled || !res.assets[0]) return;
     setLocalUri(res.assets[0].uri);
   };
 
   const upload = async () => {
-    if (!localUri || !farmerId) {
-      return;
-    }
+    if (!localUri || !farmerId || busy) return;
     setErr(null);
     setUploading(true);
     try {
-      const m = await ImageManipulator.manipulateAsync(localUri, [{ resize: { width: 1024 } }], {
-        compress: 0.8,
-        format: ImageManipulator.SaveFormat.JPEG,
-      });
+      const m = await ImageManipulator.manipulateAsync(
+        localUri,
+        [{ resize: { width: 1024 } }],
+        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG },
+      );
       const r = await postQueryImage({ uri: m.uri, farmerId, purpose: "crop_disease" });
-      setRef(r.image_ref);
-      Alert.alert(t("scan.done"), r.image_ref);
+      // Write the user bubble directly so skipUserMessage=true works below
+      await appendMessage({ role: "user", text: t("scan.diagnosisRequest") });
+      await send.mutateAsync({
+        text: t("scan.diagnosisRequest"),
+        imageRef: r.image_ref,
+        farmerId,
+        language,
+        state,
+        district,
+        connectivity,
+        skipUserMessage: true,
+        forceBackend: true,
+      });
+      router.replace("/(tabs)/chat");
     } catch (e) {
       const msg =
         e instanceof ApiError ? e.message : e instanceof Error ? e.message : t("errors.generic");
@@ -98,36 +107,27 @@ export default function ScanScreen() {
           />
         ) : null}
         {err ? <Text className="mb-2 text-sm text-danger">{err}</Text> : null}
-        {ref ? (
-          <Text className="mb-2 font-mono text-xs text-ink-muted" selectable>
-            {t("scan.ref", { id: ref })}
-          </Text>
-        ) : null}
         <View className="gap-2">
           <Pressable
             className="border-primary min-h-[48px] items-center justify-center rounded-2xl border bg-card"
-            onPress={() => {
-              void pick("camera");
-            }}
+            disabled={busy}
+            onPress={() => { void pick("camera"); }}
           >
             <Text className="font-body-semibold text-title-green">{t("scan.camera")}</Text>
           </Pressable>
           <Pressable
             className="border-primary min-h-[48px] items-center justify-center rounded-2xl border bg-card"
-            onPress={() => {
-              void pick("library");
-            }}
+            disabled={busy}
+            onPress={() => { void pick("library"); }}
           >
             <Text className="font-body-semibold text-title-green">{t("scan.library")}</Text>
           </Pressable>
           <Pressable
             className="mt-2 min-h-[48px] items-center justify-center rounded-2xl bg-brand"
-            disabled={!localUri || !farmerId || uploading}
-            onPress={() => {
-              void upload();
-            }}
+            disabled={!localUri || !farmerId || busy}
+            onPress={() => { void upload(); }}
           >
-            {uploading ? (
+            {busy ? (
               <ActivityIndicator color="#fff" />
             ) : (
               <Text className="font-body-semibold text-white">{t("scan.upload")}</Text>

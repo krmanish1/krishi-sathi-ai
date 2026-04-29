@@ -14,6 +14,7 @@ import {
 import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from "@expo-google-fonts/inter";
 import i18n from "@/shared/i18n";
 import { AuthProvider } from "@/shared/auth/AuthProvider";
+import { ApiStatusProvider } from "@/shared/api";
 import Constants from "expo-constants";
 import { initDb } from "@/shared/storage/db";
 import { setGemmaBackend } from "@/shared/ondevice/gemma";
@@ -78,8 +79,10 @@ export const RootProviders = ({ children }: { children: ReactNode }) => {
         <I18nextProvider i18n={i18n}>
           <QueryClientProvider client={queryClient}>
             <AuthProvider>
-              <StatusBar style="dark" />
-              {children}
+              <ApiStatusProvider>
+                <StatusBar style="dark" />
+                {children}
+              </ApiStatusProvider>
             </AuthProvider>
           </QueryClientProvider>
         </I18nextProvider>

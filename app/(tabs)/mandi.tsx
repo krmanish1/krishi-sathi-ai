@@ -25,28 +25,30 @@ export default function MandiScreen() {
   const rows = data?.rows ?? [];
   const canSync = connectivity === "online" || connectivity === "degraded";
 
-  const onRefresh = useCallback(async () => {
+  const doSync = useCallback(async () => {
     if (!state || !district) {
       await refetch();
       return;
     }
+    await runInitialSync({ state, district });
+    await qc.invalidateQueries({ queryKey: MANDI_QUERY_KEY });
+  }, [state, district, refetch, qc]);
+
+  const onRefresh = useCallback(async () => {
     setSyncing(true);
     try {
-      await runInitialSync({ state, district });
-      await qc.invalidateQueries({ queryKey: MANDI_QUERY_KEY });
+      await doSync();
     } catch {
       Alert.alert(t("errors.retryLater"));
     } finally {
       setSyncing(false);
     }
-  }, [state, district, refetch, qc, t]);
+  }, [doSync, t]);
 
   useEffect(() => {
-    if (!state || !district || !canSync || rows.length > 0) {
-      return;
-    }
-    void onRefresh();
-  }, [state, district, canSync, rows.length, onRefresh]);
+    if (!state || !district || !canSync || rows.length > 0) return;
+    void doSync().catch(() => undefined);
+  }, [state, district, canSync, rows.length, doSync]);
 
   return (
     <View className="flex-1 bg-page" style={{ paddingTop: insets.top }}>
