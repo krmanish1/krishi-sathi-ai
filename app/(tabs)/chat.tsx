@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
+  Image,
 } from "react-native";
 import Markdown from "react-native-markdown-display";
 import { useTranslation } from "react-i18next";
@@ -18,9 +19,14 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useOnboarding } from "@/features/onboarding/store";
 import { useAuthReady, useFarmerId } from "@/shared/auth/AuthProvider";
 import { useConnectivity } from "@/shared/network/useConnectivity";
-import { useChatThread, useSendChatMessage, CONFIDENCE_THRESHOLD_LOW } from "@/features/chat";
-import type { ChatMessageRow } from "@/features/chat";
-import type { SendQueryInput } from "@/features/chat";
+import {
+  useChatThread,
+  useSendChatMessage,
+  CONFIDENCE_THRESHOLD_LOW,
+  useImageAttachment,
+  guessImagePurpose,
+} from "@/features/chat";
+import type { ChatMessageRow, SendQueryInput } from "@/features/chat";
 import { voiceStt } from "@/shared/voice/voiceClient";
 import type { Language } from "@/shared/config/constants";
 
@@ -50,6 +56,32 @@ const mdStyles = StyleSheet.create({
   heading1: { fontSize: 18, fontWeight: "700", marginBottom: 6 },
   heading2: { fontSize: 16, fontWeight: "700", marginBottom: 4 },
   heading3: { fontSize: 15, fontWeight: "600", marginBottom: 4 },
+});
+
+// WhatsApp-style bubble tails
+const tailStyle = StyleSheet.create({
+  user: {
+    position: "absolute",
+    bottom: 0,
+    right: -7,
+    width: 0,
+    height: 0,
+    borderTopWidth: 12,
+    borderTopColor: "#0D631B",
+    borderLeftWidth: 8,
+    borderLeftColor: "transparent",
+  },
+  assistant: {
+    position: "absolute",
+    bottom: 0,
+    left: -7,
+    width: 0,
+    height: 0,
+    borderTopWidth: 12,
+    borderTopColor: "#FFFFFF",
+    borderRightWidth: 8,
+    borderRightColor: "transparent",
+  },
 });
 
 const localeForSpeech = (lng: string) => (lng === "hi" ? "hi-IN" : "en-US");
@@ -85,24 +117,50 @@ function MessageBubble({
 }) {
   const { t } = useTranslation();
   const isUser = item.role === "user";
+
   return (
-    <View className={`mb-3 max-w-[88%] ${isUser ? "self-end" : "self-start"}`}>
+    <View
+      className={`mb-3 max-w-[88%] ${isUser ? "self-end" : "self-start"}`}
+      style={{ overflow: "visible" }}
+    >
       <View
-        className={`rounded-2xl px-4 py-3 ${
-          isUser ? "bg-brand" : "border border-border bg-card"
+        style={{ overflow: "visible", position: "relative" }}
+        className={`px-4 py-3 ${
+          isUser
+            ? "rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl bg-brand"
+            : "rounded-tl-2xl rounded-tr-2xl rounded-br-2xl border border-border bg-card"
         }`}
       >
-        {isUser ? (
-          <Text className="font-body text-base leading-6 text-white">{item.text}</Text>
-        ) : (
-          <Markdown style={mdStyles}>{item.text}</Markdown>
-        )}
+        {/* WhatsApp tail */}
+        <View style={isUser ? tailStyle.user : tailStyle.assistant} />
+
+        {/* Image thumbnail (optimistic only — from local URI) */}
+        {isUser && item.imageLocalUri ? (
+          <Image
+            source={{ uri: item.imageLocalUri }}
+            style={{ width: 200, height: 150, borderRadius: 10, marginBottom: item.text ? 8 : 0 }}
+            resizeMode="cover"
+          />
+        ) : null}
+
+        {/* Message text */}
+        {item.text ? (
+          isUser ? (
+            <Text className="font-body text-base leading-6 text-white">{item.text}</Text>
+          ) : (
+            <Markdown style={mdStyles}>{item.text}</Markdown>
+          )
+        ) : null}
+
+        {/* Source label */}
         {!isUser && item.source ? (
           <Text className="mt-1 font-body text-xs text-ink-muted">
             {item.source === "ondevice" ? t("chat.sourceOnDevice") : t("chat.sourceOnline")}
             {item.confidence != null ? ` · ${(item.confidence * 100).toFixed(0)}%` : ""}
           </Text>
         ) : null}
+
+        {/* Speak button */}
         {!isUser ? (
           <Pressable
             accessibilityRole="button"
@@ -114,6 +172,8 @@ function MessageBubble({
             <Text className="font-body text-xs text-ink-muted">{t("chat.speak")}</Text>
           </Pressable>
         ) : null}
+
+        {/* Escalation CTA */}
         {showEscalation && !isUser && prev?.role === "user" ? (
           <Pressable
             accessibilityRole="button"
@@ -140,6 +200,7 @@ export default function ChatScreen() {
   const connectivity = useConnectivity();
   const { data: messages = [], isLoading } = useChatThread();
   const send = useSendChatMessage();
+  const attachment = useImageAttachment();
   const [draft, setDraft] = useState("");
   const [listening, setListening] = useState(false);
   const listRef = useRef<FlatList<ChatMessageRow>>(null);
@@ -177,10 +238,39 @@ export default function ChatScreen() {
     [farmerId, language, state, district, connectivity, send],
   );
 
-  const onSend = () => {
-    if (!draft.trim() || send.isPending) return;
-    sendPayload(draft);
-  };
+  const onSend = useCallback(async () => {
+    const hasImage = !!attachment.pickedUri;
+    const hasText = !!draft.trim();
+    if ((!hasText && !hasImage) || send.isPending || attachment.isUploading) return;
+    if (hasImage && !isOnline) {
+      // uploadError banner handles display — we just block the send
+      return;
+    }
+    if (!farmerId) return;
+    const text = draft.trim() || t("chat.analyzeImagePrompt");
+    const localUri = attachment.pickedUri ?? undefined;
+    setDraft("");
+    let imageRef: string | undefined;
+    if (hasImage) {
+      try {
+        imageRef = await attachment.upload(farmerId, guessImagePurpose(draft.trim()));
+      } catch {
+        return; // uploadError set inside hook
+      }
+      attachment.clearImage();
+    }
+    const payload: SendQueryInput = {
+      text,
+      farmerId,
+      language,
+      state,
+      district,
+      connectivity,
+      ...(imageRef ? { imageRef } : {}),
+      ...(localUri ? { imageLocalUri: localUri } : {}),
+    };
+    void send.mutateAsync(payload).catch(() => undefined);
+  }, [attachment, draft, farmerId, language, state, district, connectivity, send, isOnline, t]);
 
   const toggleVoice = async () => {
     if (!voiceStt) return;
@@ -201,6 +291,9 @@ export default function ChatScreen() {
     Speech.stop();
     Speech.speak(line, { language: localeForSpeech(i18n.language) });
   };
+
+  const isBusy = send.isPending || attachment.isUploading;
+  const canSend = (!!draft.trim() || !!attachment.pickedUri) && !isBusy;
 
   if (!ready || isLoading) {
     return (
@@ -238,9 +331,7 @@ export default function ChatScreen() {
           <Text className="font-display text-lg text-title-green">{t("chat.title")}</Text>
           <Text className="font-body text-xs text-ink-muted">{t("chat.subtitle")}</Text>
         </View>
-        <View
-          className={`rounded-full px-3 py-1 ${isOnline ? "bg-brand/10" : "bg-muted"}`}
-        >
+        <View className={`rounded-full px-3 py-1 ${isOnline ? "bg-brand/10" : "bg-muted"}`}>
           <Text
             className={`font-body-semibold text-xs ${isOnline ? "text-brand" : "text-ink-muted"}`}
           >
@@ -268,28 +359,65 @@ export default function ChatScreen() {
             <MessageBubble
               item={item}
               prev={prev}
-              showEscalation={canEscalate && index === messages.length - 1 && prev?.role === "user"}
+              showEscalation={
+                canEscalate && index === messages.length - 1 && prev?.role === "user"
+              }
               onTryOnline={(userText) => {
                 if (!userText) return;
                 sendPayload(userText, { skipUserMessage: true, forceBackend: true });
               }}
               onSpeak={onSpeak}
-              busy={send.isPending}
+              busy={isBusy}
             />
           );
         }}
         ListEmptyComponent={
-          <Text className="px-2 py-8 text-center font-body text-ink-muted">{t("chat.empty")}</Text>
+          <Text className="px-2 py-8 text-center font-body text-ink-muted">
+            {t("chat.empty")}
+          </Text>
         }
         ListFooterComponent={send.isPending ? <TypingIndicator /> : null}
       />
 
-      {/* Error banner */}
+      {/* Error banners */}
       {send.isError ? (
         <View className="bg-danger/10 px-4 py-2">
           <Text className="text-center font-body text-sm text-danger">
             {send.error instanceof Error ? send.error.message : t("errors.generic")}
           </Text>
+        </View>
+      ) : null}
+      {attachment.uploadError ? (
+        <View className="bg-danger/10 px-4 py-2">
+          <Text className="text-center font-body text-sm text-danger">
+            {t("chat.imageUploadFailed")}
+          </Text>
+        </View>
+      ) : null}
+      {attachment.pickedUri && !isOnline ? (
+        <View className="bg-amber/10 px-4 py-2">
+          <Text className="text-center font-body text-sm text-amber">
+            {t("chat.imageRequiresInternet")}
+          </Text>
+        </View>
+      ) : null}
+
+      {/* Image preview strip */}
+      {attachment.pickedUri ? (
+        <View className="flex-row items-center gap-3 border-t border-border/60 bg-card px-4 py-2">
+          <Image
+            source={{ uri: attachment.pickedUri }}
+            style={{ width: 60, height: 60, borderRadius: 8 }}
+            resizeMode="cover"
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("chat.removeImage")}
+            onPress={attachment.clearImage}
+            hitSlop={8}
+          >
+            <MaterialCommunityIcons name="close-circle" size={24} color="#6B7280" />
+          </Pressable>
         </View>
       ) : null}
 
@@ -299,6 +427,18 @@ export default function ChatScreen() {
         style={{ paddingBottom: insets.bottom + 8 }}
       >
         <View className="flex-row items-end gap-2">
+          {/* Gallery picker */}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t("chat.attachImage")}
+            onPress={() => { void attachment.pickImage("gallery"); }}
+            className="mb-1 p-1"
+            disabled={isBusy}
+          >
+            <MaterialCommunityIcons name="paperclip" size={26} color="#0D631B" />
+          </Pressable>
+
+          {/* Voice mic (only shown when voiceStt available) */}
           {voiceStt ? (
             <Pressable
               accessibilityRole="button"
@@ -313,6 +453,7 @@ export default function ChatScreen() {
               />
             </Pressable>
           ) : null}
+
           <TextInput
             className="max-h-28 min-h-[48px] flex-1 rounded-2xl border border-border bg-muted px-4 py-3 font-body text-base text-ink"
             placeholder={t("chat.placeholder")}
@@ -320,18 +461,35 @@ export default function ChatScreen() {
             value={draft}
             onChangeText={setDraft}
             multiline
-            editable={!send.isPending}
+            editable={!isBusy}
             returnKeyType="send"
-            onSubmitEditing={onSend}
+            onSubmitEditing={() => { void onSend(); }}
             blurOnSubmit={false}
           />
+
+          {/* Camera picker */}
           <Pressable
             accessibilityRole="button"
-            onPress={onSend}
-            disabled={!draft.trim() || send.isPending}
+            accessibilityLabel={t("chat.takePhoto")}
+            onPress={() => { void attachment.pickImage("camera"); }}
+            className="mb-1 p-1"
+            disabled={isBusy}
+          >
+            <MaterialCommunityIcons name="camera-outline" size={26} color="#0D631B" />
+          </Pressable>
+
+          {/* Send / uploading */}
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => { void onSend(); }}
+            disabled={!canSend}
             className="mb-1 rounded-full bg-brand p-3 disabled:opacity-40"
           >
-            <MaterialCommunityIcons name="send" size={22} color="#fff" />
+            {attachment.isUploading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <MaterialCommunityIcons name="send" size={22} color="#fff" />
+            )}
           </Pressable>
         </View>
       </View>
