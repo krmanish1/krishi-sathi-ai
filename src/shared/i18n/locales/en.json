@@ -69,7 +69,13 @@
     "sourceOnDevice": "On this phone",
     "sourceOnline": "From server",
     "speak": "Listen",
-    "tryOnline": "Get a fuller online answer"
+    "tryOnline": "Get a fuller online answer",
+    "attachImage": "Attach image",
+    "takePhoto": "Take photo",
+    "removeImage": "Remove image",
+    "imageUploadFailed": "Image upload failed. Try again or remove image.",
+    "imageRequiresInternet": "Image analysis requires internet connection.",
+    "analyzeImagePrompt": "Please analyze this image."
   },
   "mandi": {
     "title": "Mandi prices",
