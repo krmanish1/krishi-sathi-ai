@@ -15,6 +15,10 @@ export { ApiError, mapError, parseErrorResponse } from "./errors";
 export type { MappedError } from "./errors";
 export { askAgent, extractTextContent } from "./routing";
 export type { AgentContext, AgentQuery, AgentResponse, AskAgentOptions } from "./routing";
+export {
+  createKrishiSathiChatTransport,
+  type KrishiStreamTransportOpts,
+} from "./streamTransport";
 export type {
   Connectivity,
   DataSource,

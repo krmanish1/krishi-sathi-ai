@@ -76,7 +76,14 @@
     "imageUploadFailed": "Image upload failed. Try again or remove image.",
     "imageRequiresInternet": "Image analysis requires internet connection.",
     "imageAttached": "Image ready to send",
-    "analyzeImagePrompt": "Please analyze this image."
+    "analyzeImagePrompt": "Please analyze this image.",
+    "statusRouting": "Analyzing question...",
+    "statusPlanning": "Planning answer...",
+    "statusTools": "Looking up information...",
+    "statusSynthesizing": "Generating response...",
+    "statusClarify": "Clarifying...",
+    "streamExpand": "Show partial response",
+    "streamCollapse": "Hide partial response"
   },
   "mandi": {
     "title": "Mandi prices",

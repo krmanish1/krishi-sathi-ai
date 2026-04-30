@@ -76,7 +76,14 @@
     "imageUploadFailed": "फोटो अपलोड नहीं हुई। पुनः प्रयास करें या फोटो हटाएं।",
     "imageRequiresInternet": "फोटो विश्लेषण के लिए इंटरनेट की आवश्यकता है।",
     "imageAttached": "फोटो भेजने के लिए तैयार है",
-    "analyzeImagePrompt": "कृपया इस तस्वीर का विश्लेषण करें।"
+    "analyzeImagePrompt": "कृपया इस तस्वीर का विश्लेषण करें।",
+    "statusRouting": "सवाल समझ रहे हैं...",
+    "statusPlanning": "उत्तर की योजना बना रहे हैं...",
+    "statusTools": "जानकारी ढूँढ रहे हैं...",
+    "statusSynthesizing": "उत्तर तैयार कर रहे हैं...",
+    "statusClarify": "स्पष्ट कर रहे हैं...",
+    "streamExpand": "आंशिक उत्तर दिखाएँ",
+    "streamCollapse": "आंशिक उत्तर छुपाएँ"
   },
   "mandi": {
     "title": "मंडी भाव",

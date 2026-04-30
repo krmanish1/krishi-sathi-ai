@@ -22,6 +22,8 @@ import { useConnectivity } from "@/shared/network/useConnectivity";
 import {
   useChatThread,
   useSendChatMessage,
+  useStreamChatMessage,
+  StreamingStatusBox,
   CONFIDENCE_THRESHOLD_LOW,
   useImageAttachment,
   guessImagePurpose,
@@ -195,6 +197,13 @@ export default function ChatScreen() {
   const connectivity = useConnectivity();
   const { data: messages = [], isLoading } = useChatThread();
   const send = useSendChatMessage();
+  const stream = useStreamChatMessage({
+    farmerId: farmerId ?? "",
+    language,
+    state,
+    district,
+    connectivity,
+  });
   const attachment = useImageAttachment();
   const [draft, setDraft] = useState("");
   const [listening, setListening] = useState(false);
@@ -222,45 +231,61 @@ export default function ChatScreen() {
   }, []);
 
   const sendPayload = useCallback(
-    (text: string, opt?: { skipUserMessage?: boolean; forceBackend?: boolean }) => {
+    (text: string, opt?: { skipUserMessage?: boolean }) => {
       if (!farmerId) return;
       setDraft("");
+      const trimmed = text.trim();
+      if (isOnline) {
+        void stream
+          .send(
+            trimmed,
+            opt?.skipUserMessage === true ? { skipUserMessage: true } : undefined,
+          )
+          .catch(() => undefined);
+        return;
+      }
       const payload: SendQueryInput = {
-        text,
+        text: trimmed,
         farmerId,
         language,
         state,
         district,
         connectivity,
         ...(opt?.skipUserMessage ? { skipUserMessage: true } : {}),
-        ...(opt?.forceBackend ? { forceBackend: true } : {}),
       };
       void send.mutateAsync(payload).catch(() => undefined);
     },
-    [farmerId, language, state, district, connectivity, send],
+    [farmerId, language, state, district, connectivity, send, stream, isOnline],
   );
 
   const onSend = useCallback(async () => {
     const hasImage = !!attachment.pickedUri;
     const hasText = !!draft.trim();
-    if ((!hasText && !hasImage) || send.isPending || attachment.isUploading) return;
+    if ((!hasText && !hasImage) || send.isPending || stream.isStreaming || attachment.isUploading) return;
     if (hasImage && !isOnline) {
       // uploadError banner handles display — we just block the send
       return;
     }
     if (!farmerId) return;
-    const text = draft.trim() || t("chat.analyzeImagePrompt");
+    const draftTrimmed = draft.trim();
+    const text = draftTrimmed || t("chat.analyzeImagePrompt");
     const localUri = attachment.pickedUri ?? undefined;
     setDraft("");
     let imageRef: string | undefined;
     if (hasImage) {
       try {
-        imageRef = await attachment.upload(farmerId, guessImagePurpose(draft.trim()));
+        imageRef = await attachment.upload(farmerId, guessImagePurpose(draftTrimmed));
       } catch {
         return; // uploadError set inside hook
       }
       attachment.clearImage();
     }
+
+    if (!hasImage && isOnline) {
+      void stream.send(text).catch(() => undefined);
+      return;
+    }
+
     const payload: SendQueryInput = {
       text,
       farmerId,
@@ -272,7 +297,7 @@ export default function ChatScreen() {
       ...(localUri ? { imageLocalUri: localUri } : {}),
     };
     void send.mutateAsync(payload).catch(() => undefined);
-  }, [attachment, draft, farmerId, language, state, district, connectivity, send, isOnline, t]);
+  }, [attachment, draft, farmerId, language, state, district, connectivity, send, stream, isOnline, t]);
 
   const toggleVoice = async () => {
     if (!voiceStt) return;
@@ -289,7 +314,7 @@ export default function ChatScreen() {
     }
   };
 
-  const isBusy = send.isPending || attachment.isUploading;
+  const isBusy = send.isPending || stream.isStreaming || attachment.isUploading;
   const canSend = (!!draft.trim() || !!attachment.pickedUri) && !isBusy;
 
   if (!ready || isLoading) {
@@ -400,7 +425,7 @@ export default function ChatScreen() {
               }
               onTryOnline={(userText) => {
                 if (!userText) return;
-                sendPayload(userText, { skipUserMessage: true, forceBackend: true });
+                sendPayload(userText, { skipUserMessage: true });
               }}
               busy={isBusy}
             />
@@ -411,7 +436,19 @@ export default function ChatScreen() {
             {t("chat.empty")}
           </Text>
         }
-        ListFooterComponent={send.isPending ? <TypingIndicator /> : null}
+        ListFooterComponent={
+          stream.isStreaming ? (
+            <StreamingStatusBox
+              key={stream.streamPhase}
+              phase={stream.streamPhase}
+              text={stream.streamingText}
+              stageHistory={stream.stageHistory}
+              mdStyles={mdStyles}
+            />
+          ) : send.isPending ? (
+            <TypingIndicator />
+          ) : null
+        }
       />
 
       {/* Error banners */}
@@ -419,6 +456,15 @@ export default function ChatScreen() {
         <View className="bg-danger/10 px-4 py-2">
           <Text className="text-center font-body text-sm text-danger">
             {send.error instanceof Error ? send.error.message : t("errors.generic")}
+          </Text>
+        </View>
+      ) : null}
+      {stream.streamError ? (
+        <View className="bg-danger/10 px-4 py-2">
+          <Text className="text-center font-body text-sm text-danger">
+            {stream.streamError instanceof Error
+              ? stream.streamError.message
+              : t("errors.generic")}
           </Text>
         </View>
       ) : null}
