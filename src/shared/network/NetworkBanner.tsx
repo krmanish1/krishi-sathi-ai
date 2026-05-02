@@ -1,5 +1,5 @@
 import { Text, View } from "react-native";
-import { useConnectivity } from "./useConnectivity";
+import { useConnectivity } from "./connectivityContext";
 import { useTranslation } from "react-i18next";
 
 export const NetworkBanner = () => {

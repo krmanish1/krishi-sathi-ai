@@ -68,3 +68,9 @@ export async function clearThread(threadId: string = MAIN_THREAD_ID): Promise<vo
   const d = getDb();
   await d.runAsync("DELETE FROM chat_messages WHERE thread_id = ?", [threadId]);
 }
+
+/** Deletes every row in `chat_messages` (all threads, including legacy `"main"`). */
+export async function clearAllChatThreads(): Promise<void> {
+  const d = getDb();
+  await d.runAsync("DELETE FROM chat_messages", []);
+}

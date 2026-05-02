@@ -4,13 +4,17 @@ import { TIMEOUTS_MS } from "@/shared/config/constants";
 import { apiFetch } from "./client";
 import type {
   Connectivity,
+  Conversation,
+  ConversationHistoryResponse,
   FarmerTwin,
+  FarmerWeatherReport,
   ImageUploadResponse,
   QueryRequest,
   QueryResponse,
   SyncBundle,
 } from "./types";
 import { normalizeTwinFromApi, serializeTwinForApi, twinTwinQueryString } from "./twinWire";
+import { queryConnectivityWire } from "./types";
 
 /** JSON POST `/api/v1/query` — body shape matches `/api/v1/query/stream` (`QueryRequest`). */
 export const postQuery = (req: QueryRequest, signal?: AbortSignal) =>
@@ -138,3 +142,85 @@ export const postSyncPush = (accessToken?: string | null, signal?: AbortSignal) 
     },
     ...(signal ? { signal } : {}),
   });
+
+/** POST `/api/v1/conversation` — creates a new conversation session for the farmer. */
+export const postConversation = (
+  params: { farmerId: string; title: string },
+  connectivity: Connectivity,
+  signal?: AbortSignal,
+) =>
+  apiFetch<Conversation>(
+    `/api/v1/conversation?connectivity=${queryConnectivityWire(connectivity)}`,
+    {
+      baseUrl: getApiBaseUrl(),
+      timeoutMs: TIMEOUTS_MS.conversation,
+      method: "POST",
+      body: { farmer_id: params.farmerId, title: params.title },
+      ...(signal ? { signal } : {}),
+    },
+  );
+
+/** GET `/api/v1/farmer/{farmer_id}/conversations` — lists all conversations for a farmer. */
+export const getFarmerConversations = (
+  farmerId: string,
+  connectivity: Connectivity,
+  signal?: AbortSignal,
+) =>
+  apiFetch<Conversation[]>(
+    `/api/v1/farmer/${encodeURIComponent(farmerId)}/conversations?connectivity=${queryConnectivityWire(connectivity)}`,
+    {
+      baseUrl: getApiBaseUrl(),
+      timeoutMs: TIMEOUTS_MS.conversation,
+      ...(signal ? { signal } : {}),
+    },
+  );
+
+/** GET `/api/v1/farmer/{farmer_id}/conversations/{conversation_id}/history` — server-stored turns for that session. */
+export const getConversationHistory = (
+  farmerId: string,
+  conversationId: string,
+  connectivity: Connectivity,
+  signal?: AbortSignal,
+) =>
+  apiFetch<ConversationHistoryResponse>(
+    `/api/v1/farmer/${encodeURIComponent(farmerId)}/conversations/${encodeURIComponent(conversationId)}/history?connectivity=${queryConnectivityWire(connectivity)}`,
+    {
+      baseUrl: getApiBaseUrl(),
+      timeoutMs: TIMEOUTS_MS.conversation,
+      ...(signal ? { signal } : {}),
+    },
+  );
+
+/** DELETE `/api/v1/farmer/{farmer_id}/conversations/{conversation_id}` — removes session on server. */
+export const deleteFarmerConversation = (
+  farmerId: string,
+  conversationId: string,
+  connectivity: Connectivity,
+  signal?: AbortSignal,
+) =>
+  apiFetch<unknown>(
+    `/api/v1/farmer/${encodeURIComponent(farmerId)}/conversations/${encodeURIComponent(conversationId)}?connectivity=${queryConnectivityWire(connectivity)}`,
+    {
+      baseUrl: getApiBaseUrl(),
+      timeoutMs: TIMEOUTS_MS.conversation,
+      method: "DELETE",
+      ...(signal ? { signal } : {}),
+    },
+  );
+
+/** GET `/api/v1/weather/{farmer_id}` — farmer-scoped weather; `force_refresh=true` bypasses server cache. */
+export const getFarmerWeather = (
+  farmerId: string,
+  connectivity: Connectivity,
+  opts?: { forceRefresh?: boolean; signal?: AbortSignal },
+) => {
+  const q = new URLSearchParams({
+    connectivity: queryConnectivityWire(connectivity),
+    force_refresh: opts?.forceRefresh === true ? "true" : "false",
+  });
+  return apiFetch<FarmerWeatherReport>(`/api/v1/weather/${encodeURIComponent(farmerId)}?${q.toString()}`, {
+    baseUrl: getApiBaseUrl(),
+    timeoutMs: TIMEOUTS_MS.weather,
+    ...(opts?.signal ? { signal: opts.signal } : {}),
+  });
+};

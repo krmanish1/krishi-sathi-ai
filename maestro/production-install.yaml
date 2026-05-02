@@ -1,0 +1,26 @@
+# On-device smoke after installing a release APK/IPA (Maestro).
+#
+# Prereqs: Maestro CLI + production build on device/emulator.
+#
+#   export APP_ID=ai.krishisaathi.app
+#   maestro test maestro/production-install.yaml
+#
+# Uses testIDs from Home (stable across en/hi). Weather refresh is optional
+# (only rendered when online and farmer id exists).
+appId: ${APP_ID}
+---
+- launchApp
+- assertVisible:
+    id: "home-scroll"
+- assertVisible:
+    id: "home-weather-card"
+- assertVisible: "Home|घर"
+- assertVisible: "Chats|चैट"
+- tapOn: "Chats|चैट"
+- assertVisible: "Your chats|आपकी बातचीत"
+- tapOn: "Home|घर"
+- assertVisible:
+    id: "home-weather-card"
+- tapOn:
+    id: "home-weather-refresh"
+    optional: true

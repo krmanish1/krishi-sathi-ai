@@ -10,7 +10,7 @@ import {
   type MandiPriceRow,
 } from "@/features/mandi/mandiFromBundle";
 import { useState, memo, useEffect, useCallback } from "react";
-import { useConnectivity } from "@/shared/network/useConnectivity";
+import { useConnectivity } from "@/shared/network";
 
 export default function MandiScreen() {
   const { t } = useTranslation();

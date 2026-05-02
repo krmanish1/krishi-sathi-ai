@@ -95,7 +95,7 @@ describe("syncTwinOnboarding", () => {
       location: { state: "Punjab", district: "Ludhiana" },
       preferred_language: "hi",
       current_crops: [],
-      land: { total_acres: 5.5, irrigation: "irrigated" },
+      land: { total_acres: 5.5, soil_type: "loamy" },
     });
     await syncTwinOnboarding(
       {
@@ -104,14 +104,13 @@ describe("syncTwinOnboarding", () => {
         district: "Ludhiana",
         language: "hi",
         landAcres: "5.5",
-        irrigation: true,
       },
       "online",
     );
     expect(mockPut).toHaveBeenCalledWith(
       "anon_abc",
       expect.objectContaining({
-        land: { total_acres: 5.5, irrigation: "irrigated" },
+        land: { total_acres: 5.5 },
       }),
       "online",
       undefined,

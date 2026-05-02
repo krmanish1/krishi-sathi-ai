@@ -4,11 +4,11 @@ import { LinearGradient } from "expo-linear-gradient";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useOnboarding } from "@/features/onboarding/store";
+import { flushOnboardingToStorage, useOnboarding } from "@/features/onboarding/store";
 import { OnboardingShell, useSyncTwin } from "@/features/onboarding";
 import { postSyncPush } from "@/shared/api";
 import { useSupabaseSession } from "@/shared/auth";
-import { useConnectivity } from "@/shared/network/useConnectivity";
+import { useConnectivity } from "@/shared/network";
 
 export default function DoneScreen() {
   const { t } = useTranslation();
@@ -22,6 +22,8 @@ export default function DoneScreen() {
     setCompleted(true);
     let cancelled = false;
     void (async () => {
+      await flushOnboardingToStorage().catch(() => undefined);
+      if (cancelled) return;
       await syncTwin();
       if (cancelled) return;
       if (online) {

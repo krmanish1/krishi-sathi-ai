@@ -179,6 +179,13 @@ class WebAppDatabase {
       return { changes: before - this.data.chatMessages.length, lastInsertRowId: 0 };
     }
 
+    if (s === "DELETE FROM chat_messages") {
+      const before = this.data.chatMessages.length;
+      this.data.chatMessages = [];
+      this.schedulePersist();
+      return { changes: before, lastInsertRowId: 0 };
+    }
+
     if (s === "DELETE FROM twin_cache WHERE farmer_id = ?") {
       const id = String(a[0] ?? "");
       if (id in this.data.twinByFarmer) {

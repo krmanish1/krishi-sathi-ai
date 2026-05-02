@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { Text, View, Pressable, Switch, ScrollView } from "react-native";
+import { Text, View, Pressable, ScrollView } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -17,7 +16,6 @@ export default function LanguageScreen() {
   const { t, i18n } = useTranslation();
   const setLanguage = useOnboarding((s) => s.setLanguage);
   const selectedLanguage = (useOnboarding((s) => s.language) ?? "hi") as Language;
-  const [voiceAssistant, setVoiceAssistant] = useState(false);
 
   const onNext = () => {
     router.push("/(onboarding)/location");
@@ -93,24 +91,6 @@ export default function LanguageScreen() {
               </Pressable>
             );
           })}
-        </View>
-
-        <View className="mt-4 overflow-hidden rounded-xl border border-white/[0.07] bg-muted/90 px-4 py-3">
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center gap-2.5">
-              <View className="h-9 w-9 items-center justify-center rounded-full bg-brand/18">
-                <MaterialCommunityIcons name="microphone" size={18} color="#1ed760" />
-              </View>
-              <Text className="font-body-semibold text-sm text-ink">{t("onboarding.voiceTitle")}</Text>
-            </View>
-            <Switch
-              value={voiceAssistant}
-              onValueChange={setVoiceAssistant}
-              trackColor={{ true: "#1ed760", false: "#404040" }}
-              thumbColor="#FFFFFF"
-            />
-          </View>
-          <Text className="mt-2 font-body text-xs leading-[18px] text-ink-muted">{t("onboarding.voiceBody")}</Text>
         </View>
 
         <LinearGradient

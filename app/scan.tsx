@@ -10,7 +10,7 @@ import { postQueryImage } from "@/shared/api/endpoints";
 import { appendMessage, useSendChatMessage } from "@/features/chat";
 import { useFarmerId } from "@/shared/auth/AuthProvider";
 import { useOnboarding } from "@/features/onboarding/store";
-import { useConnectivity } from "@/shared/network/useConnectivity";
+import { useConnectivity } from "@/shared/network";
 import { ApiError } from "@/shared/api/errors";
 import type { Language } from "@/shared/config/constants";
 
