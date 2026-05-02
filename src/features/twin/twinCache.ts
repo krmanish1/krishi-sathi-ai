@@ -1,4 +1,5 @@
 import type { FarmerTwin } from "@/shared/api/types";
+import { normalizeTwinFromApi } from "@/shared/api/twinWire";
 import { getDb } from "@/shared/storage/db";
 
 export async function getCachedTwin(farmerId: string): Promise<FarmerTwin | null> {
@@ -10,7 +11,11 @@ export async function getCachedTwin(farmerId: string): Promise<FarmerTwin | null
   if (!row) {
     return null;
   }
-  return JSON.parse(row.payload) as FarmerTwin;
+  try {
+    return normalizeTwinFromApi(JSON.parse(row.payload) as unknown);
+  } catch {
+    return null;
+  }
 }
 
 export async function setCachedTwin(farmerId: string, twin: FarmerTwin): Promise<void> {

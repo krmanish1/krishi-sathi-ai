@@ -76,9 +76,9 @@ export type SyncBundle = {
   ttl_hours: number;
 };
 
-// Aligned to backend AgentTwin schema.
-// preferred_language replaces the old `language` field.
-// current_crops replaces the old `crops` field.
+// Aligned to backend twin schema (GET/PUT).
+// Wire `current_crops` is string[]; legacy object-shaped crops may still appear on cached payloads and are normalized in twinWire.
+// `land.irrigation` is optional — retained only when older API responses include it (not sent on PUT).
 export type FarmerTwin = {
   farmer_id: string;
   name?: string | null;
@@ -90,7 +90,7 @@ export type FarmerTwin = {
     lat?: number;
     lng?: number;
   };
-  current_crops?: { name: string; area_acres: number; sown_on?: string }[];
+  current_crops?: string[];
   land?: { total_acres?: number; soil_type?: string; irrigation?: string };
   financial?: {
     kcc_loan_amount?: number;

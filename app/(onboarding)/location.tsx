@@ -17,13 +17,19 @@ import { useOnboarding } from "@/features/onboarding/store";
 import { detectLocation } from "@/features/onboarding/useLocation";
 import { OnboardingShell } from "@/features/onboarding";
 
+/** Values match twin API `land.soil_type`. */
+const SOIL_WIRE_OPTIONS = ["loamy", "clay", "sandy", "silt", "black", "red"] as const;
+
 export default function LocationScreen() {
   const { t } = useTranslation();
   const setLocation = useOnboarding((s) => s.setLocation);
+  const [farmerName, setFarmerName] = useState("");
   const [state, setState] = useState("");
   const [district, setDistrict] = useState("");
+  const [village, setVillage] = useState("");
   const [landSize, setLandSize] = useState("");
-  const [irrigation, setIrrigation] = useState(true);
+  const [soilType, setSoilType] = useState<string | null>(null);
+  const [cropsText, setCropsText] = useState("");
   const [locating, setLocating] = useState(true);
   const [capturedLat, setCapturedLat] = useState<number | null>(null);
   const [capturedLng, setCapturedLng] = useState<number | null>(null);
@@ -67,8 +73,11 @@ export default function LocationScreen() {
       return;
     }
     setLocation(s, di, {
+      farmerName: farmerName.trim() || null,
+      village: village.trim() || null,
       landAcres: landSize.trim() || null,
-      irrigation,
+      soilType,
+      cropsText: cropsText.trim() || null,
       lat: capturedLat,
       lng: capturedLng,
     });
@@ -132,6 +141,20 @@ export default function LocationScreen() {
         <View className="rounded-bento border border-white/[0.06] bg-card/95 p-6 shadow-card">
           <View>
             <Text className="mb-2 font-body-semibold text-xs uppercase tracking-wide text-ink-muted">
+              {t("profile.twinName")}
+            </Text>
+            <Text className="mb-2 font-body text-xs text-ink-muted">{t("onboarding.farmerNameHint")}</Text>
+            <TextInput
+              value={farmerName}
+              onChangeText={setFarmerName}
+              placeholder={t("auth.namePlaceholder")}
+              className="min-h-[52px] rounded-xl border border-white/[0.06] bg-muted px-4 font-body text-[15px] text-ink"
+              placeholderTextColor="#737373"
+              autoCorrect={false}
+            />
+          </View>
+          <View className="mt-4">
+            <Text className="mb-2 font-body-semibold text-xs uppercase tracking-wide text-ink-muted">
               {t("onboarding.stateLabel")}
             </Text>
             <TextInput
@@ -158,6 +181,19 @@ export default function LocationScreen() {
           </View>
           <View className="mt-4">
             <Text className="mb-2 font-body-semibold text-xs uppercase tracking-wide text-ink-muted">
+              {t("onboarding.villageLabel")}
+            </Text>
+            <TextInput
+              value={village}
+              onChangeText={setVillage}
+              placeholder={t("onboarding.villagePlaceholder")}
+              className="min-h-[52px] rounded-xl border border-white/[0.06] bg-muted px-4 font-body text-[15px] text-ink"
+              placeholderTextColor="#737373"
+              autoCorrect={false}
+            />
+          </View>
+          <View className="mt-4">
+            <Text className="mb-2 font-body-semibold text-xs uppercase tracking-wide text-ink-muted">
               {t("onboarding.landSizeLabel")}
             </Text>
             <View className="relative">
@@ -174,21 +210,46 @@ export default function LocationScreen() {
               </Text>
             </View>
           </View>
-          <View className="mt-5 flex-row items-center justify-between rounded-2xl border border-white/[0.06] bg-muted px-4 py-4">
-            <View className="flex-1 pr-3">
-              <Text className="font-body-semibold text-[15px] text-ink">{t("onboarding.irrigationTitle")}</Text>
-              <Text className="mt-0.5 font-body text-xs text-ink-muted">{t("onboarding.irrigationHint")}</Text>
+          <View className="mt-4">
+            <Text className="mb-2 font-body-semibold text-xs uppercase tracking-wide text-ink-muted">
+              {t("onboarding.soilTypeLabel")}
+            </Text>
+            <Text className="mb-2 font-body text-xs text-ink-muted">{t("onboarding.soilTypeHint")}</Text>
+            <View className="flex-row flex-wrap gap-2">
+              {SOIL_WIRE_OPTIONS.map((key) => {
+                const selected = soilType === key;
+                return (
+                  <Pressable
+                    key={key}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected }}
+                    onPress={() => setSoilType(selected ? null : key)}
+                    className={`rounded-full border px-3 py-2 ${
+                      selected ? "border-brand bg-brand/15" : "border-white/[0.08] bg-muted"
+                    }`}
+                  >
+                    <Text
+                      className={`font-body-medium text-[13px] capitalize ${selected ? "text-brand" : "text-ink"}`}
+                    >
+                      {t(`onboarding.soil.${key}`)}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
-            <Pressable
-              accessibilityRole="switch"
-              accessibilityState={{ checked: irrigation }}
-              onPress={() => setIrrigation((prev) => !prev)}
-              className={`h-8 w-14 rounded-full ${irrigation ? "bg-brand" : "bg-border"}`}
-            >
-              <View
-                className={`mt-1 h-6 w-6 rounded-full ${irrigation ? "bg-black" : "bg-ink"} ${irrigation ? "ml-7" : "ml-1"}`}
-              />
-            </Pressable>
+          </View>
+          <View className="mt-4">
+            <Text className="mb-2 font-body-semibold text-xs uppercase tracking-wide text-ink-muted">
+              {t("profile.crops")}
+            </Text>
+            <TextInput
+              value={cropsText}
+              onChangeText={setCropsText}
+              className="min-h-[52px] rounded-xl border border-white/[0.06] bg-muted px-4 font-body text-[15px] text-ink"
+              placeholderTextColor="#737373"
+              placeholder={t("profile.cropsPlaceholder")}
+            />
+            <Text className="mt-1 font-body text-[11px] text-ink-muted">{t("profile.cropsHint")}</Text>
           </View>
 
           <View className="mt-5 flex-row gap-3 rounded-2xl border border-white/[0.08] bg-card/60 p-4">

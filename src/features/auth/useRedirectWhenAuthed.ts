@@ -8,8 +8,9 @@ export function useRedirectWhenAuthed(): void {
   const session = useSupabaseSession();
 
   useEffect(() => {
-    if (!session) return;
-    rehydrateOnboardingFromStorage()
+    const uid = session?.user?.id;
+    if (!uid) return;
+    void rehydrateOnboardingFromStorage(uid)
       .catch(() => undefined)
       .finally(() => {
         const { hasCompletedOnboarding: done, language: lang, state: st, district: dist } =

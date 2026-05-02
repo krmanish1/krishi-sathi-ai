@@ -1,6 +1,7 @@
 /**
  * Public API for the onboarding feature.
  */
+/** `readOnboarding` / `writeOnboarding` require Supabase `session.user.id`. */
 export { readOnboarding, writeOnboarding } from "./onboardingStorage";
 export type { PersistedOnboarding } from "./onboardingStorage";
 export { rehydrateOnboardingFromStorage, useOnboarding } from "./store";

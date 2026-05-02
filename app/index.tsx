@@ -11,12 +11,20 @@ export default function Index() {
   const { language, state, district, hasCompletedOnboarding } = useOnboarding();
   const authReady = useAuthReady();
   const session = useSupabaseSession();
+  const sessionUserId = session?.user?.id ?? null;
 
   useEffect(() => {
-    rehydrateOnboardingFromStorage()
+    if (!authReady) return;
+    let cancelled = false;
+    void rehydrateOnboardingFromStorage(sessionUserId)
       .catch(() => undefined)
-      .finally(() => setBoot(true));
-  }, []);
+      .finally(() => {
+        if (!cancelled) setBoot(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [authReady, sessionUserId]);
 
   useEffect(() => {
     if (!boot || !authReady) return;
@@ -33,7 +41,7 @@ export default function Index() {
     } else {
       router.replace("/(onboarding)/welcome");
     }
-  }, [authReady, boot, district, hasCompletedOnboarding, language, session, state]);
+  }, [authReady, boot, district, hasCompletedOnboarding, language, session, sessionUserId, state]);
 
   return (
     <View className="flex-1 items-center justify-center bg-page" accessibilityLabel={t("app.name")}>
