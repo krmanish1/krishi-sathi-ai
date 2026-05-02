@@ -1,19 +1,38 @@
 /**
- * Sourced from Figma — Offline Mode Dashboard (node 1:1076)
- * File: https://www.figma.com/design/aZhH4kPrNtnQbJD29kdSrx/Untitled
+ * Spotify-inspired dark theme tokens (see tailwind.config.js).
+ * Proprietary Spotify fonts are not bundled — Inter / Plus Jakarta approximate UI density.
  */
+export const theme = {
+  pageBg: "#121212",
+  surface: "#181818",
+  surfaceMid: "#1f1f1f",
+  cardElevated: "#252525",
+  ink: "#ffffff",
+  inkMuted: "#b3b3b3",
+  brand: "#1ed760",
+  brandMid: "#1db954",
+  brandDeep: "#168d40",
+  onBrand: "#000000",
+  border: "#4d4d4d",
+  borderLight: "#7c7c7c",
+  danger: "#f3727f",
+  warning: "#ffa42b",
+  announcement: "#539df5",
+} as const;
+
+/** @deprecated Use `theme` — kept for gradual migration */
 export const figma = {
-  pageBg: "#F9F9F9",
-  ink: "#1A1C1C",
-  inkMuted: "#40493D",
-  titleGreen: "#14532D",
-  brand: "#0D631B",
-  brandEnd: "#2E7D32",
-  earth: "#7A5649",
-  amber: "#6D5100",
-  border: "#E2E2E2",
-  cardMuted: "#F3F3F3",
-  coral: "#FDCDBC",
-  mintOnGreen: "#88D982",
-  stone: "#78716C",
+  pageBg: theme.pageBg,
+  ink: theme.ink,
+  inkMuted: theme.inkMuted,
+  titleGreen: "#ffffff",
+  brand: theme.brand,
+  brandEnd: theme.brandMid,
+  earth: "#a67c52",
+  amber: theme.warning,
+  border: theme.border,
+  cardMuted: theme.surfaceMid,
+  coral: "#3d2a28",
+  mintOnGreen: "#86efac",
+  stone: "#a3a3a3",
 } as const;

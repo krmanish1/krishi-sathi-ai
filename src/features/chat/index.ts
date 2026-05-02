@@ -14,6 +14,7 @@ export {
   type StreamPhase,
   type UseStreamChatMessageOpts,
 } from "./useStreamChatMessage";
+export type { StageEvent } from "./thinkingStages";
 export { StreamingStatusBox } from "./components/StreamingStatusBox";
 export type { StreamingStatusBoxProps } from "./components/StreamingStatusBox";
 export { guessImagePurpose } from "./guessImagePurpose";

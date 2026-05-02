@@ -44,6 +44,8 @@ describe("detectLocation", () => {
     await expect(detectLocation()).resolves.toEqual({
       state: null,
       district: null,
+      latitude: 12.34,
+      longitude: 56.78,
       failureReason: "unavailable",
     });
   });
@@ -58,6 +60,11 @@ describe("detectLocation", () => {
       { region: "Punjab", subregion: "Ludhiana", district: null, city: null },
     ]);
 
-    await expect(detectLocation()).resolves.toEqual({ state: "Punjab", district: "Ludhiana" });
+    await expect(detectLocation()).resolves.toEqual({
+      state: "Punjab",
+      district: "Ludhiana",
+      latitude: 12.34,
+      longitude: 56.78,
+    });
   });
 });

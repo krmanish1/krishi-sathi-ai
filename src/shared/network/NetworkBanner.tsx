@@ -9,8 +9,8 @@ export const NetworkBanner = () => {
     return null;
   }
   return (
-    <View accessibilityRole="alert" className="border-b border-earth/20 bg-earth/10 px-4 py-2">
-      <Text className="text-center font-body-medium text-sm text-earth">
+    <View accessibilityRole="alert" className="border-b border-amber/30 bg-amber/10 px-4 py-2">
+      <Text className="text-center font-body-medium text-sm text-amber">
         {c === "offline" ? t("network.offline") : t("network.degraded")}
       </Text>
     </View>

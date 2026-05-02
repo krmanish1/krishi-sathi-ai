@@ -33,6 +33,11 @@ export const initDb = async (): Promise<AppDatabase> => {
   }
   const d = await SQLite.openDatabaseAsync("krishisaathi.db");
   await d.execAsync(MIGRATION_0001);
+  try {
+    await d.execAsync("ALTER TABLE chat_messages ADD COLUMN image_local_uri TEXT;");
+  } catch {
+    /* column already exists */
+  }
   db = d;
   return d;
 };

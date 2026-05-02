@@ -10,7 +10,7 @@ export type ButtonProps = Omit<PressableProps, "children"> & {
 };
 
 /**
- * Figma-minded primary actions (NativeWind). Used by onboarding and future forms.
+ * Spotify-style pills: full radius, uppercase labels with tracking on primary.
  */
 export function Button({
   children,
@@ -21,21 +21,23 @@ export function Button({
   disabled,
   ...rest
 }: ButtonProps) {
-  const h = size === "lg" ? "min-h-[56px] px-8" : "min-h-[48px] px-6";
+  const h = size === "lg" ? "min-h-[56px] px-10" : "min-h-[48px] px-6";
   const base = clsx(
-    "items-center justify-center rounded-2xl",
+    "items-center justify-center rounded-full",
     h,
-    variant === "primary" && "bg-brand active:opacity-90",
-    variant === "secondary" && "border border-primary bg-card",
+    variant === "primary" &&
+      "bg-brand shadow-card active:opacity-90 dark:active:opacity-90",
+    variant === "secondary" &&
+      "border border-border-light bg-transparent active:bg-card-mid/80",
     variant === "ghost" && "bg-transparent",
     disabled && "opacity-50",
     className,
   );
   const tc = clsx(
-    "font-body-semibold",
-    size === "lg" ? "text-base" : "text-sm",
-    variant === "primary" && "text-white",
-    (variant === "secondary" || variant === "ghost") && "text-title-green",
+    "font-body-semibold uppercase tracking-button",
+    size === "lg" ? "text-sm" : "text-xs",
+    variant === "primary" && "text-on-brand",
+    (variant === "secondary" || variant === "ghost") && "text-ink",
     textClassName,
   );
   return (

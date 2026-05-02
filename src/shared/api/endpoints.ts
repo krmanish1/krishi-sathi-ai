@@ -3,13 +3,16 @@ import { getApiBaseUrl } from "@/shared/config/env";
 import { TIMEOUTS_MS } from "@/shared/config/constants";
 import { apiFetch } from "./client";
 import type {
+  Connectivity,
   FarmerTwin,
   ImageUploadResponse,
   QueryRequest,
   QueryResponse,
   SyncBundle,
 } from "./types";
+import { normalizeTwinFromApi, serializeTwinForApi, twinTwinQueryString } from "./twinWire";
 
+/** JSON POST `/api/v1/query` — body shape matches `/api/v1/query/stream` (`QueryRequest`). */
 export const postQuery = (req: QueryRequest, signal?: AbortSignal) =>
   apiFetch<QueryResponse>("/api/v1/query", {
     baseUrl: getApiBaseUrl(),
@@ -40,6 +43,7 @@ const toJpegBlob = (source: Blob): Promise<Blob> =>
     img.src = objectUrl;
   });
 
+/** Multipart POST `/api/v1/query/image` — fields: `image`, `farmer_id`, `purpose` (per backend OpenAPI). */
 export const postQueryImage = async (
   params: { uri: string; farmerId: string; purpose: "crop_disease" | "soil_photo" | "pest_id" },
   signal?: AbortSignal,
@@ -91,16 +95,46 @@ export const getSyncBundle = (params: {
   });
 };
 
-export const getFarmerTwin = (farmerId: string) =>
-  apiFetch<FarmerTwin>(`/api/v1/farmer/${encodeURIComponent(farmerId)}/twin`, {
-    baseUrl: getApiBaseUrl(),
-    timeoutMs: TIMEOUTS_MS.query,
-  });
+export const getFarmerTwin = async (farmerId: string, connectivity: Connectivity): Promise<FarmerTwin> => {
+  const raw = await apiFetch<unknown>(
+    `/api/v1/farmer/${encodeURIComponent(farmerId)}/twin${twinTwinQueryString(connectivity)}`,
+    {
+      baseUrl: getApiBaseUrl(),
+      timeoutMs: TIMEOUTS_MS.query,
+    },
+  );
+  return normalizeTwinFromApi(raw);
+};
 
-export const putFarmerTwin = (farmerId: string, twin: FarmerTwin) =>
-  apiFetch<FarmerTwin>(`/api/v1/farmer/${encodeURIComponent(farmerId)}/twin`, {
+export const putFarmerTwin = async (
+  farmerId: string,
+  twin: FarmerTwin,
+  connectivity: Connectivity,
+  accessToken?: string | null,
+): Promise<FarmerTwin> => {
+  const raw = await apiFetch<unknown>(
+    `/api/v1/farmer/${encodeURIComponent(farmerId)}/twin${twinTwinQueryString(connectivity)}`,
+    {
+      baseUrl: getApiBaseUrl(),
+      timeoutMs: TIMEOUTS_MS.query,
+      method: "PUT",
+      body: serializeTwinForApi(twin),
+      headers: {
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      },
+    },
+  );
+  return normalizeTwinFromApi(raw);
+};
+
+/** POST `/api/v1/sync/push` — triggers server-side sync; empty body. Sends Bearer when session exists. */
+export const postSyncPush = (accessToken?: string | null, signal?: AbortSignal) =>
+  apiFetch<unknown>("/api/v1/sync/push", {
     baseUrl: getApiBaseUrl(),
-    timeoutMs: TIMEOUTS_MS.query,
-    method: "PUT",
-    body: twin,
+    timeoutMs: TIMEOUTS_MS.syncPush,
+    method: "POST",
+    headers: {
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+    ...(signal ? { signal } : {}),
   });

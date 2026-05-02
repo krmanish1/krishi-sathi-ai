@@ -11,7 +11,9 @@ import {
   Platform,
   StyleSheet,
   Image,
+  InteractionManager,
 } from "react-native";
+import { useFocusEffect } from "@react-navigation/native";
 import Markdown from "react-native-markdown-display";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -33,66 +35,47 @@ import { voiceStt } from "@/shared/voice/voiceClient";
 import type { Language } from "@/shared/config/constants";
 
 const mdStyles = StyleSheet.create({
-  body: { color: "#1C1917", fontSize: 15, lineHeight: 23 },
+  body: { color: "#ffffff", fontSize: 15, lineHeight: 23 },
   paragraph: { marginTop: 0, marginBottom: 4 },
   bullet_list: { marginBottom: 4 },
   ordered_list: { marginBottom: 4 },
   list_item: { marginBottom: 2 },
-  strong: { fontWeight: "700" },
-  em: { fontStyle: "italic" },
+  strong: { fontWeight: "700", color: "#ffffff" },
+  em: { fontStyle: "italic", color: "#cbcbcb" },
   code_inline: {
-    backgroundColor: "#F0FDF4",
+    backgroundColor: "#252525",
     borderRadius: 4,
     paddingHorizontal: 4,
     fontFamily: "monospace",
     fontSize: 13,
+    color: "#86efac",
   },
   fence: {
-    backgroundColor: "#F0FDF4",
+    backgroundColor: "#252525",
     borderRadius: 6,
     padding: 10,
     marginBottom: 6,
     fontFamily: "monospace",
     fontSize: 13,
+    color: "#e5e5e5",
   },
-  heading1: { fontSize: 18, fontWeight: "700", marginBottom: 6 },
-  heading2: { fontSize: 16, fontWeight: "700", marginBottom: 4 },
-  heading3: { fontSize: 15, fontWeight: "600", marginBottom: 4 },
+  heading1: { fontSize: 18, fontWeight: "700", marginBottom: 6, color: "#ffffff" },
+  heading2: { fontSize: 16, fontWeight: "700", marginBottom: 4, color: "#ffffff" },
+  heading3: { fontSize: 15, fontWeight: "600", marginBottom: 4, color: "#ffffff" },
 });
-
-// WhatsApp-style bubble tails
-const tailStyle = StyleSheet.create({
-  user: {
-    position: "absolute",
-    bottom: 0,
-    right: -7,
-    width: 0,
-    height: 0,
-    borderTopWidth: 12,
-    borderTopColor: "#0D631B",
-    borderLeftWidth: 8,
-    borderLeftColor: "transparent",
-  },
-  assistant: {
-    position: "absolute",
-    bottom: 0,
-    left: -7,
-    width: 0,
-    height: 0,
-    borderTopWidth: 12,
-    borderTopColor: "#FFFFFF",
-    borderRightWidth: 8,
-    borderRightColor: "transparent",
-  },
-});
-
 
 function TypingIndicator() {
   return (
-    <View className="mb-4 max-w-[72%] self-start">
+    <View className="mb-4 w-full">
       <View
-        className="rounded-2xl rounded-bl-none border border-border bg-card px-4 py-3"
-        style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1 }}
+        className="rounded-3xl rounded-bl-lg bg-card px-4 py-3.5"
+        style={{
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.35,
+          shadowRadius: 12,
+          elevation: 3,
+        }}
       >
         <View className="flex-row items-center gap-2">
           <View className="h-2 w-2 rounded-full bg-ink-muted" style={{ opacity: 0.7 }} />
@@ -122,28 +105,25 @@ function MessageBubble({
 
   return (
     <View
-      className={`mb-4 max-w-[82%] ${isUser ? "self-end" : "self-start"}`}
+      className={`mb-4 ${isUser ? "max-w-[82%] self-end" : "w-full"}`}
       style={{ overflow: "visible" }}
     >
       <View
         style={{
-          overflow: "visible",
+          overflow: "hidden",
           position: "relative",
-          shadowColor: isUser ? "#0D631B" : "#000",
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: isUser ? 0.15 : 0.07,
-          shadowRadius: 4,
-          elevation: 2,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: isUser ? 8 : 6 },
+          shadowOpacity: isUser ? 0.35 : 0.32,
+          shadowRadius: isUser ? 16 : 12,
+          elevation: isUser ? 4 : 3,
         }}
-        className={`px-4 py-3 ${
+        className={`${
           isUser
-            ? "rounded-tl-2xl rounded-tr-2xl rounded-bl-2xl bg-brand"
-            : "rounded-tl-2xl rounded-tr-2xl rounded-br-2xl border border-border bg-card"
+            ? "rounded-3xl rounded-br-md bg-brand px-[18px] py-[14px]"
+            : "rounded-3xl rounded-bl-lg bg-card px-4 py-3.5"
         }`}
       >
-        {/* WhatsApp tail */}
-        <View style={isUser ? tailStyle.user : tailStyle.assistant} />
-
         {/* Image thumbnail (optimistic only — from local URI) */}
         {isUser && item.imageLocalUri ? (
           <Image
@@ -156,18 +136,20 @@ function MessageBubble({
         {/* Message text */}
         {item.text ? (
           isUser ? (
-            <Text style={{ color: "#FFFFFF", fontSize: 15, lineHeight: 23 }}>{item.text}</Text>
+            <Text
+              style={{
+                color: "#0a0a0a",
+                fontSize: 16,
+                lineHeight: 24,
+                fontWeight: "500",
+                letterSpacing: 0.15,
+              }}
+            >
+              {item.text}
+            </Text>
           ) : (
             <Markdown style={mdStyles}>{item.text}</Markdown>
           )
-        ) : null}
-
-        {/* Source label */}
-        {!isUser && item.source ? (
-          <Text className="mt-1 font-body text-xs text-ink-muted">
-            {item.source === "ondevice" ? t("chat.sourceOnDevice") : t("chat.sourceOnline")}
-            {item.confidence != null ? ` · ${(item.confidence * 100).toFixed(0)}%` : ""}
-          </Text>
         ) : null}
 
         {/* Escalation CTA */}
@@ -194,6 +176,10 @@ export default function ChatScreen() {
   const language = (useOnboarding((s) => s.language) ?? "en") as Language;
   const state = useOnboarding((s) => s.state) ?? "—";
   const district = useOnboarding((s) => s.district) ?? "—";
+  const latRaw = useOnboarding((s) => s.lat);
+  const lngRaw = useOnboarding((s) => s.lng);
+  const lat = latRaw != null && Number.isFinite(latRaw) ? latRaw : undefined;
+  const lng = lngRaw != null && Number.isFinite(lngRaw) ? lngRaw : undefined;
   const connectivity = useConnectivity();
   const { data: messages = [], isLoading } = useChatThread();
   const send = useSendChatMessage();
@@ -202,6 +188,8 @@ export default function ChatScreen() {
     language,
     state,
     district,
+    ...(lat !== undefined ? { lat } : {}),
+    ...(lng !== undefined ? { lng } : {}),
     connectivity,
   });
   const attachment = useImageAttachment();
@@ -230,6 +218,21 @@ export default function ChatScreen() {
     return () => sub.remove();
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      let cancelled = false;
+      const task = InteractionManager.runAfterInteractions(() => {
+        requestAnimationFrame(() => {
+          if (!cancelled) listRef.current?.scrollToEnd({ animated: true });
+        });
+      });
+      return () => {
+        cancelled = true;
+        task.cancel();
+      };
+    }, []),
+  );
+
   const sendPayload = useCallback(
     (text: string, opt?: { skipUserMessage?: boolean }) => {
       if (!farmerId) return;
@@ -250,12 +253,14 @@ export default function ChatScreen() {
         language,
         state,
         district,
+        ...(lat !== undefined ? { lat } : {}),
+        ...(lng !== undefined ? { lng } : {}),
         connectivity,
         ...(opt?.skipUserMessage ? { skipUserMessage: true } : {}),
       };
       void send.mutateAsync(payload).catch(() => undefined);
     },
-    [farmerId, language, state, district, connectivity, send, stream, isOnline],
+    [farmerId, language, state, district, lat, lng, connectivity, send, stream, isOnline],
   );
 
   const onSend = useCallback(async () => {
@@ -292,12 +297,14 @@ export default function ChatScreen() {
       language,
       state,
       district,
+      ...(lat !== undefined ? { lat } : {}),
+      ...(lng !== undefined ? { lng } : {}),
       connectivity,
       ...(imageRef ? { imageRef } : {}),
       ...(localUri ? { imageLocalUri: localUri } : {}),
     };
     void send.mutateAsync(payload).catch(() => undefined);
-  }, [attachment, draft, farmerId, language, state, district, connectivity, send, stream, isOnline, t]);
+  }, [attachment, draft, farmerId, language, state, district, lat, lng, connectivity, send, stream, isOnline, t]);
 
   const toggleVoice = async () => {
     if (!voiceStt) return;
@@ -324,7 +331,7 @@ export default function ChatScreen() {
         style={{ paddingTop: insets.top }}
         accessibilityLabel={t("chat.loading")}
       >
-        <ActivityIndicator color="#0D631B" />
+        <ActivityIndicator color="#1ed760" />
       </View>
     );
   }
@@ -358,12 +365,12 @@ export default function ChatScreen() {
               width: 38,
               height: 38,
               borderRadius: 19,
-              backgroundColor: "#0D631B",
+              backgroundColor: "#1ed760",
               alignItems: "center",
               justifyContent: "center",
             }}
           >
-            <MaterialCommunityIcons name="leaf" size={20} color="#fff" />
+            <MaterialCommunityIcons name="leaf" size={20} color="#000000" />
           </View>
           <View>
             <Text className="font-display text-base text-title-green" style={{ lineHeight: 20 }}>{t("chat.title")}</Text>
@@ -378,7 +385,7 @@ export default function ChatScreen() {
             borderRadius: 99,
             paddingHorizontal: 10,
             paddingVertical: 4,
-            backgroundColor: isOnline ? "#F0FDF4" : "#F3F4F6",
+            backgroundColor: isOnline ? "#1a3d24" : "#272727",
           }}
         >
           <View
@@ -386,14 +393,14 @@ export default function ChatScreen() {
               width: 7,
               height: 7,
               borderRadius: 4,
-              backgroundColor: isOnline ? "#0D631B" : "#9CA3AF",
+              backgroundColor: isOnline ? "#1ed760" : "#6b7280",
             }}
           />
           <Text
             style={{
               fontSize: 12,
               fontWeight: "600",
-              color: isOnline ? "#0D631B" : "#6B7280",
+              color: isOnline ? "#1ed760" : "#b3b3b3",
             }}
           >
             {isOnline ? t("chat.modeOnline") : t("chat.modeOffline")}
@@ -442,8 +449,10 @@ export default function ChatScreen() {
               key={stream.streamPhase}
               phase={stream.streamPhase}
               text={stream.streamingText}
-              stageHistory={stream.stageHistory}
+              reasoningText={stream.streamingReasoning}
+              stageEvents={stream.stageEvents}
               mdStyles={mdStyles}
+              isStreaming={stream.isStreaming}
             />
           ) : send.isPending ? (
             <TypingIndicator />
@@ -492,7 +501,7 @@ export default function ChatScreen() {
           <View style={{ position: "relative" }}>
             <Image
               source={{ uri: attachment.pickedUri }}
-              style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: "#F3F4F6" }}
+              style={{ width: 56, height: 56, borderRadius: 10, backgroundColor: "#252525" }}
               resizeMode="cover"
             />
             <Pressable
@@ -504,14 +513,14 @@ export default function ChatScreen() {
                 position: "absolute",
                 top: -6,
                 right: -6,
-                backgroundColor: "#fff",
+                backgroundColor: "#181818",
                 borderRadius: 12,
               }}
             >
-              <MaterialCommunityIcons name="close-circle" size={20} color="#6B7280" />
+              <MaterialCommunityIcons name="close-circle" size={20} color="#b3b3b3" />
             </Pressable>
           </View>
-          <Text style={{ fontSize: 13, color: "#6B7280", flex: 1 }}>
+          <Text style={{ fontSize: 13, color: "#b3b3b3", flex: 1 }}>
             {t("chat.imageAttached")}
           </Text>
         </View>
@@ -532,13 +541,13 @@ export default function ChatScreen() {
               alignItems: "center",
               borderRadius: 28,
               borderWidth: 1,
-              borderColor: "#E5E7EB",
-              backgroundColor: "#FFFFFF",
+              borderColor: "#7c7c7c",
+              backgroundColor: "#1f1f1f",
               shadowColor: "#000",
-              shadowOffset: { width: 0, height: 1 },
-              shadowOpacity: 0.07,
-              shadowRadius: 3,
-              elevation: 2,
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.35,
+              shadowRadius: 8,
+              elevation: 4,
               minHeight: 52,
               paddingVertical: 8,
             }}
@@ -550,7 +559,7 @@ export default function ChatScreen() {
               hitSlop={8}
               disabled={isBusy}
             >
-              <MaterialCommunityIcons name="emoticon-outline" size={22} color="#9CA3AF" />
+              <MaterialCommunityIcons name="emoticon-outline" size={22} color="#b3b3b3" />
             </Pressable>
 
             {/* Text field */}
@@ -560,12 +569,12 @@ export default function ChatScreen() {
                 maxHeight: 120,
                 fontSize: 15,
                 lineHeight: 22,
-                color: "#1C1917",
+                color: "#ffffff",
                 paddingVertical:0,
                 textAlignVertical: "center",
               }}
               placeholder={t("chat.placeholder")}
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor="#b3b3b3"
               value={draft}
               onChangeText={setDraft}
               multiline
@@ -583,7 +592,7 @@ export default function ChatScreen() {
               hitSlop={8}
               disabled={isBusy}
             >
-              <MaterialCommunityIcons name="paperclip" size={22} color="#9CA3AF" />
+              <MaterialCommunityIcons name="paperclip" size={22} color="#b3b3b3" />
             </Pressable>
 
             {/* Camera */}
@@ -595,7 +604,7 @@ export default function ChatScreen() {
               hitSlop={8}
               disabled={isBusy}
             >
-              <MaterialCommunityIcons name="camera-outline" size={22} color="#9CA3AF" />
+              <MaterialCommunityIcons name="camera-outline" size={22} color="#b3b3b3" />
             </Pressable>
           </View>
 
@@ -612,10 +621,10 @@ export default function ChatScreen() {
               width: 52,
               height: 52,
               borderRadius: 26,
-              backgroundColor: listening ? "#B45309" : "#0D631B",
+              backgroundColor: listening ? "#ffa42b" : "#1ed760",
               alignItems: "center",
               justifyContent: "center",
-              shadowColor: "#0D631B",
+              shadowColor: "#000000",
               shadowOffset: { width: 0, height: 3 },
               shadowOpacity: 0.3,
               shadowRadius: 5,
@@ -625,14 +634,14 @@ export default function ChatScreen() {
             }}
           >
             {attachment.isUploading ? (
-              <ActivityIndicator size="small" color="#fff" />
+              <ActivityIndicator size="small" color="#000000" />
             ) : canSend ? (
-              <MaterialCommunityIcons name="send" size={22} color="#fff" style={{ marginLeft: 2 }} />
+              <MaterialCommunityIcons name="send" size={22} color="#000000" style={{ marginLeft: 2 }} />
             ) : (
               <MaterialCommunityIcons
                 name={listening ? "microphone" : "microphone-outline"}
                 size={22}
-                color="#fff"
+                color="#000000"
               />
             )}
           </Pressable>

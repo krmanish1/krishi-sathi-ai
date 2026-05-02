@@ -9,30 +9,30 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#0D631B",
-        tabBarInactiveTintColor: "#78716C",
+        tabBarActiveTintColor: "#1ed760",
+        tabBarInactiveTintColor: "#b3b3b3",
         tabBarLabelStyle: {
           fontSize: 11,
           fontFamily: "PlusJakartaSans_600SemiBold",
-          letterSpacing: 0.6,
+          letterSpacing: 1.4,
           textTransform: "uppercase" as const,
         },
         tabBarStyle: {
           height: Platform.OS === "ios" ? 96 : 88,
           paddingTop: 8,
           paddingBottom: Platform.OS === "ios" ? 24 : 12,
-          backgroundColor: "rgba(255,255,255,0.96)",
+          backgroundColor: "#121212",
           borderTopWidth: 0,
           borderTopLeftRadius: 32,
           borderTopRightRadius: 32,
           ...Platform.select({
             ios: {
               shadowColor: "#000",
-              shadowOpacity: 0.08,
-              shadowRadius: 20,
-              shadowOffset: { width: 0, height: -4 },
+              shadowOpacity: 0.45,
+              shadowRadius: 24,
+              shadowOffset: { width: 0, height: -8 },
             },
-            android: { elevation: 10 },
+            android: { elevation: 18 },
           }),
         },
       }}

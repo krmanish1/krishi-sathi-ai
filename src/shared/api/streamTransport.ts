@@ -1,14 +1,24 @@
-import { DefaultChatTransport, type UIMessage } from "ai";
+import type { UIMessage } from "ai";
 import { fetch as expoFetch } from "expo/fetch";
+import { KrishiCompatChatTransport } from "@/shared/api/krishiCompatChatTransport";
 import { getApiBaseUrl } from "@/shared/config/env";
-import type { Connectivity, DeviceIntent, OnDeviceModel, QueryRequest } from "@/shared/api/types";
+import {
+  queryConnectivityWire,
+  type Connectivity,
+  type DeviceIntent,
+  type OnDeviceModel,
+  type QueryRequest,
+} from "@/shared/api/types";
 import type { Language } from "@/shared/config/constants";
 
 export type KrishiStreamTransportOpts = {
   farmerId: string;
+  conversationId: string;
   language: Language;
   state: string;
   district: string;
+  lat?: number;
+  lng?: number;
   connectivity: Connectivity;
   /** Optional uploaded image ref when backend supports streaming multimodal later */
   imageRef?: string;
@@ -29,11 +39,11 @@ function lastUserPlainText(messages: UIMessage[]): string {
 
 export function createKrishiSathiChatTransport(
   opts: KrishiStreamTransportOpts,
-): DefaultChatTransport<UIMessage> {
+): KrishiCompatChatTransport<UIMessage> {
   const base = getApiBaseUrl().replace(/\/$/, "");
   const api = `${base}/api/v1/query/stream`;
 
-  return new DefaultChatTransport<UIMessage>({
+  return new KrishiCompatChatTransport<UIMessage>({
     api,
     fetch: expoFetch as unknown as typeof globalThis.fetch,
     prepareSendMessagesRequest: ({ messages }) => {
@@ -41,6 +51,7 @@ export function createKrishiSathiChatTransport(
       const intent = opts.guessIntent(text);
       const body: QueryRequest = {
         farmer_id: opts.farmerId,
+        conversation_id: opts.conversationId,
         query: {
           text,
           voice_b64: "",
@@ -51,8 +62,10 @@ export function createKrishiSathiChatTransport(
           location: {
             state: opts.state,
             district: opts.district,
+            ...(opts.lat !== undefined ? { lat: opts.lat } : {}),
+            ...(opts.lng !== undefined ? { lng: opts.lng } : {}),
           },
-          connectivity: opts.connectivity,
+          connectivity: queryConnectivityWire(opts.connectivity),
           device_intent: intent,
           device_capabilities: {
             ondevice_model: opts.ondeviceModel ?? "gemma-4-e4b-it",

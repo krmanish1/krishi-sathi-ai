@@ -9,6 +9,7 @@ export {
   getSyncBundle,
   postQuery,
   postQueryImage,
+  postSyncPush,
   putFarmerTwin,
 } from "./endpoints";
 export { ApiError, mapError, parseErrorResponse } from "./errors";
@@ -32,3 +33,4 @@ export type {
   QueryResponse,
   SyncBundle,
 } from "./types";
+export { queryConnectivityWire } from "./types";

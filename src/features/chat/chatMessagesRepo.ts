@@ -11,7 +11,7 @@ export type ChatMessageRow = {
   source: "ondevice" | "backend" | null;
   confidence: number | null;
   created_at: number;
-  /** Client-only: local image URI shown in optimistic bubble. Never persisted to DB. */
+  /** Local image URI (persisted) — crop preview from scan or chat attachment. */
   imageLocalUri?: string;
 };
 
@@ -20,7 +20,8 @@ export async function listThreadMessages(
 ): Promise<ChatMessageRow[]> {
   const d = getDb();
   return d.getAllAsync<ChatMessageRow>(
-    `SELECT id, thread_id, role, text, source, confidence, created_at
+    `SELECT id, thread_id, role, text, source, confidence, created_at,
+            image_local_uri AS imageLocalUri
      FROM chat_messages WHERE thread_id = ? ORDER BY created_at ASC`,
     [threadId],
   );
@@ -34,6 +35,8 @@ type AppendInput = {
   source?: "ondevice" | "backend" | null;
   confidence?: number | null;
   createdAt?: number;
+  /** Persisted for user messages — shown in chat bubble (scan / attachment). */
+  imageLocalUri?: string | null;
 };
 
 export async function appendMessage(input: AppendInput): Promise<ChatMessageRow> {
@@ -43,10 +46,11 @@ export async function appendMessage(input: AppendInput): Promise<ChatMessageRow>
   const created = input.createdAt ?? Date.now();
   const source = input.source ?? null;
   const conf = input.confidence ?? null;
+  const img = input.imageLocalUri?.trim() || null;
   await d.runAsync(
-    `INSERT INTO chat_messages (id, thread_id, role, text, source, confidence, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [id, threadId, input.role, input.text, source, conf, created],
+    `INSERT INTO chat_messages (id, thread_id, role, text, source, confidence, created_at, image_local_uri)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, threadId, input.role, input.text, source, conf, created, img],
   );
   return {
     id,
@@ -56,6 +60,7 @@ export async function appendMessage(input: AppendInput): Promise<ChatMessageRow>
     source,
     confidence: conf,
     created_at: created,
+    ...(img ? { imageLocalUri: img } : {}),
   };
 }
 

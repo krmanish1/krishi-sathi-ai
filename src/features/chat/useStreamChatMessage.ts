@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { useChat } from "@ai-sdk/react";
-import type { UIMessage } from "ai";
+import { isReasoningUIPart, type UIMessage } from "ai";
 import { useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { ApiError } from "@/shared/api/errors";
@@ -10,6 +10,7 @@ import type { Language } from "@/shared/config/constants";
 import { appendMessage, MAIN_THREAD_ID } from "./chatMessagesRepo";
 import { guessDeviceIntent } from "./guessDeviceIntent";
 import { CHAT_THREAD_QUERY_KEY } from "./useChatThread";
+import type { StageEvent } from "./thinkingStages";
 
 export type BackendStage = "routing" | "planning" | "tools" | "synthesizing" | "clarify";
 export type StreamPhase = BackendStage | "idle";
@@ -19,8 +20,12 @@ export type UseStreamChatMessageOpts = {
   language: Language;
   state: string;
   district: string;
+  lat?: number;
+  lng?: number;
   connectivity: Connectivity;
   imageRef?: string;
+  /** Defaults to main chat thread id (matches local DB `thread_id`). */
+  conversationId?: string;
 };
 
 function mapErr(e: unknown): string {
@@ -35,6 +40,14 @@ function extractAssistantText(message: UIMessage): string {
     return textPart.text;
   }
   return "";
+}
+
+/** AI SDK chain-of-thought / reasoning stream (`reasoning` UI parts). */
+function extractReasoningText(message: UIMessage): string {
+  return message.parts
+    .filter(isReasoningUIPart)
+    .map((p) => p.text)
+    .join("");
 }
 
 function extractMetadata(message: UIMessage): {
@@ -54,7 +67,9 @@ function extractLatestStage(message: UIMessage | undefined): BackendStage | unde
     const p = message.parts[i];
     if (!p) continue;
     if (p.type === "data-stage" && "data" in p && p.data && typeof p.data === "object") {
-      const stage = (p.data as { stage?: BackendStage }).stage;
+      const d = p.data as Record<string, unknown>;
+      const raw = d.stage;
+      const stage = typeof raw === "string" ? raw : "";
       if (
         stage === "routing" ||
         stage === "planning" ||
@@ -62,7 +77,7 @@ function extractLatestStage(message: UIMessage | undefined): BackendStage | unde
         stage === "synthesizing" ||
         stage === "clarify"
       ) {
-        return stage;
+        return stage as BackendStage;
       }
     }
   }
@@ -72,30 +87,39 @@ function extractLatestStage(message: UIMessage | undefined): BackendStage | unde
 export function useStreamChatMessage(opts: UseStreamChatMessageOpts) {
   const qc = useQueryClient();
   const [inFlight, setInFlight] = useState(false);
-  const [stageHistory, setStageHistory] = useState<BackendStage[]>([]);
+  /** Full `data` payload per `data-stage` SSE event (backend-controlled copy). */
+  const [stageEvents, setStageEvents] = useState<StageEvent[]>([]);
 
   const chatId = useMemo(
     () =>
-      `krishi-stream-${opts.farmerId}-${opts.connectivity}-${opts.language}-${opts.state}-${opts.district}`,
-    [opts.farmerId, opts.connectivity, opts.language, opts.state, opts.district],
+      `krishi-stream-${opts.farmerId}-${opts.connectivity}-${opts.language}-${opts.state}-${opts.district}-${opts.lat ?? ""}-${opts.lng ?? ""}`,
+    [opts.farmerId, opts.connectivity, opts.language, opts.state, opts.district, opts.lat, opts.lng],
   );
+
+  const conversationId = opts.conversationId ?? MAIN_THREAD_ID;
 
   const transport = useMemo(
     () =>
       createKrishiSathiChatTransport({
         farmerId: opts.farmerId,
+        conversationId,
         language: opts.language,
         state: opts.state,
         district: opts.district,
+        ...(opts.lat !== undefined ? { lat: opts.lat } : {}),
+        ...(opts.lng !== undefined ? { lng: opts.lng } : {}),
         connectivity: opts.connectivity,
         ...(opts.imageRef !== undefined ? { imageRef: opts.imageRef } : {}),
         guessIntent: guessDeviceIntent,
       }),
     [
       opts.farmerId,
+      conversationId,
       opts.language,
       opts.state,
       opts.district,
+      opts.lat,
+      opts.lng,
       opts.connectivity,
       opts.imageRef,
     ],
@@ -108,9 +132,8 @@ export function useStreamChatMessage(opts: UseStreamChatMessageOpts) {
     // Without this, AI SDK can ignore or drop unknown data parts.
     dataPartSchemas: useMemo(
       () => ({
-        stage: z.object({
-          stage: z.enum(["routing", "planning", "tools", "synthesizing", "clarify"]),
-        }),
+        // Accept any JSON object from `data-stage` so titles/descriptions/tools come from the server.
+        stage: z.record(z.string(), z.unknown()),
         metadata: z.unknown(),
       }),
       [],
@@ -146,19 +169,10 @@ export function useStreamChatMessage(opts: UseStreamChatMessageOpts) {
       })();
     },
     onData: (part) => {
-      // Record stage progression so the UI can show "what's happening" even before tokens arrive.
-      if (part.type === "data-stage") {
-        const stage = (part.data as { stage?: BackendStage } | undefined)?.stage;
-        if (
-          stage === "routing" ||
-          stage === "planning" ||
-          stage === "tools" ||
-          stage === "synthesizing" ||
-          stage === "clarify"
-        ) {
-          setStageHistory((prev) => (prev[prev.length - 1] === stage ? prev : [...prev, stage]));
-        }
-      }
+      if (part.type !== "data-stage") return;
+      const data = part.data;
+      if (data == null || typeof data !== "object" || Array.isArray(data)) return;
+      setStageEvents((prev) => [...prev, { data: data as Record<string, unknown> }]);
     },
   });
 
@@ -173,12 +187,13 @@ export function useStreamChatMessage(opts: UseStreamChatMessageOpts) {
     : "idle";
 
   const streamingText = lastAssistant ? extractAssistantText(lastAssistant) : "";
+  const streamingReasoning = lastAssistant ? extractReasoningText(lastAssistant) : "";
 
   const send = useCallback(
     async (text: string, streamOpts?: { skipUserMessage?: boolean }) => {
       const trimmed = text.trim();
       if (!trimmed) return;
-      setStageHistory([]);
+      setStageEvents([]);
       if (!streamOpts?.skipUserMessage) {
         await appendMessage({ role: "user", text: trimmed });
         await qc.invalidateQueries({ queryKey: CHAT_THREAD_QUERY_KEY(MAIN_THREAD_ID) });
@@ -192,8 +207,9 @@ export function useStreamChatMessage(opts: UseStreamChatMessageOpts) {
   return {
     send,
     streamingText,
+    streamingReasoning,
     streamPhase,
-    stageHistory,
+    stageEvents,
     isStreaming,
     streamError: error,
     status,

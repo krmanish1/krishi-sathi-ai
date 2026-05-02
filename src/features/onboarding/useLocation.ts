@@ -5,6 +5,9 @@ export type LocationFailureReason = "services_disabled" | "permission_denied" | 
 export type DetectLocationResult = {
   state: string | null;
   district: string | null;
+  /** WGS84 from the device fix when a position was obtained (before or after geocode). */
+  latitude?: number | null;
+  longitude?: number | null;
   failureReason?: LocationFailureReason;
 };
 
@@ -31,18 +34,40 @@ export const detectLocation = async (): Promise<DetectLocationResult> => {
       return { state: null, district: null, failureReason: "permission_denied" };
     }
 
-    const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-    const results = await Location.reverseGeocodeAsync({
-      latitude: pos.coords.latitude,
-      longitude: pos.coords.longitude,
+    const pos = await Location.getCurrentPositionAsync({
+      accuracy: Location.Accuracy.High,
     });
+    const latitude = pos.coords.latitude;
+    const longitude = pos.coords.longitude;
+
+    let results: Awaited<ReturnType<typeof Location.reverseGeocodeAsync>>;
+    try {
+      results = await Location.reverseGeocodeAsync({ latitude, longitude });
+    } catch {
+      return {
+        state: null,
+        district: null,
+        latitude,
+        longitude,
+        failureReason: "unavailable",
+      };
+    }
+
     const r = results[0];
     if (!r) {
-      return { state: null, district: null };
+      return { state: null, district: null, latitude, longitude };
     }
     const state = r.region ?? null;
-    const district = r.subregion ?? r.district ?? r.city ?? null;
-    return { state, district };
+    const districtRaw = r as { district?: string | null; subregion?: string | null; city?: string | null; name?: string | null };
+    const district =
+      (typeof districtRaw.district === "string" && districtRaw.district.trim()
+        ? districtRaw.district
+        : null) ??
+      districtRaw.subregion ??
+      districtRaw.city ??
+      districtRaw.name ??
+      null;
+    return { state, district, latitude, longitude };
   } catch {
     return { state: null, district: null, failureReason: "unavailable" };
   }

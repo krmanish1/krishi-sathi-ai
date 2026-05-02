@@ -2,6 +2,11 @@ import type { Language } from "@/shared/config/constants";
 
 export type Connectivity = "online" | "offline" | "degraded";
 
+/** Backend `/api/v1/query` and `/query/stream` expect `online` | `offline` in JSON. */
+export function queryConnectivityWire(c: Connectivity): "online" | "offline" {
+  return c === "offline" ? "offline" : "online";
+}
+
 export type DeviceIntent =
   | "crop_disease"
   | "scheme_query"
@@ -17,17 +22,19 @@ export type OnDeviceModel = "gemma-4-e4b-it" | "gemma-4-e2b-it";
 // Matches backend: "live" (from network) | "offline" (served from server cache)
 export type DataSource = "live" | "offline";
 
+/** POST `/api/v1/query` and `/api/v1/query/stream` body (matches backend OpenAPI). */
 export type QueryRequest = {
   farmer_id: string;
+  conversation_id: string;
   query: {
     text: string;
-    voice_b64?: string | null;
+    voice_b64: string;
     image_ref: string | null;
     language: Language;
   };
   context: {
-    location: { lat?: number; lng?: number; district: string; state: string };
-    connectivity: Connectivity;
+    location: { state: string; district: string; lat?: number; lng?: number };
+    connectivity: "online" | "offline";
     device_intent: DeviceIntent;
     device_capabilities: { ondevice_model: OnDeviceModel };
   };
