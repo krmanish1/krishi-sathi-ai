@@ -3,3 +3,4 @@ export type { ButtonProps } from "./Button";
 export { Input } from "./Input";
 export type { InputProps } from "./Input";
 export { ListItem } from "./ListItem";
+export { KrishiTabBar } from "./KrishiTabBar";

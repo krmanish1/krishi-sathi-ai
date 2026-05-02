@@ -99,15 +99,6 @@ function SettingsRow({
   );
 }
 
-/** Maps twin API `land.irrigation` string to boolean for the form. */
-function parseTwinIrrigation(raw?: string | null): boolean | null {
-  if (raw == null || raw === "") return null;
-  const v = raw.toLowerCase();
-  if (["yes", "true", "irrigated", "y"].includes(v)) return true;
-  if (["no", "false", "rainfed", "n"].includes(v)) return false;
-  return null;
-}
-
 /* ─── Main screen ─────────────────────────────────────────────── */
 
 export default function ProfileScreen() {
@@ -127,7 +118,6 @@ export default function ProfileScreen() {
   const [farmState, setFarmState] = useState("");
   const [farmDistrict, setFarmDistrict] = useState("");
   const [farmLandAcres, setFarmLandAcres] = useState("");
-  const [farmIrrigation, setFarmIrrigation] = useState(false);
   const farmHydratedForFarmer = useRef<string | null>(null);
 
   useEffect(() => {
@@ -144,7 +134,7 @@ export default function ProfileScreen() {
         farmHydratedForFarmer.current = fid;
         const ob = useOnboarding.getState();
         setName(twin.name ?? "");
-        setCrops(twin.current_crops?.map((c) => c.name).join(", ") ?? "");
+        setCrops(twin.current_crops?.length ? twin.current_crops.join(", ") : "");
         setFarmState(twin.location?.state?.trim() || ob.state || "");
         setFarmDistrict(twin.location?.district?.trim() || ob.district || "");
         const twinAcres = twin.land?.total_acres;
@@ -153,8 +143,6 @@ export default function ProfileScreen() {
             ? String(twinAcres)
             : ob.landAcres ?? "";
         setFarmLandAcres(acresStr);
-        const irrTwin = parseTwinIrrigation(twin.land?.irrigation);
-        setFarmIrrigation(irrTwin !== null ? irrTwin : ob.irrigation ?? false);
       });
     });
     return () => {
@@ -208,26 +196,29 @@ export default function ProfileScreen() {
     const acresNum = acresRaw ? parseFloat(acresRaw) : NaN;
     const acresOk = Number.isFinite(acresNum) && acresNum > 0;
 
-    const land: NonNullable<FarmerTwin["land"]> = { ...(twin.land ?? {}) };
-    land.irrigation = farmIrrigation ? "irrigated" : "rainfed";
+    const land: NonNullable<FarmerTwin["land"]> = twin.land ? { ...twin.land } : {};
+    delete land.irrigation;
     if (acresOk) land.total_acres = acresNum;
     else delete land.total_acres;
 
     const next: FarmerTwin = {
+      ...twin,
       farmer_id: twin.farmer_id,
       preferred_language: lg,
-      location: { state: st, district: dist },
-      current_crops: names.map((n) => ({ name: n, area_acres: 0 })),
-      land,
-      ...(nm ? { name: nm } : {}),
-      ...(twin.livestock ? { livestock: twin.livestock } : {}),
+      location: { ...twin.location, state: st, district: dist },
+      current_crops: names,
+      name: nm || null,
     };
+    if (Object.keys(land).length) {
+      next.land = land;
+    } else {
+      delete next.land;
+    }
     void update
       .mutateAsync(next)
       .then(() => {
         setLocationPersist(st, dist, {
           landAcres: farmLandAcres.trim() || null,
-          irrigation: farmIrrigation,
         });
         Alert.alert(t("profile.saved"));
       })
@@ -241,7 +232,6 @@ export default function ProfileScreen() {
     farmState,
     farmDistrict,
     farmLandAcres,
-    farmIrrigation,
     setLocationPersist,
   ]);
 
@@ -386,22 +376,6 @@ export default function ProfileScreen() {
                     {t("onboarding.landSizeUnit")}
                   </Text>
                 </View>
-              </View>
-              <View className="flex-row items-center justify-between px-4 py-4">
-                <View className="flex-1 pr-3">
-                  <Text className="font-body-semibold text-[15px] text-ink">{t("onboarding.irrigationTitle")}</Text>
-                  <Text className="mt-0.5 font-body text-xs text-ink-muted">{t("onboarding.irrigationHint")}</Text>
-                </View>
-                <Pressable
-                  accessibilityRole="switch"
-                  accessibilityState={{ checked: farmIrrigation }}
-                  onPress={() => setFarmIrrigation((prev) => !prev)}
-                  className={`h-8 w-14 rounded-full ${farmIrrigation ? "bg-brand" : "bg-border"}`}
-                >
-                  <View
-                    className={`mt-1 h-6 w-6 rounded-full ${farmIrrigation ? "bg-black" : "bg-ink"} ${farmIrrigation ? "ml-7" : "ml-1"}`}
-                  />
-                </Pressable>
               </View>
             </SettingsCard>
             <Pressable

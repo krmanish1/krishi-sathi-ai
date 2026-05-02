@@ -3,12 +3,22 @@ import { LinearGradient } from "expo-linear-gradient";
 import { format } from "date-fns";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { View, Text, ScrollView, Pressable, useWindowDimensions, StyleSheet } from "react-native";
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  useWindowDimensions,
+  StyleSheet,
+  ActivityIndicator,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useOnboarding } from "@/features/onboarding/store";
 import { greetingFirstName, useDisplayName } from "@/features/twin";
-import { useConnectivity } from "@/shared/network/useConnectivity";
+import { useFarmerWeather } from "@/features/weather";
+import { useFarmerId } from "@/shared/auth/AuthProvider";
+import { useConnectivity } from "@/shared/network";
 import { runInitialSync } from "@/features/onboarding/useInitialSync";
 import { useMandiFromBundle } from "@/features/mandi/mandiFromBundle";
 
@@ -18,14 +28,34 @@ export default function HomeScreen() {
   const { width } = useWindowDimensions();
   const district = useOnboarding((s) => s.district);
   const state = useOnboarding((s) => s.state);
+  const farmerId = useFarmerId();
   const displayName = useDisplayName();
   const greetingName = greetingFirstName(displayName);
   const connectivity = useConnectivity();
   const isOffline = connectivity === "offline";
   const isOnlineMode = connectivity === "online" || connectivity === "degraded";
   const timeLabel = format(new Date(), "hh:mm a");
-  const placeLabel =
-    district && state ? `${district}, ${state}` : t("home.weatherSample", { place: "—" });
+  const farmPlaceLabel = district && state ? `${district}, ${state}` : "—";
+  const {
+    display: weatherDisplay,
+    refreshWeather,
+    isRefreshingWeather,
+    weatherError,
+    isPending: weatherPending,
+    data: weatherData,
+  } = useFarmerWeather({
+    farmerId,
+    connectivity,
+    fallbackPlace: farmPlaceLabel,
+  });
+
+  const weatherBadgeLabel = (() => {
+    if (!isOnlineMode) return t("home.weatherOfflinePill");
+    if (weatherPending && !weatherData) return t("home.weatherLoading");
+    if (weatherDisplay.source === "live") return t("home.weatherLive");
+    if (weatherDisplay.source === "cached") return t("home.cachedWeather");
+    return t("home.cachedWeather");
+  })();
   const { data: mandiData, refetch: refetchMandi } = useMandiFromBundle();
   const mandiRows = mandiData?.rows ?? [];
   const primaryMandi = mandiRows[0];
@@ -54,6 +84,7 @@ export default function HomeScreen() {
   return (
     <View className="flex-1 bg-page">
       <ScrollView
+        testID="home-scroll"
         className="flex-1"
         contentContainerStyle={{
           paddingHorizontal: 16,
@@ -107,22 +138,53 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Weather card */}
-        <View className="mb-7 overflow-hidden rounded-bento bg-card p-5 shadow-dialog">
+        {/* Weather card — GET /api/v1/weather/{farmer_id} */}
+        <View testID="home-weather-card" className="mb-7 overflow-hidden rounded-bento bg-card p-5 shadow-dialog">
           <View className="flex-row items-start justify-between">
             <View className="flex-1 pr-2">
               <View className="self-start rounded-full bg-amber/12 px-3 py-1">
                 <Text className="font-body-semibold text-[10px] uppercase tracking-[1.4px] text-amber">
-                  {t("home.cachedWeather")}
+                  {weatherBadgeLabel}
                 </Text>
               </View>
-              <Text className="mt-3 font-display text-[40px] leading-none text-ink">{t("home.tempSample")}</Text>
-              <Text className="mt-2 font-body text-[15px] text-ink-muted">
-                {t("home.weatherSample", { place: placeLabel })}
+              <Text className="mt-3 font-display text-[40px] leading-none text-ink">
+                {weatherDisplay.tempLabel}
               </Text>
+              {weatherDisplay.conditionLabel ? (
+                <Text className="mt-2 font-body text-[15px] leading-5 text-ink">
+                  {weatherDisplay.conditionLabel}
+                </Text>
+              ) : null}
+              <Text
+                className={`font-body text-[15px] text-ink-muted ${weatherDisplay.conditionLabel ? "mt-1" : "mt-2"}`}
+              >
+                {t("home.weatherAtPlace", { place: weatherDisplay.placeLabel })}
+              </Text>
+              {weatherError && isOnlineMode ? (
+                <Text className="mt-2 font-body text-xs text-danger">{t("home.weatherError")}</Text>
+              ) : null}
             </View>
-            <View className="rounded-full bg-amber/15 p-3">
-              <MaterialCommunityIcons name="weather-partly-cloudy" size={36} color="#ffa42b" />
+            <View className="items-end gap-2">
+              {isOnlineMode && farmerId ? (
+                <Pressable
+                  testID="home-weather-refresh"
+                  onPress={refreshWeather}
+                  disabled={isRefreshingWeather}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("home.weatherRefreshA11y")}
+                  className="rounded-full bg-muted/90 p-2.5 active:opacity-80"
+                  hitSlop={6}
+                >
+                  {isRefreshingWeather ? (
+                    <ActivityIndicator size="small" color="#1ed760" />
+                  ) : (
+                    <MaterialCommunityIcons name="refresh" size={22} color="#1ed760" />
+                  )}
+                </Pressable>
+              ) : null}
+              <View className="rounded-full bg-amber/15 p-3">
+                <MaterialCommunityIcons name="weather-partly-cloudy" size={36} color="#ffa42b" />
+              </View>
             </View>
           </View>
           <View className="mt-5 flex-row gap-3">
@@ -130,13 +192,13 @@ export default function HomeScreen() {
               <Text className="font-body-semibold text-[10px] uppercase tracking-[1.2px] text-ink-muted">
                 {t("home.humidity")}
               </Text>
-              <Text className="mt-1 font-display text-xl text-ink">45%</Text>
+              <Text className="mt-1 font-display text-xl text-ink">{weatherDisplay.humidityLabel}</Text>
             </View>
             <View className="flex-1 rounded-xl bg-muted p-3.5" style={styles.statInset}>
               <Text className="font-body-semibold text-[10px] uppercase tracking-[1.2px] text-ink-muted">
                 {t("home.rainChance")}
               </Text>
-              <Text className="mt-1 font-display text-xl text-ink">10%</Text>
+              <Text className="mt-1 font-display text-xl text-ink">{weatherDisplay.rainLabel}</Text>
             </View>
           </View>
         </View>

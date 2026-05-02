@@ -13,11 +13,6 @@ export function twinTwinQueryString(connectivity: Connectivity): string {
   return `?${q.toString()}`;
 }
 
-/** Backend uses irrigated / rainfed (see OpenAPI examples). */
-export function irrigationToApi(irrigationUi: boolean): "irrigated" | "rainfed" {
-  return irrigationUi ? "irrigated" : "rainfed";
-}
-
 /** Normalize API irrigation strings to canonical irrigated | rainfed for internal storage. */
 export function normalizeIrrigationFromApi(raw?: string | null): "irrigated" | "rainfed" | undefined {
   if (raw == null || raw === "") return undefined;
@@ -31,23 +26,16 @@ export function normalizeIrrigationFromApi(raw?: string | null): "irrigated" | "
 
 function normalizeCurrentCrops(raw: unknown): NonNullable<FarmerTwin["current_crops"]> {
   if (!Array.isArray(raw)) return [];
-  const out: NonNullable<FarmerTwin["current_crops"]> = [];
+  const out: string[] = [];
   for (const item of raw) {
     if (typeof item === "string" && item.trim()) {
-      out.push({ name: item.trim(), area_acres: 0 });
+      out.push(item.trim());
       continue;
     }
     if (item && typeof item === "object" && "name" in item) {
-      const x = item as { name?: unknown; area_acres?: unknown; sown_on?: unknown };
+      const x = item as { name?: unknown };
       if (typeof x.name !== "string" || !x.name.trim()) continue;
-      const acres =
-        typeof x.area_acres === "number" && Number.isFinite(x.area_acres) ? x.area_acres : 0;
-      const row: { name: string; area_acres: number; sown_on?: string } = {
-        name: x.name.trim(),
-        area_acres: acres,
-      };
-      if (typeof x.sown_on === "string" && x.sown_on) row.sown_on = x.sown_on;
-      out.push(row);
+      out.push(x.name.trim());
     }
   }
   return out;
@@ -120,51 +108,40 @@ export function normalizeTwinFromApi(raw: unknown): FarmerTwin {
   return twin;
 }
 
-function irrigationForPutBody(ir?: string | null): "irrigated" | "rainfed" {
-  const n = normalizeIrrigationFromApi(ir ?? undefined);
-  if (n) return n;
-  const v = ir?.toLowerCase() ?? "";
-  if (v === "yes") return "irrigated";
-  if (v === "no") return "rainfed";
-  return "rainfed";
-}
-
 /**
- * Body shape aligned with backend PUT (string crop names, irrigation enum).
+ * PUT body aligned with backend twin schema.
  */
 export function serializeTwinForApi(twin: FarmerTwin): Record<string, unknown> {
-  const current_crops =
-    twin.current_crops?.map((c) => (typeof c === "string" ? c : c.name)).filter(Boolean) ?? [];
+  const current_crops = (twin.current_crops ?? []).map((c) => c.trim()).filter(Boolean);
 
-  const land =
-    twin.land && Object.keys(twin.land).length > 0
-      ? {
-          ...(typeof twin.land.total_acres === "number" ? { total_acres: twin.land.total_acres } : {}),
-          ...(twin.land.soil_type ? { soil_type: twin.land.soil_type } : {}),
-          irrigation: irrigationForPutBody(twin.land.irrigation ?? undefined),
-        }
-      : undefined;
+  const totalAcres =
+    typeof twin.land?.total_acres === "number" && Number.isFinite(twin.land.total_acres)
+      ? twin.land.total_acres
+      : 0;
+  const soilRaw = twin.land?.soil_type?.trim();
+  const soil_type = soilRaw && soilRaw.length > 0 ? soilRaw : "loamy";
 
-  const body: Record<string, unknown> = {
+  return {
     farmer_id: twin.farmer_id,
-    ...(twin.name !== undefined && twin.name !== null ? { name: twin.name } : {}),
+    name: twin.name ?? "",
     location: {
-      state: twin.location.state,
-      district: twin.location.district,
-      ...(twin.location.village ? { village: twin.location.village } : {}),
-      ...(typeof twin.location.lat === "number" ? { lat: twin.location.lat } : {}),
-      ...(typeof twin.location.lng === "number" ? { lng: twin.location.lng } : {}),
+      state: twin.location.state ?? "",
+      district: twin.location.district ?? "",
+      village: twin.location.village ?? "",
+      lat:
+        typeof twin.location.lat === "number" && Number.isFinite(twin.location.lat)
+          ? twin.location.lat
+          : 0,
+      lng:
+        typeof twin.location.lng === "number" && Number.isFinite(twin.location.lng)
+          ? twin.location.lng
+          : 0,
     },
-    ...(land && Object.keys(land).length ? { land } : {}),
+    land: {
+      total_acres: totalAcres,
+      soil_type,
+    },
     current_crops,
-    ...(twin.financial ? { financial: twin.financial } : {}),
-    ...(twin.risk_profile !== undefined ? { risk_profile: twin.risk_profile } : {}),
-    ...(twin.preferred_language !== undefined && twin.preferred_language !== null
-      ? { preferred_language: twin.preferred_language }
-      : {}),
-    ...(Array.isArray(twin.interaction_history) ? { interaction_history: twin.interaction_history } : {}),
-    ...(twin.livestock?.length ? { livestock: twin.livestock } : {}),
+    preferred_language: twin.preferred_language ?? "en",
   };
-
-  return body;
 }

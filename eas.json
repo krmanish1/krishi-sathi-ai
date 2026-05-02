@@ -10,7 +10,8 @@
       "android": { "buildType": "apk" },
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://nikesh2290-krishisaathi-backend.hf.space",
-        "EXPO_PUBLIC_USE_NATIVE_GEMMA": "1"
+        "EXPO_PUBLIC_USE_NATIVE_GEMMA": "1",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ivwnljoodlmpgbbfekdk.supabase.co"
       }
     },
     "preview": {
@@ -18,7 +19,8 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://nikesh2290-krishisaathi-backend.hf.space",
-        "EXPO_PUBLIC_USE_NATIVE_GEMMA": "1"
+        "EXPO_PUBLIC_USE_NATIVE_GEMMA": "1",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ivwnljoodlmpgbbfekdk.supabase.co"
       }
     },
     "production": {
@@ -26,7 +28,8 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_API_BASE_URL": "https://nikesh2290-krishisaathi-backend.hf.space",
-        "EXPO_PUBLIC_USE_NATIVE_GEMMA": "1"
+        "EXPO_PUBLIC_USE_NATIVE_GEMMA": "1",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://ivwnljoodlmpgbbfekdk.supabase.co"
       }
     }
   },
