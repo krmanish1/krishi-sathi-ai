@@ -6,6 +6,7 @@
     "start": "expo start",
     "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
+    "android:release": "expo run:android --variant release",
     "android:sha1": "bash scripts/print-android-debug-sha1.sh",
     "ios": "expo run:ios",
     "web": "expo start --web",
