@@ -15,12 +15,15 @@ import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from "@expo-goog
 import i18n from "@/shared/i18n";
 import { AuthProvider } from "@/shared/auth/AuthProvider";
 import { ApiStatusProvider } from "@/shared/api";
+import { SyncPushScheduler } from "@/shared/providers/SyncPushScheduler";
 import Constants from "expo-constants";
 import { initDb } from "@/shared/storage/db";
 import { setGemmaBackend } from "@/shared/ondevice/gemma";
 import { mockGemmaBackend } from "@/shared/ondevice/mock";
 import { createNativeBackend } from "@/shared/ondevice/native-backend";
 import { isNativeGemmaModuleLinked } from "@/modules/gemma-llm/src";
+import { theme } from "@/shared/ui/theme/tokens";
+import { initAuthBrowser } from "@/shared/supabase";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -31,6 +34,10 @@ const queryClient = new QueryClient({
 
 export const RootProviders = ({ children }: { children: ReactNode }) => {
   const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    initAuthBrowser();
+  }, []);
   const [fonts] = useFonts({
     PlusJakartaSans_600SemiBold,
     PlusJakartaSans_700Bold,
@@ -68,7 +75,7 @@ export const RootProviders = ({ children }: { children: ReactNode }) => {
   if (!fonts || !ready) {
     return (
       <View style={styles.splash} accessibilityLabel="Loading">
-        <ActivityIndicator size="large" color="#0D631B" />
+        <ActivityIndicator size="large" color={theme.brand} />
       </View>
     );
   }
@@ -79,8 +86,9 @@ export const RootProviders = ({ children }: { children: ReactNode }) => {
         <I18nextProvider i18n={i18n}>
           <QueryClientProvider client={queryClient}>
             <AuthProvider>
+              <SyncPushScheduler />
               <ApiStatusProvider>
-                <StatusBar style="dark" />
+                <StatusBar style="light" />
                 {children}
               </ApiStatusProvider>
             </AuthProvider>
@@ -92,5 +100,10 @@ export const RootProviders = ({ children }: { children: ReactNode }) => {
 };
 
 const styles = StyleSheet.create({
-  splash: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#F9F9F9" },
+  splash: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#121212",
+  },
 });

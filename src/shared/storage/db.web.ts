@@ -13,6 +13,8 @@ type ChatRow = {
   source: string | null;
   confidence: number | null;
   created_at: number;
+  /** Local file URI for user-attached crop images (scan / chat attachment). */
+  image_local_uri?: string | null;
 };
 
 type TwinRow = { payload: string; updated_at: number };
@@ -141,7 +143,7 @@ class WebAppDatabase {
 
     if (
       s ===
-      "INSERT INTO chat_messages (id, thread_id, role, text, source, confidence, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO chat_messages (id, thread_id, role, text, source, confidence, created_at, image_local_uri) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
     ) {
       this.data.chatMessages.push({
         id: String(a[0] ?? ""),
@@ -151,6 +153,7 @@ class WebAppDatabase {
         source: a[4] == null ? null : String(a[4]),
         confidence: a[5] == null ? null : Number(a[5]),
         created_at: Number(a[6] ?? 0),
+        image_local_uri: a[7] == null || a[7] === "" ? null : String(a[7]),
       });
       this.schedulePersist();
       return { changes: 1, lastInsertRowId: 0 };
@@ -224,12 +227,22 @@ class WebAppDatabase {
     const a = p == null ? [] : asArray(p);
 
     const listPrefix =
-      "SELECT id, thread_id, role, text, source, confidence, created_at FROM chat_messages WHERE thread_id = ? ORDER BY created_at ASC";
+      "SELECT id, thread_id, role, text, source, confidence, created_at, image_local_uri AS imageLocalUri FROM chat_messages WHERE thread_id = ? ORDER BY created_at ASC";
     if (s === norm(listPrefix)) {
       const tid = String(a[0] ?? "");
       const rows = this.data.chatMessages
         .filter((m) => m.thread_id === tid)
-        .sort((x, y) => x.created_at - y.created_at);
+        .sort((x, y) => x.created_at - y.created_at)
+        .map((m) => ({
+          id: m.id,
+          thread_id: m.thread_id,
+          role: m.role,
+          text: m.text,
+          source: m.source,
+          confidence: m.confidence,
+          created_at: m.created_at,
+          imageLocalUri: m.image_local_uri ?? undefined,
+        }));
       return rows as T[];
     }
 

@@ -9,3 +9,4 @@ export { detectLocation } from "./useLocation";
 export { downloadGemmaE4B } from "./useModelDownload";
 export type { DownloadProgress } from "./useModelDownload";
 export { useSyncTwin, syncTwinOnboarding } from "./useSyncTwin";
+export { OnboardingShell } from "./components/OnboardingShell";

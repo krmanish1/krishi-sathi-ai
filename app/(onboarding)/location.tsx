@@ -9,23 +9,24 @@ import {
   Linking,
   ScrollView,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { Image } from "expo-image";
 import { useOnboarding } from "@/features/onboarding/store";
 import { detectLocation } from "@/features/onboarding/useLocation";
+import { OnboardingShell } from "@/features/onboarding";
 
 export default function LocationScreen() {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   const setLocation = useOnboarding((s) => s.setLocation);
   const [state, setState] = useState("");
   const [district, setDistrict] = useState("");
   const [landSize, setLandSize] = useState("");
   const [irrigation, setIrrigation] = useState(true);
   const [locating, setLocating] = useState(true);
+  const [capturedLat, setCapturedLat] = useState<number | null>(null);
+  const [capturedLng, setCapturedLng] = useState<number | null>(null);
 
   useEffect(() => {
     void detectLocation()
@@ -35,6 +36,10 @@ export default function LocationScreen() {
         }
         if (d.district) {
           setDistrict(d.district);
+        }
+        if (d.latitude != null && d.longitude != null) {
+          setCapturedLat(d.latitude);
+          setCapturedLng(d.longitude);
         }
         if (!d.state && !d.district && d.failureReason) {
           Alert.alert(
@@ -61,140 +66,151 @@ export default function LocationScreen() {
     if (s.length < 2 || di.length < 2) {
       return;
     }
-    setLocation(s, di);
+    setLocation(s, di, {
+      landAcres: landSize.trim() || null,
+      irrigation,
+      lat: capturedLat,
+      lng: capturedLng,
+    });
     router.push("/(onboarding)/model-download");
   };
 
-  return (
-    <View className="flex-1 bg-page" style={{ paddingTop: insets.top }}>
-      <View className="flex-row items-center justify-between px-6 py-4">
-        <View className="flex-row items-center gap-3">
-          <View className="h-10 w-10 items-center justify-center rounded-full bg-border">
-            <MaterialCommunityIcons name="account" size={22} color="#14532D" />
-          </View>
-          <Text className="font-display text-3xl text-title-green">Krishi AI Saathi</Text>
-        </View>
-        <Pressable className="h-10 w-10 items-center justify-center rounded-xl bg-muted">
-          <MaterialCommunityIcons name="translate" size={20} color="#0D631B" />
-        </Pressable>
-      </View>
+  const canContinue = state.trim().length >= 2 && district.trim().length >= 2;
 
-      <ScrollView
-        className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 24 }}
-        showsVerticalScrollIndicator={false}
-      >
-        <View className="mb-5 mt-4">
-          <View className="self-start rounded-full bg-coral px-4 py-1.5">
-            <Text className="font-body-semibold text-xs uppercase tracking-widest text-earth">
-              STEP 1 : IDENTITY
+  return (
+    <OnboardingShell
+      step={3}
+      footer={
+        <Pressable
+          onPress={onContinue}
+          accessibilityRole="button"
+          disabled={!canContinue}
+          className={`min-h-[56px] flex-row items-center justify-center rounded-full shadow-dialog ${
+            canContinue ? "bg-brand active:opacity-90" : "bg-muted"
+          }`}
+        >
+          <Text
+            className={`font-display text-lg uppercase tracking-button ${canContinue ? "text-on-brand" : "text-ink-muted"}`}
+          >
+            {t("onboarding.ctaStartAdvisor")}
+          </Text>
+          <MaterialCommunityIcons
+            name="arrow-right"
+            size={20}
+            color={canContinue ? "#000000" : "#737373"}
+            style={{ marginLeft: 10 }}
+          />
+        </Pressable>
+      }
+    >
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
+        <View className="mb-6 mt-1 flex-row items-center justify-between">
+          <View className="flex-row items-center gap-3">
+            <LinearGradient
+              colors={["#1ed76033", "#168d4022"]}
+              className="h-11 w-11 items-center justify-center rounded-full"
+            >
+              <MaterialCommunityIcons name="map-marker-radius" size={22} color="#1ed760" />
+            </LinearGradient>
+            <Text className="font-display text-xl text-ink">{t("app.name")}</Text>
+          </View>
+        </View>
+
+        <View className="mb-5">
+          <View className="self-start rounded-full border border-brand/35 bg-brand/10 px-3 py-1.5">
+            <Text className="font-body-semibold text-[10px] uppercase tracking-[1.6px] text-brand">
+              {t("onboarding.locationBadge")}
             </Text>
           </View>
-          <Text className="mt-4 font-xb text-5xl leading-[50px] text-ink">
-            Grow with{"\n"}
-            <Text className="italic text-brand">Intelligence.</Text>
+          <Text className="mt-4 font-display text-4xl leading-[44px] tracking-tight text-ink">
+            {t("onboarding.locationHeadline")}{" "}
+            <Text className="text-brand">{t("onboarding.locationHeadlineAccent")}</Text>
           </Text>
-          <Text className="mt-3 font-body text-2xl leading-9 text-ink-muted">
-            Tell us about your land to get personalized crop insights and market alerts.
-          </Text>
+          <Text className="mt-3 font-body text-base leading-6 text-ink-muted">{t("onboarding.locationSub")}</Text>
         </View>
 
-        <View className="rounded-[32px] bg-white p-7 shadow-cta">
+        <View className="rounded-bento border border-white/[0.06] bg-card/95 p-6 shadow-card">
           <View>
-            <Text className="mb-2 font-body-semibold text-sm tracking-wide text-ink">
+            <Text className="mb-2 font-body-semibold text-xs uppercase tracking-wide text-ink-muted">
               {t("onboarding.stateLabel")}
             </Text>
             <TextInput
               value={state}
               onChangeText={setState}
-              placeholder="Maharashtra"
-              className="min-h-[56px] rounded-xl bg-muted px-5 text-base text-ink"
-              placeholderTextColor="#A8A29E"
+              placeholder={t("onboarding.statePlaceholder")}
+              className="min-h-[52px] rounded-xl border border-white/[0.06] bg-muted px-4 font-body text-[15px] text-ink"
+              placeholderTextColor="#737373"
               autoCorrect={false}
             />
           </View>
           <View className="mt-4">
-            <Text className="mb-2 font-body-semibold text-sm tracking-wide text-ink">
+            <Text className="mb-2 font-body-semibold text-xs uppercase tracking-wide text-ink-muted">
               {t("onboarding.districtLabel")}
             </Text>
             <TextInput
               value={district}
               onChangeText={setDistrict}
-              placeholder="Nashik"
-              className="min-h-[56px] rounded-xl bg-muted px-5 text-base text-ink"
-              placeholderTextColor="#A8A29E"
+              placeholder={t("onboarding.districtPlaceholder")}
+              className="min-h-[52px] rounded-xl border border-white/[0.06] bg-muted px-4 font-body text-[15px] text-ink"
+              placeholderTextColor="#737373"
               autoCorrect={false}
             />
           </View>
           <View className="mt-4">
-            <Text className="mb-2 font-body-semibold text-sm tracking-wide text-ink">Land Size (Acres)</Text>
+            <Text className="mb-2 font-body-semibold text-xs uppercase tracking-wide text-ink-muted">
+              {t("onboarding.landSizeLabel")}
+            </Text>
             <View className="relative">
               <TextInput
                 value={landSize}
                 onChangeText={setLandSize}
-                placeholder="5.5"
+                placeholder={t("onboarding.landSizePlaceholder")}
                 keyboardType="decimal-pad"
-                className="min-h-[56px] rounded-xl bg-muted px-5 pr-20 text-base text-ink"
-                placeholderTextColor="#A8A29E"
+                className="min-h-[52px] rounded-xl border border-white/[0.06] bg-muted px-4 pr-20 font-body text-[15px] text-ink"
+                placeholderTextColor="#737373"
               />
-              <Text className="absolute right-5 top-[18px] font-body-semibold text-sm uppercase text-ink-muted">
-                Acres
+              <Text className="absolute right-4 top-[15px] font-body-semibold text-xs uppercase text-ink-muted">
+                {t("onboarding.landSizeUnit")}
               </Text>
             </View>
           </View>
-          <View className="mt-5 flex-row items-center justify-between rounded-2xl bg-muted px-4 py-4">
-            <View>
-              <Text className="font-body-semibold text-sm text-ink">Irrigation Available?</Text>
-              <Text className="font-body text-xs text-ink-muted">Pumps, Wells, or Canals</Text>
+          <View className="mt-5 flex-row items-center justify-between rounded-2xl border border-white/[0.06] bg-muted px-4 py-4">
+            <View className="flex-1 pr-3">
+              <Text className="font-body-semibold text-[15px] text-ink">{t("onboarding.irrigationTitle")}</Text>
+              <Text className="mt-0.5 font-body text-xs text-ink-muted">{t("onboarding.irrigationHint")}</Text>
             </View>
             <Pressable
               accessibilityRole="switch"
               accessibilityState={{ checked: irrigation }}
               onPress={() => setIrrigation((prev) => !prev)}
-              className={`h-8 w-14 rounded-full ${irrigation ? "bg-brand" : "bg-stone/40"}`}
+              className={`h-8 w-14 rounded-full ${irrigation ? "bg-brand" : "bg-border"}`}
             >
               <View
-                className={`mt-1 h-6 w-6 rounded-full bg-white ${irrigation ? "ml-7" : "ml-1"}`}
+                className={`mt-1 h-6 w-6 rounded-full ${irrigation ? "bg-black" : "bg-ink"} ${irrigation ? "ml-7" : "ml-1"}`}
               />
             </Pressable>
           </View>
 
-          <View className="mt-4 overflow-hidden rounded-2xl">
-            <Image
-              source={{ uri: "https://www.figma.com/api/mcp/asset/61bee173-7140-4b02-b0d4-a69add1e0e07" }}
-              style={{ height: 156, width: "100%" }}
-              contentFit="cover"
-            />
-            <View className="absolute bottom-4 left-4">
-              <Text className="font-body-semibold text-[10px] uppercase tracking-widest text-white/90">
-                LOCAL WEATHER
+          <View className="mt-5 flex-row gap-3 rounded-2xl border border-white/[0.08] bg-card/60 p-4">
+            <View className="h-10 w-10 items-center justify-center rounded-full bg-brand/20">
+              <MaterialCommunityIcons name="crosshairs-gps" size={22} color="#1ed760" />
+            </View>
+            <View className="flex-1">
+              <Text className="font-body-semibold text-xs uppercase tracking-wide text-ink-muted">
+                {t("onboarding.locationGpsTitle")}
               </Text>
-              <Text className="font-display text-2xl text-white">28°C · Sunny</Text>
+              <Text className="mt-1 font-body text-sm leading-5 text-ink">{t("onboarding.locationGpsHint")}</Text>
             </View>
           </View>
         </View>
 
         {locating ? (
-          <View className="mt-3 flex-row items-center gap-2">
-            <ActivityIndicator color="#0B3D2E" />
-            <Text className="font-body text-sm text-ink-muted">Detecting your location...</Text>
+          <View className="mt-4 flex-row items-center gap-2">
+            <ActivityIndicator color="#1ed760" />
+            <Text className="font-body text-sm text-ink-muted">{t("onboarding.detectingLocation")}</Text>
           </View>
         ) : null}
       </ScrollView>
-
-      <View
-        className="px-6 pb-5 pt-4"
-        style={{ paddingBottom: insets.bottom + 12 }}
-      >
-        <Pressable
-          onPress={onContinue}
-          accessibilityRole="button"
-          className="min-h-[64px] flex-row items-center justify-center rounded-2xl bg-brand"
-        >
-          <Text className="font-display text-3xl text-white">Start AI Advisor</Text>
-          <MaterialCommunityIcons name="arrow-right" size={18} color="#FFFFFF" style={{ marginLeft: 10 }} />
-        </Pressable>
-      </View>
-    </View>
+    </OnboardingShell>
   );
 }

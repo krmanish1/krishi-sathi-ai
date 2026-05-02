@@ -1,5 +1,15 @@
 import { ExpoConfig, ConfigContext } from "expo/config";
 
+const googleSignInPlugin: [string, { iosUrlScheme: string }] | null =
+  process.env.EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME
+    ? [
+        "@react-native-google-signin/google-signin",
+        {
+          iosUrlScheme: process.env.EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME,
+        },
+      ]
+    : null;
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: "KrishiSaathi AI",
@@ -17,19 +27,19 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     useEmbeddedUpdate: true,
   },
   orientation: "portrait",
-  userInterfaceStyle: "automatic",
+  userInterfaceStyle: "dark",
   icon: "./assets/images/icon.png",
   splash: {
     image: "./assets/images/splash.png",
     resizeMode: "contain",
-    backgroundColor: "#0B3D2E",
+    backgroundColor: "#121212",
   },
   android: {
     package: "ai.krishisaathi.app",
     softwareKeyboardLayoutMode: "resize",
     adaptiveIcon: {
       foregroundImage: "./assets/images/adaptive-icon.png",
-      backgroundColor: "#0B3D2E",
+      backgroundColor: "#121212",
     },
     permissions: [
       "CAMERA",
@@ -58,6 +68,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
           "We use location only to fetch district-specific data.",
       },
     ],
+    ...(googleSignInPlugin ? [googleSignInPlugin] : []),
   ],
   experiments: { typedRoutes: true },
   extra: {
@@ -67,5 +78,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://10.0.2.2:8000",
     useNativeGemma: process.env.EXPO_PUBLIC_USE_NATIVE_GEMMA ?? "0",
     nativeGemmaModelPath: process.env.EXPO_PUBLIC_NATIVE_GEMMA_MODEL_PATH ?? "",
+    supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL ?? "",
+    supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_KEY ?? "",
+    googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "",
   },
 });

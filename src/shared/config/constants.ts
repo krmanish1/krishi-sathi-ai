@@ -2,6 +2,7 @@ export const TIMEOUTS_MS = {
   query: 90_000,
   queryImage: 30_000,
   syncBundle: 15_000,
+  syncPush: 30_000,
   health: 5_000,
 } as const;
 

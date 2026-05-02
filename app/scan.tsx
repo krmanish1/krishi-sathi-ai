@@ -21,6 +21,10 @@ export default function ScanScreen() {
   const language = (useOnboarding((s) => s.language) ?? "en") as Language;
   const state = useOnboarding((s) => s.state) ?? "—";
   const district = useOnboarding((s) => s.district) ?? "—";
+  const latRaw = useOnboarding((s) => s.lat);
+  const lngRaw = useOnboarding((s) => s.lng);
+  const lat = latRaw != null && Number.isFinite(latRaw) ? latRaw : undefined;
+  const lng = lngRaw != null && Number.isFinite(lngRaw) ? lngRaw : undefined;
   const connectivity = useConnectivity();
   const send = useSendChatMessage();
   const [localUri, setLocalUri] = useState<string | null>(null);
@@ -57,8 +61,12 @@ export default function ScanScreen() {
         { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG },
       );
       const r = await postQueryImage({ uri: m.uri, farmerId, purpose: "crop_disease" });
-      // Write the user bubble directly so skipUserMessage=true works below
-      await appendMessage({ role: "user", text: t("scan.diagnosisRequest") });
+      // User row includes image so chat shows crop preview with the diagnosis prompt
+      await appendMessage({
+        role: "user",
+        text: t("scan.diagnosisRequest"),
+        imageLocalUri: m.uri,
+      });
       await send.mutateAsync({
         text: t("scan.diagnosisRequest"),
         imageRef: r.image_ref,
@@ -66,6 +74,8 @@ export default function ScanScreen() {
         language,
         state,
         district,
+        ...(lat !== undefined ? { lat } : {}),
+        ...(lng !== undefined ? { lng } : {}),
         connectivity,
         skipUserMessage: true,
         forceBackend: true,
@@ -92,7 +102,7 @@ export default function ScanScreen() {
           onPress={() => router.back()}
           className="mr-2 rounded-full p-1"
         >
-          <MaterialCommunityIcons name="arrow-left" size={24} color="#0D631B" />
+          <MaterialCommunityIcons name="arrow-left" size={24} color="#1ed760" />
         </Pressable>
         <Text className="font-display text-lg text-title-green">{t("scan.title")}</Text>
       </View>
@@ -109,28 +119,28 @@ export default function ScanScreen() {
         {err ? <Text className="mb-2 text-sm text-danger">{err}</Text> : null}
         <View className="gap-2">
           <Pressable
-            className="border-primary min-h-[48px] items-center justify-center rounded-2xl border bg-card"
+            className="min-h-[48px] items-center justify-center rounded-full border border-border-light bg-transparent px-4"
             disabled={busy}
             onPress={() => { void pick("camera"); }}
           >
-            <Text className="font-body-semibold text-title-green">{t("scan.camera")}</Text>
+            <Text className="font-body-semibold uppercase tracking-button text-ink">{t("scan.camera")}</Text>
           </Pressable>
           <Pressable
-            className="border-primary min-h-[48px] items-center justify-center rounded-2xl border bg-card"
+            className="min-h-[48px] items-center justify-center rounded-full border border-border-light bg-transparent px-4"
             disabled={busy}
             onPress={() => { void pick("library"); }}
           >
-            <Text className="font-body-semibold text-title-green">{t("scan.library")}</Text>
+            <Text className="font-body-semibold uppercase tracking-button text-ink">{t("scan.library")}</Text>
           </Pressable>
           <Pressable
-            className="mt-2 min-h-[48px] items-center justify-center rounded-2xl bg-brand"
+            className="mt-2 min-h-[48px] items-center justify-center rounded-full bg-brand px-6 shadow-dialog"
             disabled={!localUri || !farmerId || busy}
             onPress={() => { void upload(); }}
           >
             {busy ? (
-              <ActivityIndicator color="#fff" />
+              <ActivityIndicator color="#000000" />
             ) : (
-              <Text className="font-body-semibold text-white">{t("scan.upload")}</Text>
+              <Text className="font-body-semibold uppercase tracking-button text-on-brand">{t("scan.upload")}</Text>
             )}
           </Pressable>
         </View>

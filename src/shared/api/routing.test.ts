@@ -32,6 +32,7 @@ jest.mock("./endpoints", () => ({
 
 const baseCtx: AgentContext = {
   farmerId: "f1",
+  conversationId: "main",
   location: { state: "Punjab", district: "Ludhiana" },
   connectivity: "online",
   deviceCapabilities: { ondeviceModel: "gemma-4-e4b-it" },

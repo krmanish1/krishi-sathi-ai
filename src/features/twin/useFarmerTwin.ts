@@ -5,7 +5,7 @@ import type { FarmerTwin } from "@/shared/api/types";
 import type { Language } from "@/shared/config/constants";
 import { getCachedTwin, setCachedTwin } from "./twinCache";
 import { useOnboarding } from "@/features/onboarding/store";
-import { useFarmerId } from "@/shared/auth/AuthProvider";
+import { useFarmerId, useSupabaseSession } from "@/shared/auth";
 import { useConnectivity } from "@/shared/network/useConnectivity";
 
 export const TWIN_QUERY_KEY = (farmerId: string | null) => ["farmer", "twin", farmerId] as const;
@@ -15,6 +15,8 @@ export function useFarmerTwin() {
   const connectivity = useConnectivity();
   const locState = useOnboarding((s) => s.state);
   const locDistrict = useOnboarding((s) => s.district);
+  const locLat = useOnboarding((s) => s.lat);
+  const locLng = useOnboarding((s) => s.lng);
   const lang = (useOnboarding((s) => s.language) ?? "en") as Language;
 
   return useQuery({
@@ -32,12 +34,17 @@ export function useFarmerTwin() {
         return {
           farmer_id: farmerId,
           preferred_language: lang,
-          location: { state: locState ?? "—", district: locDistrict ?? "—" },
+          location: {
+            state: locState ?? "—",
+            district: locDistrict ?? "—",
+            ...(locLat != null && Number.isFinite(locLat) ? { lat: locLat } : {}),
+            ...(locLng != null && Number.isFinite(locLng) ? { lng: locLng } : {}),
+          },
           current_crops: [],
         };
       }
       try {
-        const t = await getFarmerTwin(farmerId);
+        const t = await getFarmerTwin(farmerId, connectivity);
         await setCachedTwin(farmerId, t);
         return t;
       } catch (e) {
@@ -48,7 +55,12 @@ export function useFarmerTwin() {
           const draft: FarmerTwin = {
             farmer_id: farmerId,
             preferred_language: lang,
-            location: { state: locState ?? "—", district: locDistrict ?? "—" },
+            location: {
+              state: locState ?? "—",
+              district: locDistrict ?? "—",
+              ...(locLat != null && Number.isFinite(locLat) ? { lat: locLat } : {}),
+              ...(locLng != null && Number.isFinite(locLng) ? { lng: locLng } : {}),
+            },
             current_crops: [],
           };
           await setCachedTwin(farmerId, draft);
@@ -67,6 +79,8 @@ export function useFarmerTwin() {
 export function useUpdateFarmerTwin() {
   const qc = useQueryClient();
   const farmerId = useFarmerId();
+  const connectivity = useConnectivity();
+  const session = useSupabaseSession();
   return useMutation({
     mutationKey: ["farmer", "twin", "put"],
     mutationFn: async (twin: FarmerTwin) => {
@@ -75,7 +89,7 @@ export function useUpdateFarmerTwin() {
       }
       const next = { ...twin, farmer_id: farmerId };
       try {
-        const r = await putFarmerTwin(farmerId, next);
+        const r = await putFarmerTwin(farmerId, next, connectivity, session?.access_token ?? null);
         await setCachedTwin(farmerId, r);
         return r;
       } catch (e) {

@@ -1,7 +1,7 @@
 import { CONFIDENCE_THRESHOLD_LOW } from "@/shared/config/constants";
 import type { Language } from "@/shared/config/constants";
 import { generate as gemmaGenerate } from "@/shared/ondevice/gemma";
-import type { Connectivity, DeviceIntent, OnDeviceModel } from "./types";
+import { queryConnectivityWire, type Connectivity, type DeviceIntent, type OnDeviceModel } from "./types";
 import { ApiError } from "./errors";
 import { postQuery } from "./endpoints";
 
@@ -14,6 +14,8 @@ export type AgentQuery = {
 
 export type AgentContext = {
   farmerId: string;
+  /** Same id as local chat thread — sent as `conversation_id` on query APIs. */
+  conversationId: string;
   location: { state: string; district: string; lat?: number; lng?: number };
   connectivity: Connectivity;
   deviceCapabilities: { ondeviceModel: OnDeviceModel };
@@ -67,8 +69,10 @@ export function extractTextContent(raw: string): string {
 const callBackend = async (q: AgentQuery, ctx: AgentContext): Promise<AgentResponse> => {
   const r = await postQuery({
     farmer_id: ctx.farmerId,
+    conversation_id: ctx.conversationId,
     query: {
       text: q.text,
+      voice_b64: "",
       image_ref: q.imageRef ?? null,
       language: q.language,
     },
@@ -79,7 +83,7 @@ const callBackend = async (q: AgentQuery, ctx: AgentContext): Promise<AgentRespo
         ...(ctx.location.lat !== undefined ? { lat: ctx.location.lat } : {}),
         ...(ctx.location.lng !== undefined ? { lng: ctx.location.lng } : {}),
       },
-      connectivity: ctx.connectivity,
+      connectivity: queryConnectivityWire(ctx.connectivity),
       device_intent: q.intent,
       device_capabilities: { ondevice_model: ctx.deviceCapabilities.ondeviceModel },
     },

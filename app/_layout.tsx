@@ -1,3 +1,4 @@
+import "../polyfills";
 import "../global.css";
 import { Stack } from "expo-router";
 import { View } from "react-native";
@@ -12,7 +13,7 @@ export default function RootLayout() {
         <NetworkBanner />
         <ServerWakingBanner />
         <Stack
-          screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#F9F9F9" } }}
+          screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#121212" } }}
         />
       </View>
     </RootProviders>

@@ -9,12 +9,17 @@ export {
   getSyncBundle,
   postQuery,
   postQueryImage,
+  postSyncPush,
   putFarmerTwin,
 } from "./endpoints";
 export { ApiError, mapError, parseErrorResponse } from "./errors";
 export type { MappedError } from "./errors";
 export { askAgent, extractTextContent } from "./routing";
 export type { AgentContext, AgentQuery, AgentResponse, AskAgentOptions } from "./routing";
+export {
+  createKrishiSathiChatTransport,
+  type KrishiStreamTransportOpts,
+} from "./streamTransport";
 export type {
   Connectivity,
   DataSource,
@@ -28,3 +33,4 @@ export type {
   QueryResponse,
   SyncBundle,
 } from "./types";
+export { queryConnectivityWire } from "./types";

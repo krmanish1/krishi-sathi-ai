@@ -15,6 +15,9 @@ export type SendQueryInput = {
   language: Language;
   state: string;
   district: string;
+  /** Onboarding / twin GPS; included in backend context when set. */
+  lat?: number;
+  lng?: number;
   connectivity: Connectivity;
   imageRef?: string;
   imageLocalUri?: string;
@@ -62,7 +65,11 @@ export function useSendChatMessage() {
       const text = p.text.trim();
       const intent = guessDeviceIntent(text);
       if (!p.skipUserMessage) {
-        await appendMessage({ role: "user", text });
+        await appendMessage({
+          role: "user",
+          text,
+          ...(p.imageLocalUri ? { imageLocalUri: p.imageLocalUri } : {}),
+        });
       }
       try {
         const r = await askAgent(
@@ -74,7 +81,13 @@ export function useSendChatMessage() {
           },
           {
             farmerId: p.farmerId,
-            location: { state: p.state, district: p.district },
+            conversationId: MAIN_THREAD_ID,
+            location: {
+              state: p.state,
+              district: p.district,
+              ...(p.lat !== undefined ? { lat: p.lat } : {}),
+              ...(p.lng !== undefined ? { lng: p.lng } : {}),
+            },
             connectivity: p.connectivity,
             deviceCapabilities: { ondeviceModel: "gemma-4-e4b-it" },
           },

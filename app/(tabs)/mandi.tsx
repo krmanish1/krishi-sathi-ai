@@ -60,7 +60,7 @@ export default function MandiScreen() {
       </View>
       {isLoading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="#0D631B" />
+          <ActivityIndicator color="#1ed760" />
         </View>
       ) : (
         <FlatList
@@ -72,7 +72,7 @@ export default function MandiScreen() {
             <RefreshControl
               refreshing={isRefetching || syncing}
               onRefresh={onRefresh}
-              tintColor="#0D631B"
+              tintColor="#1ed760"
             />
           }
           ListEmptyComponent={
