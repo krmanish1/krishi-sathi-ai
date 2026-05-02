@@ -4,7 +4,12 @@
 /** `readOnboarding` / `writeOnboarding` require Supabase `session.user.id`. */
 export { readOnboarding, writeOnboarding } from "./onboardingStorage";
 export type { PersistedOnboarding } from "./onboardingStorage";
-export { rehydrateOnboardingFromStorage, useOnboarding } from "./store";
+export {
+  flushOnboardingToStorage,
+  rehydrateOnboardingFromStorage,
+  shouldSkipOnboardingAfterSignIn,
+  useOnboarding,
+} from "./store";
 export { runInitialSync } from "./useInitialSync";
 export { detectLocation } from "./useLocation";
 export { downloadGemmaE4B } from "./useModelDownload";

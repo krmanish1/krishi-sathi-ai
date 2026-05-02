@@ -1,25 +1,28 @@
 import { useEffect } from "react";
 import { router } from "expo-router";
-import { rehydrateOnboardingFromStorage, useOnboarding } from "@/features/onboarding/store";
+import {
+  rehydrateOnboardingFromStorage,
+  shouldSkipOnboardingAfterSignIn,
+  useOnboarding,
+} from "@/features/onboarding/store";
 import { useSupabaseSession } from "@/shared/auth";
 
 /** After email auth succeeds, send user to home or onboarding. */
 export function useRedirectWhenAuthed(): void {
   const session = useSupabaseSession();
+  const userId = session?.user?.id ?? null;
 
   useEffect(() => {
-    const uid = session?.user?.id;
-    if (!uid) return;
-    void rehydrateOnboardingFromStorage(uid)
+    if (!userId) return;
+    void rehydrateOnboardingFromStorage(userId)
       .catch(() => undefined)
       .finally(() => {
-        const { hasCompletedOnboarding: done, language: lang, state: st, district: dist } =
-          useOnboarding.getState();
-        if (done && lang && st && dist) {
+        const { hasCompletedOnboarding } = useOnboarding.getState();
+        if (shouldSkipOnboardingAfterSignIn({ hasCompletedOnboarding })) {
           router.replace("/(tabs)/home");
         } else {
           router.replace("/(onboarding)/welcome");
         }
       });
-  }, [session]);
+  }, [userId]);
 }

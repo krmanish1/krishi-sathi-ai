@@ -4,6 +4,8 @@ export const TIMEOUTS_MS = {
   syncBundle: 15_000,
   syncPush: 30_000,
   health: 5_000,
+  conversation: 10_000,
+  weather: 30_000,
 } as const;
 
 export const CONFIDENCE_THRESHOLD_LOW = 0.7;

@@ -24,7 +24,7 @@ export type UseStreamChatMessageOpts = {
   lng?: number;
   connectivity: Connectivity;
   imageRef?: string;
-  /** Defaults to main chat thread id (matches local DB `thread_id`). */
+  /** Backend conversation UUID (from chatStore). Defaults to MAIN_THREAD_ID. */
   conversationId?: string;
 };
 
@@ -90,13 +90,28 @@ export function useStreamChatMessage(opts: UseStreamChatMessageOpts) {
   /** Full `data` payload per `data-stage` SSE event (backend-controlled copy). */
   const [stageEvents, setStageEvents] = useState<StageEvent[]>([]);
 
+  const conversationId = opts.conversationId ?? MAIN_THREAD_ID;
+
+  /**
+   * `conversationId` IS part of chatId so AI SDK reinitialises its internal
+   * message list whenever a new backend session is created. Without this, the SDK
+   * keeps the old transport (built when conversationId was still "main") cached
+   * under the same chatId, even after the transport prop changes.
+   */
   const chatId = useMemo(
     () =>
-      `krishi-stream-${opts.farmerId}-${opts.connectivity}-${opts.language}-${opts.state}-${opts.district}-${opts.lat ?? ""}-${opts.lng ?? ""}`,
-    [opts.farmerId, opts.connectivity, opts.language, opts.state, opts.district, opts.lat, opts.lng],
+      `krishi-stream-${opts.farmerId}-${conversationId}-${opts.connectivity}-${opts.language}-${opts.state}-${opts.district}-${opts.lat ?? ""}-${opts.lng ?? ""}`,
+    [
+      opts.farmerId,
+      conversationId,
+      opts.connectivity,
+      opts.language,
+      opts.state,
+      opts.district,
+      opts.lat,
+      opts.lng,
+    ],
   );
-
-  const conversationId = opts.conversationId ?? MAIN_THREAD_ID;
 
   const transport = useMemo(
     () =>
@@ -152,8 +167,9 @@ export function useStreamChatMessage(opts: UseStreamChatMessageOpts) {
           text,
           source,
           confidence: meta?.confidence_score ?? null,
+          threadId: conversationId,
         });
-        await qc.invalidateQueries({ queryKey: CHAT_THREAD_QUERY_KEY(MAIN_THREAD_ID) });
+        await qc.invalidateQueries({ queryKey: CHAT_THREAD_QUERY_KEY(conversationId) });
       })();
     },
     onError: (err) => {
@@ -164,8 +180,9 @@ export function useStreamChatMessage(opts: UseStreamChatMessageOpts) {
           text: mapErr(err),
           source: "ondevice",
           confidence: null,
+          threadId: conversationId,
         });
-        await qc.invalidateQueries({ queryKey: CHAT_THREAD_QUERY_KEY(MAIN_THREAD_ID) });
+        await qc.invalidateQueries({ queryKey: CHAT_THREAD_QUERY_KEY(conversationId) });
       })();
     },
     onData: (part) => {
@@ -195,13 +212,13 @@ export function useStreamChatMessage(opts: UseStreamChatMessageOpts) {
       if (!trimmed) return;
       setStageEvents([]);
       if (!streamOpts?.skipUserMessage) {
-        await appendMessage({ role: "user", text: trimmed });
-        await qc.invalidateQueries({ queryKey: CHAT_THREAD_QUERY_KEY(MAIN_THREAD_ID) });
+        await appendMessage({ role: "user", text: trimmed, threadId: conversationId });
+        await qc.invalidateQueries({ queryKey: CHAT_THREAD_QUERY_KEY(conversationId) });
       }
       setInFlight(true);
       await sendMessage({ text: trimmed });
     },
-    [qc, sendMessage],
+    [qc, sendMessage, conversationId],
   );
 
   return {

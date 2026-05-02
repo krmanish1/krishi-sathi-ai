@@ -4,9 +4,14 @@ export { ApiStatusProvider, useApiStatus } from "./apiStatus";
 export type { ApiStatus } from "./apiStatus";
 export { ServerWakingBanner } from "./ServerWakingBanner";
 export {
+  deleteFarmerConversation,
+  getConversationHistory,
+  getFarmerConversations,
   getFarmerTwin,
+  getFarmerWeather,
   getHealth,
   getSyncBundle,
+  postConversation,
   postQuery,
   postQueryImage,
   postSyncPush,
@@ -22,11 +27,16 @@ export {
 } from "./streamTransport";
 export type {
   Connectivity,
+  Conversation,
+  ConversationHistoryResponse,
   DataSource,
   DeviceIntent,
   ErrorCode,
   ErrorEnvelope,
   FarmerTwin,
+  FarmerWeatherCurrent,
+  FarmerWeatherForecastDay,
+  FarmerWeatherReport,
   ImageUploadResponse,
   OnDeviceModel,
   QueryRequest,

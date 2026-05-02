@@ -1,14 +1,18 @@
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Text, View } from "react-native";
 import { router } from "expo-router";
-import { useOnboarding, rehydrateOnboardingFromStorage } from "@/features/onboarding/store";
+import {
+  rehydrateOnboardingFromStorage,
+  shouldSkipOnboardingAfterSignIn,
+  useOnboarding,
+} from "@/features/onboarding/store";
 import { useAuthReady, useSupabaseSession } from "@/shared/auth/AuthProvider";
 import { useTranslation } from "react-i18next";
 
 export default function Index() {
   const { t } = useTranslation();
   const [boot, setBoot] = useState(false);
-  const { language, state, district, hasCompletedOnboarding } = useOnboarding();
+  const { hasCompletedOnboarding } = useOnboarding();
   const authReady = useAuthReady();
   const session = useSupabaseSession();
   const sessionUserId = session?.user?.id ?? null;
@@ -35,13 +39,13 @@ export default function Index() {
       return;
     }
 
-    // Signed in → check onboarding completion
-    if (hasCompletedOnboarding && language && state && district) {
+    // Signed in → onboarding only until the flow is completed once (persisted per user).
+    if (shouldSkipOnboardingAfterSignIn({ hasCompletedOnboarding })) {
       router.replace("/(tabs)/home");
     } else {
       router.replace("/(onboarding)/welcome");
     }
-  }, [authReady, boot, district, hasCompletedOnboarding, language, session, sessionUserId, state]);
+  }, [authReady, boot, hasCompletedOnboarding, session, sessionUserId]);
 
   return (
     <View className="flex-1 items-center justify-center bg-page" accessibilityLabel={t("app.name")}>

@@ -76,6 +76,46 @@ export type SyncBundle = {
   ttl_hours: number;
 };
 
+/** GET `/api/v1/weather/{farmer_id}` — OpenAPI-aligned; extra keys may appear at runtime. */
+export type FarmerWeatherCurrent = {
+  temperature_c?: number;
+  feels_like_c?: number;
+  humidity_pct?: number;
+  wind_speed_kmh?: number;
+  precipitation_mm?: number;
+  weather_code?: number;
+  condition?: string;
+};
+
+export type FarmerWeatherForecastDay = {
+  date?: string;
+  temp_max_c?: number;
+  temp_min_c?: number;
+  precipitation_mm?: number;
+  precip_probability_pct?: number;
+  weather_code?: number;
+  condition?: string;
+};
+
+export type FarmerWeatherReport = {
+  farmer_id?: string;
+  lat?: number;
+  lng?: number;
+  current?: FarmerWeatherCurrent;
+  forecast?: FarmerWeatherForecastDay[];
+  cached?: boolean;
+  fetched_at?: string;
+  expires_at?: string;
+  /** Legacy / extended fields still honored in `weatherDisplayFromReport` */
+  data_source?: string;
+  location_label?: string;
+  place?: string;
+  condition?: string;
+  temperature_c?: number;
+  humidity_percent?: number;
+  rain_chance_percent?: number;
+} & Record<string, unknown>;
+
 // Aligned to backend twin schema (GET/PUT).
 // Wire `current_crops` is string[]; legacy object-shaped crops may still appear on cached payloads and are normalized in twinWire.
 // `land.irrigation` is optional — retained only when older API responses include it (not sent on PUT).
@@ -101,6 +141,17 @@ export type FarmerTwin = {
   interaction_history?: unknown[];
   livestock?: { kind: string; count: number }[];
 };
+
+export type Conversation = {
+  conversation_id: string;
+  farmer_id: string;
+  title: string;
+  created_at: string;
+  updated_at: string;
+};
+
+/** GET `/api/v1/farmer/.../conversations/.../history` — OpenAPI: object with open properties. */
+export type ConversationHistoryResponse = Record<string, unknown>;
 
 export type ErrorCode =
   | "VALIDATION_ERROR"

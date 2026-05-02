@@ -1,7 +1,10 @@
-# Run: maestro test maestro/flow.yaml
+# Quick tab smoke (legacy). Prefer: maestro/production-install.yaml
+# Run: APP_ID=ai.krishisaathi.app maestro test maestro/flow.yaml
 appId: ${APP_ID}
 ---
 - launchApp
-- assertVisible: "Krishi|Home|घर"
-- tapOn: "Assistant|सहायक"
-- assertVisible: "Send|भेजें"
+- assertVisible: "Home|घर"
+- assertVisible:
+    id: "home-weather-card"
+- tapOn: "Chats|चैट"
+- assertVisible: "Your chats|आपकी बातचीत"

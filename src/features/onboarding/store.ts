@@ -78,6 +78,18 @@ function persistIfSignedIn(get: () => S): void {
   void writeOnboarding(uid, toPersist(get()));
 }
 
+/** Await after `setCompleted(true)` so the flag is on disk before leaving the onboarding stack. */
+export async function flushOnboardingToStorage(): Promise<void> {
+  const uid = onboardingPersistUserId;
+  if (!uid) return;
+  await writeOnboarding(uid, toPersist(useOnboarding.getState()));
+}
+
+/** Returning users: one-time onboarding is done — do not require every field to rehydrate before home. */
+export function shouldSkipOnboardingAfterSignIn(snapshot: Pick<S, "hasCompletedOnboarding">): boolean {
+  return snapshot.hasCompletedOnboarding === true;
+}
+
 export const useOnboarding = create<S>((set, get) => ({
   ...ONBOARDING_DEFAULTS,
   setLanguage: (language) => {

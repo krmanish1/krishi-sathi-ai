@@ -1,2 +1,4 @@
-export { NetworkBanner } from "./NetworkBanner";
-export { useConnectivity } from "./useConnectivity";
+export { ConnectivityProvider } from "./ConnectivityProvider";
+export { ConnectivityContext, useConnectivity } from "./connectivityContext";
+export { mapNetInfoToConnectivity } from "./mapNetInfoToConnectivity";
+export type { NetInfoLike } from "./mapNetInfoToConnectivity";

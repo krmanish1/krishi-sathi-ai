@@ -4,7 +4,7 @@ import { secureDelete, secureGet, secureSet } from "@/shared/storage/secure";
 const LEGACY_KEY = "onboarding_v1";
 
 function keyFor(userId: string): string {
-  return `onboarding_v1:${userId}`;
+  return `onboarding_v1_${userId}`;
 }
 
 export type PersistedOnboarding = {

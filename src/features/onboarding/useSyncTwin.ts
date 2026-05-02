@@ -5,7 +5,8 @@ import type { FarmerTwin } from "@/shared/api/types";
 import type { Connectivity } from "@/shared/api/types";
 import type { Language } from "@/shared/config/constants";
 import { useFarmerId, useSupabaseSession } from "@/shared/auth";
-import { useConnectivity } from "@/shared/network/useConnectivity";
+// Import context hook only (not `@/shared/network` barrel) so Node `unit-ts` tests avoid TSX providers.
+import { useConnectivity } from "@/shared/network/connectivityContext";
 import { useOnboarding } from "@/features/onboarding/store";
 
 export type SyncTwinParams = {

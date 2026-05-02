@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { postSyncPush } from "@/shared/api";
 import { useFarmerId, useSupabaseSession } from "@/shared/auth";
-import { useConnectivity } from "@/shared/network/useConnectivity";
+import { useConnectivity } from "@/shared/network";
 
 /**
  * Calls `POST /api/v1/sync/push` when the user is signed in and the device has connectivity

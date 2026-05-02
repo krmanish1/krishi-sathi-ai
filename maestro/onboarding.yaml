@@ -1,7 +1,8 @@
 # Run: APP_ID=ai.krishisaathi.app maestro test maestro/onboarding.yaml
+# Prefer production-install.yaml for full post-install checks.
 appId: ${APP_ID}
 ---
 - launchApp
-- assertVisible: "Krishi|Home|घर"
-- tapOn: "Assistant|सहायक"
-- assertVisible: "Send|भेजें"
+- assertVisible: "Home|घर"
+- assertVisible:
+    id: "home-weather-card"

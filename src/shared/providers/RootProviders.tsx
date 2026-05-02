@@ -24,6 +24,9 @@ import { createNativeBackend } from "@/shared/ondevice/native-backend";
 import { isNativeGemmaModuleLinked } from "@/modules/gemma-llm/src";
 import { theme } from "@/shared/ui/theme/tokens";
 import { initAuthBrowser } from "@/shared/supabase";
+import { ConnectivityProvider } from "@/shared/network";
+import { UserStoreSyncer } from "@/features/user";
+import { runChatLocalCacheMigrationIfNeeded } from "@/features/chat";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -51,6 +54,7 @@ export const RootProviders = ({ children }: { children: ReactNode }) => {
     (async () => {
       try {
         await initDb();
+        await runChatLocalCacheMigrationIfNeeded(queryClient);
         const useNative = Constants.expoConfig?.extra?.useNativeGemma === "1";
         const modelPath = String(
           Constants.expoConfig?.extra?.nativeGemmaModelPath ??
@@ -85,13 +89,17 @@ export const RootProviders = ({ children }: { children: ReactNode }) => {
       <SafeAreaProvider>
         <I18nextProvider i18n={i18n}>
           <QueryClientProvider client={queryClient}>
-            <AuthProvider>
-              <SyncPushScheduler />
-              <ApiStatusProvider>
-                <StatusBar style="light" />
-                {children}
-              </ApiStatusProvider>
-            </AuthProvider>
+            <ConnectivityProvider>
+              <AuthProvider>
+                {/* Syncs auth + onboarding → useUserStore (no UI rendered) */}
+                <UserStoreSyncer />
+                <SyncPushScheduler />
+                <ApiStatusProvider>
+                  <StatusBar style="light" />
+                  {children}
+                </ApiStatusProvider>
+              </AuthProvider>
+            </ConnectivityProvider>
           </QueryClientProvider>
         </I18nextProvider>
       </SafeAreaProvider>

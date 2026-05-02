@@ -2,38 +2,43 @@ import { Tabs } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Platform } from "react-native";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import { KrishiTabBar } from "@/shared/ui/primitives/KrishiTabBar";
 
 export default function TabsLayout() {
   const { t } = useTranslation();
   return (
     <Tabs
+      safeAreaInsets={{ left: 0, right: 0 }}
+      tabBar={(props) => <KrishiTabBar {...props} />}
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: "#1ed760",
-        tabBarInactiveTintColor: "#b3b3b3",
-        tabBarLabelStyle: {
-          fontSize: 11,
-          fontFamily: "PlusJakartaSans_600SemiBold",
-          letterSpacing: 1.4,
-          textTransform: "uppercase" as const,
-        },
+        tabBarInactiveTintColor: "#8e8e8e",
+        tabBarShowLabel: true,
         tabBarStyle: {
-          height: Platform.OS === "ios" ? 96 : 88,
-          paddingTop: 8,
-          paddingBottom: Platform.OS === "ios" ? 24 : 12,
-          backgroundColor: "#121212",
+          position: "absolute",
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: "transparent",
           borderTopWidth: 0,
-          borderTopLeftRadius: 32,
-          borderTopRightRadius: 32,
+          elevation: 0,
+          paddingTop: 0,
+          paddingBottom: 0,
           ...Platform.select({
             ios: {
-              shadowColor: "#000",
-              shadowOpacity: 0.45,
-              shadowRadius: 24,
-              shadowOffset: { width: 0, height: -8 },
+              shadowOpacity: 0,
+              shadowRadius: 0,
+              shadowOffset: { width: 0, height: 0 },
             },
-            android: { elevation: 18 },
+            default: {},
           }),
+        },
+        tabBarLabelStyle: {
+          fontSize: 12,
+          fontFamily: "PlusJakartaSans_600SemiBold",
+          letterSpacing: 0.85,
+          textTransform: "uppercase" as const,
         },
       }}
     >
@@ -47,11 +52,20 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="chat"
+        name="chats"
         options={{
-          title: t("tabs.assistant"),
+          title: t("tabs.chats"),
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="message-text-outline" size={size} color={color} />
+            <MaterialCommunityIcons name="format-list-bulleted" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="new-chat"
+        options={{
+          title: t("tabs.newChat"),
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="plus-circle-outline" size={size} color={color} />
           ),
         }}
       />
@@ -71,6 +85,12 @@ export default function TabsLayout() {
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="account-circle-outline" size={size} color={color} />
           ),
+        }}
+      />
+      <Tabs.Screen
+        name="chat"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

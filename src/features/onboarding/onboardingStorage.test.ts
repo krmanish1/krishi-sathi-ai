@@ -18,9 +18,9 @@ describe("onboardingStorage", () => {
     mockDelete.mockResolvedValue(undefined);
   });
 
-  it("reads per-user key onboarding_v1:<userId>", async () => {
+  it("reads per-user key onboarding_v1_<userId> (SecureStore-safe)", async () => {
     mockGet.mockImplementation((k: string) => {
-      if (k === "onboarding_v1:user-a") {
+      if (k === "onboarding_v1_user-a") {
         return Promise.resolve(
           JSON.stringify({
             language: "hi",
@@ -42,7 +42,7 @@ describe("onboardingStorage", () => {
     const p = await readOnboarding("user-a");
     expect(p?.hasCompletedOnboarding).toBe(true);
     expect(p?.district).toBe("Ludhiana");
-    expect(mockGet).toHaveBeenCalledWith("onboarding_v1:user-a");
+    expect(mockGet).toHaveBeenCalledWith("onboarding_v1_user-a");
   });
 
   it("returns null for a new user id with no blob (signup must onboard)", async () => {
@@ -66,13 +66,13 @@ describe("onboardingStorage", () => {
       hasCompletedOnboarding: false,
     });
     mockGet.mockImplementation((k: string) => {
-      if (k === "onboarding_v1:uid-1") return Promise.resolve(null);
+      if (k === "onboarding_v1_uid-1") return Promise.resolve(null);
       if (k === "onboarding_v1") return Promise.resolve(legacy);
       return Promise.resolve(null);
     });
     const p = await readOnboarding("uid-1");
     expect(p?.state).toBe("MH");
-    expect(mockSet).toHaveBeenCalledWith("onboarding_v1:uid-1", legacy);
+    expect(mockSet).toHaveBeenCalledWith("onboarding_v1_uid-1", legacy);
     expect(mockDelete).toHaveBeenCalledWith("onboarding_v1");
   });
 
@@ -91,6 +91,6 @@ describe("onboardingStorage", () => {
       hasCompletedOnboarding: false,
     };
     await writeOnboarding("u-2", blob);
-    expect(mockSet).toHaveBeenCalledWith("onboarding_v1:u-2", JSON.stringify(blob));
+    expect(mockSet).toHaveBeenCalledWith("onboarding_v1_u-2", JSON.stringify(blob));
   });
 });
