@@ -15,6 +15,7 @@
     "test": "jest",
     "smoke": "bash scripts/production-smoke.sh",
     "test:production-contract": "jest --testPathPattern=productionInstallContract",
+    "eas:android:preview": "eas build --platform android --profile preview",
     "test:watch": "jest --watch",
     "format": "prettier --write ."
   },
