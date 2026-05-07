@@ -45,6 +45,10 @@ export function useVoice(opts?: {
     voiceStt.onSpeechError = () => setListening(false);
     voiceStt.onSpeechEnd = () => setListening(false);
     return () => {
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = null;
+      }
       voiceStt?.removeAllListeners();
     };
   }, [resetSilenceTimer]);

@@ -16,6 +16,24 @@ const MAX_GEN_MS = 45_000;
 type ToolCall = { tool: string; params?: Record<string, string | undefined> };
 type PlanResult = { intent: string; tools: ToolCall[]; safe: boolean };
 
+function sanitizeForPrompt(input: unknown, maxLen = 800): string {
+  const raw = typeof input === "string" ? input : String(input ?? "");
+  const trimmed = raw.trim().slice(0, maxLen);
+  // Remove common injection markers and role tokens. (Not perfect, but raises the bar.)
+  return trimmed
+    .replace(/\b(system|assistant|developer|tool)\s*:/giu, "")
+    .replace(/\b(ignore|disregard|override)\b.*\b(previous|instructions)\b/giu, "")
+    .replace(/```[\s\S]*?```/g, "[code]");
+}
+
+function safeJsonForPrompt(value: unknown, maxLen = 1500): string {
+  try {
+    return sanitizeForPrompt(JSON.stringify(value), maxLen);
+  } catch {
+    return sanitizeForPrompt(String(value), maxLen);
+  }
+}
+
 /** Merge an external AbortSignal with an internal one (for timeout). */
 function mergeSignals(outer?: AbortSignal, inner?: AbortSignal): AbortSignal {
   const ac = new AbortController();
@@ -143,7 +161,7 @@ export const onDeviceAgent = {
 
 Farmer location: district=${farmerProfile.district}, state=${farmerProfile.state}
 Has image: ${query.imageBase64 ? "yes" : "no"}
-Query: ${query.text}`;
+Query: ${sanitizeForPrompt(query.text)}`;
 
     let planText: string;
     try {
@@ -181,9 +199,9 @@ Query: ${query.text}`;
     const synthPrompt = `${SYNTHESIZER_SYSTEM}
 
 Tool results:
-${JSON.stringify(toolTrace, null, 2)}
+${safeJsonForPrompt(toolTrace)}
 
-Farmer query: ${query.text}
+Farmer query: ${sanitizeForPrompt(query.text)}
 District: ${farmerProfile.district}, State: ${farmerProfile.state}
 
 Write a helpful response:`;

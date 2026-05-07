@@ -3,6 +3,9 @@ let _modelPath = "";
 
 /** Called by useModelDownload (features layer) after download completes. */
 export const setModelReady = (path: string): void => {
+  if (!path || path.trim() === "") {
+    throw new Error("setModelReady(path): path must be a non-empty string");
+  }
   _ready = true;
   _modelPath = path;
 };

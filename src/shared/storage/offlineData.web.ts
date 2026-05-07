@@ -83,12 +83,13 @@ export async function queryWeatherHistory(
 ): Promise<WeatherHistRow | null> {
   const s = await getSnapshot();
   const d = district.trim().toLowerCase();
+  const exact =
+    s.weather.find((w) => (w.district ?? "").toLowerCase() === d && Number(w.month) === month) ?? null;
+  if (exact) return exact;
+  if (d.length < 3) return null;
   return (
     s.weather.find(
-      (w) =>
-        ((w.district ?? "").toLowerCase() === d ||
-          (w.district ?? "").toLowerCase().includes(d)) &&
-        Number(w.month) === month,
+      (w) => (w.district ?? "").toLowerCase().includes(d) && Number(w.month) === month,
     ) ?? null
   );
 }

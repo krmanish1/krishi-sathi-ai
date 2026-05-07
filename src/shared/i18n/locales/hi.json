@@ -260,10 +260,16 @@
     "modelDownloadingWeather": "AI मॉडल डाउनलोड हो रहा है। मौसम के लिए इंटरनेट कनेक्शन ज़रूरी है — ताज़ा जानकारी के लिए कनेक्ट करें।",
     "visionUnavailable": "ऑफ़लाइन मोड में इस डिवाइस पर फोटो विश्लेषण उपलब्ध नहीं है।",
     "inferenceTimeout": "प्रतिक्रिया समय समाप्त। कृपया पुनः प्रयास करें।",
+    "download_error_title": "डाउनलोड त्रुटि",
     "wifiWarningTitle": "बड़ा डाउनलोड (~{{size}} GB)",
     "wifiWarningBody": "आप Wi-Fi पर नहीं हैं। मोबाइल डेटा पर डाउनलोड करने से आपका डेटा प्लान बहुत अधिक खर्च हो सकता है। क्या आप जारी रखना चाहते हैं?",
     "wifiWarningCancel": "Wi-Fi का इंतज़ार करें",
-    "wifiWarningProceed": "फिर भी डाउनलोड करें"
+    "wifiWarningProceed": "फिर भी डाउनलोड करें",
+    "wifiRequiredToContinue": "डाउनलोड रोक दिया गया है। जारी रखने के लिए Wi‑Fi से जुड़ें, या वापस जाकर फिर कोशिश करें।",
+    "variantLabel": {
+      "e4b": "Gemma 4 E4B (~2 GB)",
+      "e2b": "Gemma 4 E2B (~1 GB)"
+    }
   },
   "voice": {
     "permissionDenied": "माइक्रोफ़ोन की अनुमति नहीं मिली",

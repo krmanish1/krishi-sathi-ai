@@ -2,6 +2,7 @@ import * as SQLite from "expo-sqlite";
 import type { AppDatabase } from "./db.types";
 
 let db: AppDatabase | null = null;
+let initDbPromise: Promise<AppDatabase> | null = null;
 
 const MIGRATION_0001 = `
 CREATE TABLE IF NOT EXISTS sync_bundle (
@@ -78,21 +79,32 @@ export const initDb = async (): Promise<AppDatabase> => {
   if (db) {
     return db;
   }
-  const d = await SQLite.openDatabaseAsync("krishisaathi.db");
-  await d.execAsync(MIGRATION_0001);
-  await d.execAsync(MIGRATION_0002_OFFLINE);
+  if (initDbPromise) return initDbPromise;
+
+  initDbPromise = (async () => {
+    const d = await SQLite.openDatabaseAsync("krishisaathi.db");
+    await d.execAsync(MIGRATION_0001);
+    await d.execAsync(MIGRATION_0002_OFFLINE);
+    try {
+      await d.execAsync("ALTER TABLE chat_messages ADD COLUMN image_local_uri TEXT;");
+    } catch {
+      /* column already exists */
+    }
+    try {
+      await d.execAsync("ALTER TABLE chat_messages ADD COLUMN meta_json TEXT;");
+    } catch {
+      /* column already exists */
+    }
+    db = d;
+    return d;
+  })();
+
   try {
-    await d.execAsync("ALTER TABLE chat_messages ADD COLUMN image_local_uri TEXT;");
-  } catch {
-    /* column already exists */
+    return await initDbPromise;
+  } catch (e) {
+    initDbPromise = null;
+    throw e;
   }
-  try {
-    await d.execAsync("ALTER TABLE chat_messages ADD COLUMN meta_json TEXT;");
-  } catch {
-    /* column already exists */
-  }
-  db = d;
-  return d;
 };
 
 export const getDb = (): AppDatabase => {

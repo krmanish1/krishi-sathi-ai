@@ -260,10 +260,16 @@
     "modelDownloadingWeather": "AI model is downloading. Weather data requires a live connection — please connect to the internet for the latest forecast.",
     "visionUnavailable": "Image analysis is not available on this device in offline mode.",
     "inferenceTimeout": "Response timed out. Please try again.",
+    "download_error_title": "Download error",
     "wifiWarningTitle": "Large download (~{{size}} GB)",
     "wifiWarningBody": "You are not on Wi-Fi. Downloading on mobile data may use a large amount of your data plan. Do you want to continue?",
     "wifiWarningCancel": "Wait for Wi-Fi",
-    "wifiWarningProceed": "Download anyway"
+    "wifiWarningProceed": "Download anyway",
+    "wifiRequiredToContinue": "Download paused. Connect to Wi‑Fi to continue, or go back and try again.",
+    "variantLabel": {
+      "e4b": "Gemma 4 E4B (~2 GB)",
+      "e2b": "Gemma 4 E2B (~1 GB)"
+    }
   },
   "voice": {
     "permissionDenied": "Microphone permission denied",

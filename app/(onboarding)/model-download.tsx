@@ -22,6 +22,7 @@ export default function ModelDownloadScreen() {
   const [pct, setPct] = useState(0);
   const [variant, setVariant] = useState<ModelVariant>("e4b");
   const [showWifiWarning, setShowWifiWarning] = useState(false);
+  const [inlineMessage, setInlineMessage] = useState<string | null>(null);
   const cancelled = useRef(false);
   const resolveWifi = useRef<((proceed: boolean) => void) | null>(null);
 
@@ -58,6 +59,10 @@ export default function ModelDownloadScreen() {
       if (!isWifi) {
         const proceed = await askWifiPermission();
         if (!proceed) {
+          if (!cancelled.current) {
+            setInlineMessage(t("offline.wifiRequiredToContinue"));
+            setPct(0);
+          }
           return;
         }
       }
@@ -82,7 +87,7 @@ export default function ModelDownloadScreen() {
       }
     })().catch((e: unknown) => {
       if (!cancelled.current) {
-        Alert.alert("Download error", e instanceof Error ? e.message : String(e));
+        Alert.alert(t("offline.download_error_title"), e instanceof Error ? e.message : String(e));
       }
     });
     return () => {
@@ -91,7 +96,7 @@ export default function ModelDownloadScreen() {
   }, [district, state]);
 
   const barWidth = `${Math.min(100, Math.max(0, pct))}%`;
-  const variantLabel = variant === "e4b" ? "Gemma 4 E4B (~2 GB)" : "Gemma 4 E2B (~1 GB)";
+  const variantLabelKey = variant === "e4b" ? "offline.variantLabel.e4b" : "offline.variantLabel.e2b";
 
   return (
     <OnboardingShell step={4}>
@@ -144,10 +149,16 @@ export default function ModelDownloadScreen() {
           <Text className="text-center font-display text-xl text-ink">
             {t("onboarding.downloadingModel")}
           </Text>
-          <Text className="mt-1 text-center font-body text-xs text-ink-muted">{variantLabel}</Text>
+          <Text className="mt-1 text-center font-body text-xs text-ink-muted">{t(variantLabelKey)}</Text>
           <Text className="mt-1 text-center font-body text-sm leading-6 text-ink-muted">
             {t("onboarding.modelProgress")}
           </Text>
+
+          {inlineMessage ? (
+            <Text className="mt-3 text-center font-body text-sm leading-6 text-ink-muted">
+              {inlineMessage}
+            </Text>
+          ) : null}
 
           <Text className="mt-8 text-center font-display text-5xl tabular-nums text-brand">
             {pct}%

@@ -130,7 +130,12 @@ export const askAgent = async (
       }
       const result = await onDeviceAgent.run(
         q,
-        { district: ctx.location.district, state: ctx.location.state },
+        {
+          district: ctx.location.district,
+          state: ctx.location.state,
+          ...(ctx.land !== undefined ? { land: ctx.land } : {}),
+          ...(ctx.hasAadhaar !== undefined ? { hasAadhaar: ctx.hasAadhaar } : {}),
+        },
         q.signal,
       );
       return { ...result, banner: "network_busy" };

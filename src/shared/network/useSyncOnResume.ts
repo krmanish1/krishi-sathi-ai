@@ -5,6 +5,7 @@ import { runInitialSync } from "@/features/onboarding/useInitialSync";
 import { postSyncPush } from "@/shared/api/endpoints";
 import { loadBundleVersion } from "@/shared/storage/bundle";
 import { getSupabase } from "@/shared/supabase";
+import { useOnboarding } from "@/features/onboarding/store";
 
 const MIN_SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 let lastSyncAt = 0;
@@ -26,13 +27,15 @@ export function useSyncOnResume(): void {
             ? (await supabase.auth.getSession().catch(() => null))?.data?.session
             : null;
           const bundleVer = await loadBundleVersion().catch(() => null);
+          const onboarding = useOnboarding.getState();
           await runInitialSync({
-            state: "",
-            district: "",
+            state: onboarding.state ?? "",
+            district: onboarding.district ?? "",
             ...(bundleVer ? { bundleVersion: bundleVer } : {}),
           }).catch(() => undefined);
           await postSyncPush(session?.access_token, undefined).catch(() => undefined);
-        } catch {
+        } catch (e) {
+          console.warn("[useSyncOnResume] sync failed", e);
           // Silent — sync on resume must never crash the app
         }
       })();

@@ -111,7 +111,7 @@ export async function downloadGemmaModel(
           reject(new Error("cancelled"));
           return;
         }
-        if (!result || result.status !== 200) {
+        if (!result || result.status < 200 || result.status >= 300) {
           reject(new Error(`Download failed with status: ${result?.status ?? "unknown"}`));
           return;
         }

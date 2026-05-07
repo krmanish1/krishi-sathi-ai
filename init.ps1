@@ -52,5 +52,6 @@ Invoke-Step -Title "Quality gates (test)" -Command { npm test }
 Write-Host ""
 Write-Host "OK: init completed successfully."
 Write-Host "Tip: If you changed web-impacting code, also run:"
-Write-Host "  npx expo export -p web --output-dir /tmp/web-verify"
+$webVerifyDir = Join-Path $env:TEMP "web-verify"
+Write-Host "  npx expo export -p web --output-dir $webVerifyDir"
 

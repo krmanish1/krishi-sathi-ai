@@ -457,9 +457,10 @@ export default function ChatScreen() {
   useEffect(() => {
     if (!voiceMode || voice.speaking) return;
     const last = messages[messages.length - 1];
-    if (last?.role === "assistant" && last.id !== lastMsgRef.current) {
+    const text = typeof last?.text === "string" ? last.text.trim() : "";
+    if (last?.role === "assistant" && text.length > 0 && last.id !== lastMsgRef.current) {
       lastMsgRef.current = last.id;
-      void voice.speak(last.text, i18n.language === "hi" ? "hi" : "en");
+      void voice.speak(text, i18n.language === "hi" ? "hi" : "en");
     }
   }, [messages, voiceMode, voice, i18n.language]);
 

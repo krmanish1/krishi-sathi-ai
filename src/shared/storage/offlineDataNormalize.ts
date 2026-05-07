@@ -32,6 +32,16 @@ function str(v: unknown): string | null {
   return String(v);
 }
 
+function hash32(input: string): string {
+  // Deterministic small hash (FNV-1a 32-bit)
+  let h = 0x811c9dc5;
+  for (let i = 0; i < input.length; i++) {
+    h ^= input.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0).toString(16);
+}
+
 function num(v: unknown): number | null {
   if (v == null) return null;
   const n = typeof v === "number" ? v : Number(v);
@@ -42,10 +52,12 @@ function num(v: unknown): number | null {
 export function normalizeSchemeRows(rows: unknown[]): SchemeRow[] {
   return rows.map((raw, idx) => {
     const r = raw as Record<string, unknown>;
+    const nameStable = str(r.name) ?? str(r.scheme_name) ?? "";
+    const fallback = nameStable ? `scheme-${hash32(nameStable)}` : `scheme-${idx}`;
     const id =
       str(r.id) ??
       str(r.scheme_id) ??
-      `scheme-${idx}`;
+      fallback;
     return {
       id,
       name: str(r.name) ?? str(r.scheme_name),
@@ -77,7 +89,7 @@ export function normalizeWeatherRows(rows: unknown[]): WeatherHistRow[] {
     const r = raw as Record<string, unknown>;
     return {
       district: str(r.district),
-      month: num(r.month) ?? (typeof r.month === "number" ? r.month : null),
+      month: num(r.month),
       avg_temp_c: num(r.avg_temp_c) ?? num(r.avg_temperature_c),
       avg_rain_mm: num(r.avg_rain_mm) ?? num(r.avg_rainfall_mm),
     };

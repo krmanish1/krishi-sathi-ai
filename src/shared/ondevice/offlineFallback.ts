@@ -49,7 +49,7 @@ export function offlineFallback(
       break;
     }
     case "market_price": {
-      const summary = mandiSummary(bundle, query.intent === "market_price" ? undefined : undefined);
+      const summary = mandiSummary(bundle);
       text = summary
         ? `${i18next.t("offline.modelDownloadingGeneral")}\n\n${summary}`
         : i18next.t("offline.modelDownloadingGeneral");

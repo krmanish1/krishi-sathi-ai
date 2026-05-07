@@ -10,7 +10,8 @@ This file is the *cross-session memory* for coding agents. It should be updated 
   - Read `feature_list.json` and pick **exactly one** unfinished feature/task
 - Before claiming done:
   - Ensure `npm run lint`, `npm run typecheck`, and `npm test` pass
-  - If web-impacting, also run `npx expo export -p web --output-dir /tmp/web-verify`
+  - If web-impacting, also run `npx expo export -p web --output-dir ./dist/web-verify`
+    - Windows PowerShell example: `npx expo export -p web --output-dir .\dist\web-verify`
 - End of session:
   - Write a short entry here: what changed + evidence (commands + results) + what's next
   - Update `feature_list.json` if a feature status meaningfully changed

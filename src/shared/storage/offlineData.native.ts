@@ -3,6 +3,10 @@ import type { SyncBundle } from "@/shared/api/types";
 import { tablesFromBundle } from "./offlineDataNormalize";
 import type { MandiPriceRow, SchemeRow, WeatherHistRow } from "./offlineDataNormalize";
 
+function escapeLike(input: string): string {
+  return input.replace(/\\/g, "\\\\").replace(/%/g, "\\%").replace(/_/g, "\\_");
+}
+
 export async function saveOfflineBundle(bundle: SyncBundle): Promise<void> {
   const db = getDb();
   const { schemes, mandi, calendar, weather } = tablesFromBundle(bundle);
@@ -79,7 +83,7 @@ export async function querySchemes(searchText: string): Promise<SchemeRow[]> {
       [token],
     );
   } catch {
-    const like = `%${searchText.trim().slice(0, 120)}%`;
+    const like = `%${escapeLike(searchText.trim().slice(0, 120))}%`;
     return db.getAllAsync<SchemeRow>(
       `SELECT id, name, eligibility, benefits, how_to_apply, keywords FROM schemes
        WHERE COALESCE(keywords,'') LIKE ? ESCAPE '\\'
@@ -92,8 +96,8 @@ export async function querySchemes(searchText: string): Promise<SchemeRow[]> {
 
 export async function queryMandiPrices(crop: string, district: string): Promise<MandiPriceRow[]> {
   const db = getDb();
-  const cropP = `%${crop.trim()}%`;
-  const distP = `%${district.trim()}%`;
+  const cropP = `%${escapeLike(crop.trim())}%`;
+  const distP = `%${escapeLike(district.trim())}%`;
   return db.getAllAsync<MandiPriceRow>(
     `SELECT crop, mandi, district, state, date, price_inr, unit
      FROM mandi_prices
@@ -108,7 +112,7 @@ export async function queryCropCalendar(cropKey: string): Promise<unknown | null
   const db = getDb();
   const row = await db.getFirstAsync<{ data: string }>(
     `SELECT data FROM crop_calendar WHERE crop LIKE ? ESCAPE '\\' LIMIT 1`,
-    [`%${cropKey.trim()}%`],
+    [`%${escapeLike(cropKey.trim())}%`],
   );
   if (!row?.data) return null;
   try {

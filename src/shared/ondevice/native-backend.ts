@@ -24,13 +24,9 @@ export function createNativeBackend(modelPath: string): GemmaBackend {
       if (!ready) {
         await loadModel(modelPath);
         ready = true;
-        // Probe vision support — attempt a tiny no-op
-        try {
-          await generateTextWithImage("test", "AA==", "image/jpeg");
-          backend.supportsVision = true;
-        } catch {
-          backend.supportsVision = false;
-        }
+        // Vision is not supported by our current native module implementation.
+        // (We intentionally avoid probing with fake base64 payloads.)
+        backend.supportsVision = false;
       }
     },
 
