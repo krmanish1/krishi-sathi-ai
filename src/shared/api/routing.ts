@@ -1,15 +1,20 @@
-import { CONFIDENCE_THRESHOLD_LOW } from "@/shared/config/constants";
 import type { Language } from "@/shared/config/constants";
-import { generate as gemmaGenerate } from "@/shared/ondevice/gemma";
 import { queryConnectivityWire, type Connectivity, type DeviceIntent, type OnDeviceModel } from "./types";
 import { ApiError } from "./errors";
 import { postQuery } from "./endpoints";
+import { isModelReady } from "@/shared/ondevice/modelState";
+import { onDeviceAgent } from "@/shared/ondevice/onDeviceAgent";
+import { offlineFallback } from "@/shared/ondevice/offlineFallback";
+import { loadBundlePayload } from "@/shared/storage/bundle";
 
 export type AgentQuery = {
   text: string;
   language: Language;
   imageRef?: string;
+  imageBase64?: string;
+  imageMimeType?: string;
   intent: DeviceIntent;
+  signal?: AbortSignal;
 };
 
 export type AgentContext = {
@@ -19,6 +24,8 @@ export type AgentContext = {
   location: { state: string; district: string; lat?: number; lng?: number };
   connectivity: Connectivity;
   deviceCapabilities: { ondeviceModel: OnDeviceModel };
+  land?: number;
+  hasAadhaar?: boolean;
 };
 
 export type AgentResponse = {
@@ -29,22 +36,8 @@ export type AgentResponse = {
   modelUsed: string;
   canEscalate: boolean;
   banner?: "network_busy" | "retry_later";
-};
-
-const callOnDevice = async (
-  q: AgentQuery,
-  ctx: AgentContext,
-  banner?: AgentResponse["banner"],
-): Promise<AgentResponse> => {
-  const r = await gemmaGenerate({ prompt: q.text, language: q.language, intent: q.intent });
-  return {
-    text: r.text,
-    confidence: r.confidence,
-    source: "ondevice",
-    modelUsed: r.modelUsed,
-    canEscalate: ctx.connectivity !== "offline" && r.confidence < CONFIDENCE_THRESHOLD_LOW,
-    ...(banner ? { banner } : {}),
-  };
+  toolTrace?: unknown[];
+  dataSource?: "offline" | "live";
 };
 
 // Backend may return text as a Python repr list:
@@ -67,27 +60,30 @@ export function extractTextContent(raw: string): string {
 }
 
 const callBackend = async (q: AgentQuery, ctx: AgentContext): Promise<AgentResponse> => {
-  const r = await postQuery({
-    farmer_id: ctx.farmerId,
-    conversation_id: ctx.conversationId,
-    query: {
-      text: q.text,
-      voice_b64: "",
-      image_ref: q.imageRef ?? null,
-      language: q.language,
-    },
-    context: {
-      location: {
-        state: ctx.location.state,
-        district: ctx.location.district,
-        ...(ctx.location.lat !== undefined ? { lat: ctx.location.lat } : {}),
-        ...(ctx.location.lng !== undefined ? { lng: ctx.location.lng } : {}),
+  const r = await postQuery(
+    {
+      farmer_id: ctx.farmerId,
+      conversation_id: ctx.conversationId,
+      query: {
+        text: q.text,
+        voice_b64: "",
+        image_ref: q.imageRef ?? null,
+        language: q.language,
       },
-      connectivity: queryConnectivityWire(ctx.connectivity),
-      device_intent: q.intent,
-      device_capabilities: { ondevice_model: ctx.deviceCapabilities.ondeviceModel },
+      context: {
+        location: {
+          state: ctx.location.state,
+          district: ctx.location.district,
+          ...(ctx.location.lat !== undefined ? { lat: ctx.location.lat } : {}),
+          ...(ctx.location.lng !== undefined ? { lng: ctx.location.lng } : {}),
+        },
+        connectivity: queryConnectivityWire(ctx.connectivity),
+        device_intent: q.intent,
+        device_capabilities: { ondevice_model: ctx.deviceCapabilities.ondeviceModel },
+      },
     },
-  });
+    q.signal,
+  );
   return {
     text: extractTextContent(r.text),
     structured: r.structured,
@@ -95,6 +91,7 @@ const callBackend = async (q: AgentQuery, ctx: AgentContext): Promise<AgentRespo
     source: "backend",
     modelUsed: r.model_used,
     canEscalate: false,
+    dataSource: "live",
   };
 };
 
@@ -106,15 +103,37 @@ export const askAgent = async (
   opts?: AskAgentOptions,
 ): Promise<AgentResponse> => {
   if (ctx.connectivity === "offline") {
-    return callOnDevice(q, ctx);
+    if (!isModelReady()) {
+      const bundle = await loadBundlePayload().catch(() => null);
+      return offlineFallback(q, bundle ?? undefined);
+    }
+    return onDeviceAgent.run(
+      q,
+      {
+        district: ctx.location.district,
+        state: ctx.location.state,
+        ...(ctx.land !== undefined ? { land: ctx.land } : {}),
+        ...(ctx.hasAadhaar !== undefined ? { hasAadhaar: ctx.hasAadhaar } : {}),
+      },
+      q.signal,
+    );
   }
-  // Online or degraded: always try backend first; fall back to on-device only when
-  // the server explicitly signals it can't serve this request.
+
+  // Online or degraded: backend first, fall back to on-device on USE_ONDEVICE hint
   try {
     return await callBackend(q, ctx);
   } catch (e) {
     if (e instanceof ApiError && e.fallbackHint === "USE_ONDEVICE") {
-      return callOnDevice(q, ctx, "network_busy");
+      if (!isModelReady()) {
+        const bundle = await loadBundlePayload().catch(() => null);
+        return { ...offlineFallback(q, bundle ?? undefined), banner: "network_busy" };
+      }
+      const result = await onDeviceAgent.run(
+        q,
+        { district: ctx.location.district, state: ctx.location.state },
+        q.signal,
+      );
+      return { ...result, banner: "network_busy" };
     }
     throw e;
   }

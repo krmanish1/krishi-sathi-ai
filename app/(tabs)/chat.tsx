@@ -43,7 +43,7 @@ import {
 } from "@/features/chat";
 import { getConversationHistory } from "@/shared/api";
 import type { ChatMessageRow, SendQueryInput } from "@/features/chat";
-import { voiceStt } from "@/shared/voice/voiceClient";
+import { useVoice } from "@/shared/voice";
 import type { Language } from "@/shared/config/constants";
 
 const mdStyles = StyleSheet.create({
@@ -245,21 +245,17 @@ export default function ChatScreen() {
   });
   const attachment = useImageAttachment();
   const [draft, setDraft] = useState("");
-  const [listening, setListening] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const prevListeningRef = useRef(false);
+  const lastMsgRef = useRef<string | null>(null);
   const listRef = useRef<FlatList<ChatMessageRow>>(null);
 
-  useEffect(() => {
-    if (!voiceStt) return;
-    const onRes = (e: { value?: string[] }) => {
-      const v = e.value?.[0];
-      if (v) setDraft((d) => (d ? `${d} ${v}` : v));
-    };
-    const onEnd = () => setListening(false);
-    voiceStt.onSpeechResults = onRes;
-    voiceStt.onSpeechError = onEnd;
-    voiceStt.onSpeechEnd = onEnd;
-    return () => { voiceStt?.removeAllListeners(); };
-  }, []);
+  const voice = useVoice({
+    onSpeechResult: (text) => {
+      setDraft((d) => (d ? `${d} ${text}` : text));
+    },
+  });
 
   useEffect(() => {
     const sub = Keyboard.addListener("keyboardDidShow", () => {
@@ -362,6 +358,9 @@ export default function ChatScreen() {
           .catch(() => undefined);
         return;
       }
+      abortControllerRef.current?.abort();
+      const ac = new AbortController();
+      abortControllerRef.current = ac;
       const payload: SendQueryInput = {
         text: trimmed,
         farmerId,
@@ -373,6 +372,7 @@ export default function ChatScreen() {
         connectivity,
         conversationId,
         ...(opt?.skipUserMessage ? { skipUserMessage: true } : {}),
+        signal: ac.signal,
       };
       void send.mutateAsync(payload).catch(() => undefined);
     },
@@ -423,20 +423,45 @@ export default function ChatScreen() {
     void send.mutateAsync(payload).catch(() => undefined);
   }, [attachment, draft, farmerId, language, state, district, lat, lng, connectivity, conversationId, send, stream, isOnline, t]);
 
-  const toggleVoice = async () => {
-    if (!voiceStt) return;
-    try {
-      if (listening) {
-        await voiceStt.stop();
-        setListening(false);
-        return;
-      }
-      setListening(true);
-      await voiceStt.start(i18n.language === "hi" ? "hi-IN" : "en-US");
-    } catch {
-      setListening(false);
+  const handleMicPress = useCallback(async () => {
+    if (send.isPending) {
+      abortControllerRef.current?.abort();
+      abortControllerRef.current = null;
+      if (voice.speaking) voice.cancelSpeech();
+      return;
     }
-  };
+    if (voice.listening) {
+      await voice.stopListening();
+      return;
+    }
+    if (voice.speaking) {
+      voice.cancelSpeech();
+      return;
+    }
+    setVoiceMode(true);
+    await voice.startListening(i18n.language === "hi" ? "hi-IN" : "en-US");
+  }, [send.isPending, voice, i18n.language]);
+
+  // Auto-send when mic stops and we have draft text
+  useEffect(() => {
+    if (prevListeningRef.current && !voice.listening && voiceMode && draft.trim()) {
+      const timer = setTimeout(() => {
+        void sendPayload(draft);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+    prevListeningRef.current = voice.listening;
+  }, [voice.listening, voiceMode, draft, sendPayload]);
+
+  // Auto-TTS on new assistant messages when in voice mode
+  useEffect(() => {
+    if (!voiceMode || voice.speaking) return;
+    const last = messages[messages.length - 1];
+    if (last?.role === "assistant" && last.id !== lastMsgRef.current) {
+      lastMsgRef.current = last.id;
+      void voice.speak(last.text, i18n.language === "hi" ? "hi" : "en");
+    }
+  }, [messages, voiceMode, voice, i18n.language]);
 
   const isBusy = send.isPending || stream.isStreaming || attachment.isUploading || isCreating;
   const canSend = (!!draft.trim() || !!attachment.pickedUri) && !isBusy;
@@ -535,18 +560,30 @@ export default function ChatScreen() {
             item.confidence < CONFIDENCE_THRESHOLD_LOW &&
             isOnline;
           return (
-            <MessageBubble
-              item={item}
-              prev={prev}
-              showEscalation={
-                canEscalate && index === messages.length - 1 && prev?.role === "user"
-              }
-              onTryOnline={(userText) => {
-                if (!userText) return;
-                sendPayload(userText, { skipUserMessage: true });
-              }}
-              busy={isBusy}
-            />
+            <>
+              <MessageBubble
+                item={item}
+                prev={prev}
+                showEscalation={
+                  canEscalate && index === messages.length - 1 && prev?.role === "user"
+                }
+                onTryOnline={(userText) => {
+                  if (!userText) return;
+                  sendPayload(userText, { skipUserMessage: true });
+                }}
+                busy={isBusy}
+              />
+              {item.role === "assistant" && item.source === "ondevice" && (
+                <Text style={{ fontSize: 10, color: "#737373", marginLeft: 12, marginTop: 2, marginBottom: 6 }}>
+                  {t("chat.offlineBadge", { model: "Gemma 4 E4B" })}
+                </Text>
+              )}
+              {item.role === "assistant" && item.source === "backend" && (
+                <Text style={{ fontSize: 10, color: "#1ed760", marginLeft: 12, marginTop: 2, marginBottom: 6 }}>
+                  {t("chat.onlineBadge", { model: "Gemma 4" })}
+                </Text>
+              )}
+            </>
           );
         }}
         ListEmptyComponent={
@@ -770,17 +807,17 @@ export default function ChatScreen() {
           {/* FAB — mic when idle, send when text/image ready */}
           <Pressable
             accessibilityRole="button"
-            accessibilityState={voiceStt && !canSend ? { selected: listening } : undefined}
+            accessibilityState={!canSend ? { selected: voice.listening || voice.speaking } : undefined}
             onPress={() => {
               if (canSend) { void onSend(); }
-              else if (voiceStt) { void toggleVoice(); }
+              else { void handleMicPress(); }
             }}
             disabled={isBusy && !canSend}
             style={{
               width: 52,
               height: 52,
               borderRadius: 26,
-              backgroundColor: listening ? "#ffa42b" : "#1ed760",
+              backgroundColor: voice.listening ? "#ffa42b" : voice.speaking ? "#a78bfa" : "#1ed760",
               alignItems: "center",
               justifyContent: "center",
               shadowColor: "#000000",
@@ -798,7 +835,7 @@ export default function ChatScreen() {
               <MaterialCommunityIcons name="send" size={22} color="#000000" style={{ marginLeft: 2 }} />
             ) : (
               <MaterialCommunityIcons
-                name={listening ? "microphone" : "microphone-outline"}
+                name={voice.speaking ? "volume-high" : voice.listening ? "microphone" : "microphone-outline"}
                 size={22}
                 color="#000000"
               />

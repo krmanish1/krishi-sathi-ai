@@ -202,7 +202,15 @@
     "deleteSessionConfirm": "हटाएँ",
     "deleteSessionA11y": "चैट हटाएँ",
     "deleteSessionFailedTitle": "हटाया नहीं जा सका",
-    "deleteSessionFailedBody": "कनेक्शन जाँचें और फिर कोशिश करें।"
+    "deleteSessionFailedBody": "कनेक्शन जाँचें और फिर कोशिश करें।",
+    "voiceMode": "वॉइस मोड",
+    "speakingResponse": "बोल रहा है…",
+    "escalateOnline": "विशेषज्ञ विश्लेषण (इंटरनेट चाहिए)",
+    "offlineBadge": "ऑफलाइन · {{model}}",
+    "onlineBadge": "लाइव · {{model}}",
+    "fallbackBadge": "ऑफलाइन · बेसिक",
+    "toolTrace": "मैंने कैसे जवाब दिया",
+    "safetyBlock": "मैं इसका सुरक्षित उत्तर नहीं दे सकता। कृपया किसी विशेषज्ञ से सलाह लें।"
   },
   "mandi": {
     "title": "मंडी भाव",
@@ -246,6 +254,21 @@
     "uploading": "छवि अपलोड हो रही है…",
     "retryUpload": "पुनः प्रयास करें",
     "error": "विश्लेषण के लिए छवि नहीं भेजी जा सकी"
+  },
+  "offline": {
+    "modelDownloadingGeneral": "AI मॉडल डाउनलोड हो रहा है। संचित डेटा से मिली जानकारी:",
+    "modelDownloadingWeather": "AI मॉडल डाउनलोड हो रहा है। मौसम के लिए इंटरनेट कनेक्शन ज़रूरी है — ताज़ा जानकारी के लिए कनेक्ट करें।",
+    "visionUnavailable": "ऑफ़लाइन मोड में इस डिवाइस पर फोटो विश्लेषण उपलब्ध नहीं है।",
+    "inferenceTimeout": "प्रतिक्रिया समय समाप्त। कृपया पुनः प्रयास करें।",
+    "wifiWarningTitle": "बड़ा डाउनलोड (~{{size}} GB)",
+    "wifiWarningBody": "आप Wi-Fi पर नहीं हैं। मोबाइल डेटा पर डाउनलोड करने से आपका डेटा प्लान बहुत अधिक खर्च हो सकता है। क्या आप जारी रखना चाहते हैं?",
+    "wifiWarningCancel": "Wi-Fi का इंतज़ार करें",
+    "wifiWarningProceed": "फिर भी डाउनलोड करें"
+  },
+  "voice": {
+    "permissionDenied": "माइक्रोफ़ोन की अनुमति नहीं मिली",
+    "unavailable": "वॉइस इनपुट उपलब्ध नहीं है",
+    "silenceTimeout": "चुप्पी के कारण सुनना बंद"
   },
   "errors": {
     "generic": "कुछ गड़बड़ हो गई।",

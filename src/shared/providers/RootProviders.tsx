@@ -24,9 +24,15 @@ import { createNativeBackend } from "@/shared/ondevice/native-backend";
 import { isNativeGemmaModuleLinked } from "@/modules/gemma-llm/src";
 import { theme } from "@/shared/ui/theme/tokens";
 import { initAuthBrowser } from "@/shared/supabase";
-import { ConnectivityProvider } from "@/shared/network";
+import { ConnectivityProvider, useSyncOnResume } from "@/shared/network";
+import { getModelPath } from "@/shared/ondevice/modelState";
 import { UserStoreSyncer } from "@/features/user";
 import { runChatLocalCacheMigrationIfNeeded } from "@/features/chat";
+
+function SyncOnResumeEffect(): null {
+  useSyncOnResume();
+  return null;
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -56,7 +62,7 @@ export const RootProviders = ({ children }: { children: ReactNode }) => {
         await initDb();
         await runChatLocalCacheMigrationIfNeeded(queryClient);
         const useNative = Constants.expoConfig?.extra?.useNativeGemma === "1";
-        const modelPath = String(
+        const modelPath = getModelPath() || String(
           Constants.expoConfig?.extra?.nativeGemmaModelPath ??
             "/data/local/tmp/gemma-4-e4b-it.task",
         );
@@ -93,6 +99,7 @@ export const RootProviders = ({ children }: { children: ReactNode }) => {
               <AuthProvider>
                 {/* Syncs auth + onboarding → useUserStore (no UI rendered) */}
                 <UserStoreSyncer />
+                <SyncOnResumeEffect />
                 <SyncPushScheduler />
                 <ApiStatusProvider>
                   <StatusBar style="light" />

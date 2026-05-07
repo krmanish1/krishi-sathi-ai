@@ -202,7 +202,15 @@
     "deleteSessionConfirm": "Delete",
     "deleteSessionA11y": "Delete chat",
     "deleteSessionFailedTitle": "Could not delete",
-    "deleteSessionFailedBody": "Check your connection and try again."
+    "deleteSessionFailedBody": "Check your connection and try again.",
+    "voiceMode": "Voice mode",
+    "speakingResponse": "Speaking\u2026",
+    "escalateOnline": "Get expert analysis (needs internet)",
+    "offlineBadge": "Offline \u00b7 {{model}}",
+    "onlineBadge": "Live \u00b7 {{model}}",
+    "fallbackBadge": "Offline \u00b7 Basic",
+    "toolTrace": "How I answered",
+    "safetyBlock": "I cannot answer this safely. Please consult an expert."
   },
   "mandi": {
     "title": "Mandi prices",
@@ -246,6 +254,21 @@
     "uploading": "Uploading image…",
     "retryUpload": "Retry",
     "error": "Could not send image for analysis"
+  },
+  "offline": {
+    "modelDownloadingGeneral": "AI model is downloading. Here is what I found from cached data:",
+    "modelDownloadingWeather": "AI model is downloading. Weather data requires a live connection — please connect to the internet for the latest forecast.",
+    "visionUnavailable": "Image analysis is not available on this device in offline mode.",
+    "inferenceTimeout": "Response timed out. Please try again.",
+    "wifiWarningTitle": "Large download (~{{size}} GB)",
+    "wifiWarningBody": "You are not on Wi-Fi. Downloading on mobile data may use a large amount of your data plan. Do you want to continue?",
+    "wifiWarningCancel": "Wait for Wi-Fi",
+    "wifiWarningProceed": "Download anyway"
+  },
+  "voice": {
+    "permissionDenied": "Microphone permission denied",
+    "unavailable": "Voice input unavailable",
+    "silenceTimeout": "Stopped listening (silence)"
   },
   "errors": {
     "generic": "Something went wrong.",

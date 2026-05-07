@@ -26,6 +26,8 @@ export type SendQueryInput = {
   forceBackend?: boolean;
   /** Backend conversation UUID. Defaults to MAIN_THREAD_ID when not provided (offline path). */
   conversationId?: string;
+  /** AbortSignal to cancel in-flight requests (offline path). */
+  signal?: AbortSignal;
 };
 
 const mapErr = (e: unknown): string => {
@@ -83,6 +85,7 @@ export function useSendChatMessage() {
             language: p.language,
             intent,
             ...(p.imageRef ? { imageRef: p.imageRef } : {}),
+            ...(p.signal ? { signal: p.signal } : {}),
           },
           {
             farmerId: p.farmerId,
