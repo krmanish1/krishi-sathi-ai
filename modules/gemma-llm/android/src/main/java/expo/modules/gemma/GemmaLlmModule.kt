@@ -49,42 +49,12 @@ class GemmaLlmModule : Module() {
             promise.reject("NOT_LOADED", "Model not loaded. Call load() first.", null)
             return@launch
           }
-          cancelled = false
-          val sb = StringBuilder()
-          var resolved = false
-          val timeout = java.util.Timer()
-          timeout.schedule(object : java.util.TimerTask() {
-            override fun run() {
-              if (resolved) return
-              resolved = true
-              promise.reject("GENERATE_TIMEOUT", "Generation timed out", null)
-            }
-          }, GENERATE_TIMEOUT_MS)
 
-          try {
-            inference.generateResponseAsync(prompt) { partial, done ->
-              if (resolved) return@generateResponseAsync
-              if (cancelled) {
-                resolved = true
-                timeout.cancel()
-                promise.reject("CANCELLED", "Generation cancelled", null)
-                return@generateResponseAsync
-              }
-              sb.append(partial)
-              sendEvent("onToken", mapOf("token" to partial, "done" to done))
-              if (done) {
-                resolved = true
-                timeout.cancel()
-                promise.resolve(sb.toString())
-              }
-            }
-          } catch (e: Exception) {
-            if (!resolved) {
-              resolved = true
-              timeout.cancel()
-              promise.reject("GENERATE_ERROR", e.message ?: "Generation failed", e)
-            }
-          }
+          // NEW MediaPipe API (non-streaming)
+          val result = inference.generateResponse(prompt)
+
+          promise.resolve(result)
+
         } catch (e: Exception) {
           promise.reject("GENERATE_ERROR", e.message ?: "Generation failed", e)
         }

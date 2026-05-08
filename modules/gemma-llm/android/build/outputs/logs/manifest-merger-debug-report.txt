@@ -1,0 +1,14 @@
+-- Merging decision tree log ---
+manifest
+ADDED from C:\Workspace\Project\Personal Projects\Hackathon\krishi-sathi-ai\modules\gemma-llm\android\src\main\AndroidManifest.xml:1:1-13
+INJECTED from C:\Workspace\Project\Personal Projects\Hackathon\krishi-sathi-ai\modules\gemma-llm\android\src\main\AndroidManifest.xml:1:1-13
+	package
+		INJECTED from C:\Workspace\Project\Personal Projects\Hackathon\krishi-sathi-ai\modules\gemma-llm\android\src\main\AndroidManifest.xml
+uses-sdk
+INJECTED from C:\Workspace\Project\Personal Projects\Hackathon\krishi-sathi-ai\modules\gemma-llm\android\src\main\AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from C:\Workspace\Project\Personal Projects\Hackathon\krishi-sathi-ai\modules\gemma-llm\android\src\main\AndroidManifest.xml
+INJECTED from C:\Workspace\Project\Personal Projects\Hackathon\krishi-sathi-ai\modules\gemma-llm\android\src\main\AndroidManifest.xml
+	android:targetSdkVersion
+		INJECTED from C:\Workspace\Project\Personal Projects\Hackathon\krishi-sathi-ai\modules\gemma-llm\android\src\main\AndroidManifest.xml
+	android:minSdkVersion
+		INJECTED from C:\Workspace\Project\Personal Projects\Hackathon\krishi-sathi-ai\modules\gemma-llm\android\src\main\AndroidManifest.xml

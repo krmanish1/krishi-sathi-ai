@@ -11,10 +11,8 @@ import {
   Platform,
   StyleSheet,
   Image,
-  InteractionManager,
   RefreshControl,
 } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
 import Markdown from "react-native-markdown-display";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -263,21 +261,6 @@ export default function ChatScreen() {
     });
     return () => sub.remove();
   }, []);
-
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-      const task = InteractionManager.runAfterInteractions(() => {
-        requestAnimationFrame(() => {
-          if (!cancelled) listRef.current?.scrollToEnd({ animated: true });
-        });
-      });
-      return () => {
-        cancelled = true;
-        task.cancel();
-      };
-    }, []),
-  );
 
   useEffect(() => {
     const t = requestAnimationFrame(() => {
