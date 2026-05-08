@@ -7,14 +7,14 @@ import { setModelReady } from "@/shared/ondevice/modelState";
 export type DownloadProgress = { received: number; total: number };
 export type ModelVariant = "e4b" | "e2b";
 
-// TODO: Pin version before production release — verify against Google AI Edge Gallery
+// Hosted on Hugging Face (official @mediapipe/tasks-genai points here; GCS llm_inference URLs 404).
 const MODEL_URLS: Record<ModelVariant, string> = {
-  e4b: "https://storage.googleapis.com/mediapipe-models/llm_inference/gemma-4-e4b-it/float16/1/gemma-4-e4b-it.bin",
-  e2b: "https://storage.googleapis.com/mediapipe-models/llm_inference/gemma-4-e2b-it/float16/1/gemma-4-e2b-it.bin",
+  e4b: "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it-web.task",
+  e2b: "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-web.task",
 };
 const MODEL_FILENAMES: Record<ModelVariant, string> = {
-  e4b: "gemma-4-e4b-it.bin",
-  e2b: "gemma-4-e2b-it.bin",
+  e4b: "gemma-4-E4B-it-web.task",
+  e2b: "gemma-4-E2B-it-web.task",
 };
 const GB4_IN_BYTES = 4 * 1024 * 1024 * 1024;
 

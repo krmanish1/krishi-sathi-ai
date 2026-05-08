@@ -70,7 +70,7 @@ jest.mock("@/shared/api/endpoints", () => ({
 
 jest.mock("@/shared/ondevice/modelState", () => ({ isModelReady: () => true }));
 
-const mockOnDeviceRun = jest.fn(async () => ({
+const mockOnDeviceRun = jest.fn(async (_query?: unknown, _ctx?: unknown) => ({
   text: "Offline answer from small Gemma 4 model.",
   structured: undefined,
   confidence: 0.91,
@@ -81,7 +81,9 @@ const mockOnDeviceRun = jest.fn(async () => ({
 }));
 
 jest.mock("@/shared/ondevice/onDeviceAgent", () => ({
-  onDeviceAgent: { run: (...args: unknown[]) => mockOnDeviceRun(...args) },
+  onDeviceAgent: {
+    run: (query: unknown, ctx: unknown) => mockOnDeviceRun(query, ctx),
+  },
 }));
 
 function Harness(props: { onReady: () => void }) {
@@ -123,7 +125,9 @@ describe("offline chat (integration)", () => {
     await waitFor(() => expect(done).toBe(true));
 
     expect(mockOnDeviceRun).toHaveBeenCalledTimes(1);
-    const [q, ctx] = mockOnDeviceRun.mock.calls[0] as [
+    const firstArgs = mockOnDeviceRun.mock.calls[0];
+    expect(firstArgs).toBeDefined();
+    const [q, ctx] = firstArgs as unknown as [
       { text: string; language: string; intent: string },
       { district: string; state: string },
     ];
