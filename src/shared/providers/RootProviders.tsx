@@ -1,4 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Provider } from "inversify-react";
+import { container } from "@/config/ioc";
 import { I18nextProvider } from "react-i18next";
 import { useEffect, useState, type ReactNode } from "react";
 import { View, ActivityIndicator, StyleSheet } from "react-native";
@@ -95,6 +97,7 @@ export const RootProviders = ({ children }: { children: ReactNode }) => {
       <SafeAreaProvider>
         <I18nextProvider i18n={i18n}>
           <QueryClientProvider client={queryClient}>
+            <Provider container={container}>
             <ConnectivityProvider>
               <AuthProvider>
                 {/* Syncs auth + onboarding → useUserStore (no UI rendered) */}
@@ -107,6 +110,7 @@ export const RootProviders = ({ children }: { children: ReactNode }) => {
                 </ApiStatusProvider>
               </AuthProvider>
             </ConnectivityProvider>
+            </Provider>
           </QueryClientProvider>
         </I18nextProvider>
       </SafeAreaProvider>

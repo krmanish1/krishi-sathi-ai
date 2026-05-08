@@ -1,3 +1,4 @@
+import "reflect-metadata";
 import "../polyfills";
 import "../global.css";
 import { Stack } from "expo-router";
