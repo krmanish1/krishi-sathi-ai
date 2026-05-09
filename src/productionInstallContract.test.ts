@@ -26,6 +26,7 @@ describe("production install contract", () => {
     expect(TIMEOUTS_MS.weather).toBeGreaterThan(0);
     expect(TIMEOUTS_MS.query).toBeGreaterThan(0);
     expect(TIMEOUTS_MS.health).toBeGreaterThan(0);
+    expect(TIMEOUTS_MS.conversationCreate).toBeGreaterThan(0);
   });
 
   it("maps connectivity the same way the backend query param expects", () => {

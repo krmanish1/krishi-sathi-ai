@@ -141,7 +141,7 @@ export class ChatService implements IChatService {
     return this.http.post<ConversationDto>(
       `/api/v1/conversation?connectivity=${queryConnectivityWire(connectivity)}`,
       { farmer_id: params.farmerId, title: params.title },
-      { timeoutMs: TIMEOUTS_MS.conversation, signal },
+      { timeoutMs: TIMEOUTS_MS.conversationCreate, signal },
     );
   }
 

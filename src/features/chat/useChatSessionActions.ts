@@ -38,7 +38,8 @@ export function useChatSessionActions(opts: {
     if (signal?.aborted) return;
     const local = new AbortController();
     await startConversation(farmerId, connectivity, signal ?? local.signal);
-    await qc.invalidateQueries({
+    // Do not await — a wedged refetch should never block leaving the new-chat screen.
+    void qc.invalidateQueries({
       queryKey: FARMER_CONVERSATIONS_QUERY_KEY(farmerId, connectivity),
     });
   }, [farmerId, connectivity, startConversation, qc]);

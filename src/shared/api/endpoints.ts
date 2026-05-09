@@ -154,15 +154,19 @@ export const postConversation = (
   connectivity: Connectivity,
   signal?: AbortSignal,
 ) =>
-  apiFetch<Conversation>(
-    `/api/v1/conversation?connectivity=${queryConnectivityWire(connectivity)}`,
-    {
-      baseUrl: getApiBaseUrl(),
-      timeoutMs: TIMEOUTS_MS.conversation,
-      method: "POST",
-      body: { farmer_id: params.farmerId, title: params.title },
-      ...(signal ? { signal } : {}),
-    },
+  withTransientRetry(
+    () =>
+      apiFetch<Conversation>(
+        `/api/v1/conversation?connectivity=${queryConnectivityWire(connectivity)}`,
+        {
+          baseUrl: getApiBaseUrl(),
+          timeoutMs: TIMEOUTS_MS.conversationCreate,
+          method: "POST",
+          body: { farmer_id: params.farmerId, title: params.title },
+          ...(signal ? { signal } : {}),
+        },
+      ),
+    { attempts: 3, baseDelayMs: 500, ...(signal ? { signal } : {}) },
   );
 
 /** GET `/api/v1/farmer/{farmer_id}/conversations` — lists all conversations for a farmer. */

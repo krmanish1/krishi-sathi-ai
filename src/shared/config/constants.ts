@@ -7,6 +7,8 @@ export const TIMEOUTS_MS = {
   /** Health must outlast cold-start hosts (e.g. Hugging Face Spaces waking from sleep). */
   health: 60_000,
   conversation: 20_000,
+  /** POST /conversation — cold proxies (e.g. HF Spaces) often need >20s. */
+  conversationCreate: 50_000,
   /** GET …/history can be slower / flakier on Space proxies than list conversations. */
   conversationHistory: 45_000,
   weather: 45_000,

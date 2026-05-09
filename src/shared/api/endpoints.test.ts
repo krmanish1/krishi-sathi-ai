@@ -2,6 +2,7 @@ import {
   deleteFarmerConversation,
   getConversationHistory,
   getFarmerWeather,
+  postConversation,
   postQuery,
   postSyncPush,
 } from "./endpoints";
@@ -96,6 +97,42 @@ describe("postQuery", () => {
       },
     });
     expect(r.text).toBe("hello f1");
+  });
+});
+
+describe("postConversation", () => {
+  const orig = global.fetch;
+
+  afterEach(() => {
+    global.fetch = orig;
+    jest.useRealTimers();
+  });
+
+  it("retries once on transient network failure", async () => {
+    jest.useFakeTimers();
+    const body = {
+      conversation_id: "c1",
+      farmer_id: "farmer-1",
+      title: "Chat session",
+      created_at: "",
+      updated_at: "",
+    };
+    const fetchMock = jest
+      .fn()
+      .mockRejectedValueOnce(new TypeError("Network request failed"))
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify(body),
+      } as Response);
+    global.fetch = fetchMock;
+
+    const p = postConversation({ farmerId: "farmer-1", title: "Chat session" }, "online");
+    await Promise.resolve();
+    await jest.advanceTimersByTimeAsync(550);
+    const r = await p;
+    expect(r.conversation_id).toBe("c1");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
 
