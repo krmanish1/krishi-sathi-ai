@@ -58,6 +58,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     "expo-router",
+    "expo-image",
+    "expo-web-browser",
     "expo-localization",
     "expo-secure-store",
     ["expo-image-picker", { photosPermission: "We use photos to diagnose crop issues." }],

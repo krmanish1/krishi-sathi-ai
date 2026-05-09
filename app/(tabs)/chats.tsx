@@ -66,10 +66,8 @@ export default function ChatsListScreen() {
 
   const onPickSession = useCallback(
     (c: Conversation) => {
-      void (async () => {
-        await openSession(c.conversation_id);
-        router.push("/(tabs)/chat" as never);
-      })();
+      void openSession(c.conversation_id);
+      router.push("/(tabs)/chat" as never);
     },
     [openSession, router],
   );

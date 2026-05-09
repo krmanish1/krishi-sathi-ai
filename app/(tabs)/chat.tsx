@@ -248,6 +248,8 @@ export default function ChatScreen() {
   const prevListeningRef = useRef(false);
   const lastMsgRef = useRef<string | null>(null);
   const listRef = useRef<FlatList<ChatMessageRow>>(null);
+  const userScrolledUpRef = useRef(false);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
   const voice = useVoice({
     onSpeechResult: (text) => {
@@ -255,18 +257,55 @@ export default function ChatScreen() {
     },
   });
 
+  const scrollToBottom = useCallback(() => {
+    userScrolledUpRef.current = false;
+    setShowScrollToBottom(false);
+    listRef.current?.scrollToEnd({ animated: true });
+  }, []);
+
+  const onScrollHandler = useCallback(
+    (e: {
+      nativeEvent: {
+        contentOffset: { y: number };
+        contentSize: { height: number };
+        layoutMeasurement: { height: number };
+      };
+    }) => {
+      const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+      const distanceFromBottom =
+        contentSize.height - layoutMeasurement.height - contentOffset.y;
+      const isNearBottom = distanceFromBottom < 80;
+      if (isNearBottom) {
+        if (userScrolledUpRef.current) {
+          userScrolledUpRef.current = false;
+          setShowScrollToBottom(false);
+        }
+      } else {
+        if (!userScrolledUpRef.current) {
+          userScrolledUpRef.current = true;
+          setShowScrollToBottom(true);
+        }
+      }
+    },
+    [],
+  );
+
   useEffect(() => {
     const sub = Keyboard.addListener("keyboardDidShow", () => {
-      listRef.current?.scrollToEnd({ animated: true });
+      if (!userScrolledUpRef.current) {
+        listRef.current?.scrollToEnd({ animated: true });
+      }
     });
     return () => sub.remove();
   }, []);
 
   useEffect(() => {
-    const t = requestAnimationFrame(() => {
-      listRef.current?.scrollToEnd({ animated: true });
+    userScrolledUpRef.current = false;
+    const frame = requestAnimationFrame(() => {
+      setShowScrollToBottom(false);
+      listRef.current?.scrollToEnd({ animated: false });
     });
-    return () => cancelAnimationFrame(t);
+    return () => cancelAnimationFrame(frame);
   }, [conversationId]);
 
   const onThreadRefresh = useCallback(async () => {
@@ -331,6 +370,8 @@ export default function ChatScreen() {
     (text: string, opt?: { skipUserMessage?: boolean }) => {
       if (!farmerId) return;
       setDraft("");
+      userScrolledUpRef.current = false;
+      setShowScrollToBottom(false);
       const trimmed = text.trim();
       if (isOnline) {
         void stream
@@ -375,6 +416,8 @@ export default function ChatScreen() {
     const text = draftTrimmed || t("chat.analyzeImagePrompt");
     const localUri = attachment.pickedUri ?? undefined;
     setDraft("");
+    userScrolledUpRef.current = false;
+    setShowScrollToBottom(false);
     let imageRef: string | undefined;
     if (hasImage) {
       try {
@@ -522,6 +565,7 @@ export default function ChatScreen() {
       </View>
 
       {/* Message list */}
+      <View style={{ flex: 1 }}>
       <FlatList
         ref={listRef}
         className="flex-1 px-3 pt-3"
@@ -534,7 +578,13 @@ export default function ChatScreen() {
             tintColor="#1ed760"
           />
         }
-        onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: true })}
+        onScroll={onScrollHandler}
+        scrollEventThrottle={100}
+        onContentSizeChange={() => {
+          if (!userScrolledUpRef.current) {
+            listRef.current?.scrollToEnd({ animated: true });
+          }
+        }}
         renderItem={({ item, index }) => {
           const prev = index > 0 ? messages[index - 1] : undefined;
           const canEscalate =
@@ -604,6 +654,32 @@ export default function ChatScreen() {
           ) : null
         }
       />
+      {showScrollToBottom ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Scroll to latest message"
+          onPress={scrollToBottom}
+          style={{
+            position: "absolute",
+            bottom: 12,
+            right: 16,
+            width: 40,
+            height: 40,
+            borderRadius: 20,
+            backgroundColor: "#1ed760",
+            alignItems: "center",
+            justifyContent: "center",
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.3,
+            shadowRadius: 6,
+            elevation: 5,
+          }}
+        >
+          <MaterialCommunityIcons name="chevron-down" size={24} color="#000000" />
+        </Pressable>
+      ) : null}
+      </View>
 
       {/* Session-starting banner */}
       {isCreating ? (
