@@ -2,6 +2,7 @@ import { Platform } from "react-native";
 import { getApiBaseUrl } from "@/shared/config/env";
 import { TIMEOUTS_MS } from "@/shared/config/constants";
 import { apiFetch } from "./client";
+import { withTransientRetry } from "./withTransientRetry";
 import type {
   Connectivity,
   Conversation,
@@ -38,7 +39,11 @@ const toJpegBlob = (source: Blob): Promise<Blob> =>
       if (!ctx) { URL.revokeObjectURL(objectUrl); reject(new Error("Canvas unavailable")); return; }
       ctx.drawImage(img, 0, 0);
       canvas.toBlob(
-        (result) => { URL.revokeObjectURL(objectUrl); result ? resolve(result) : reject(new Error("JPEG conversion failed")); },
+        (result) => {
+          URL.revokeObjectURL(objectUrl);
+          if (result) resolve(result);
+          else reject(new Error("JPEG conversion failed"));
+        },
         "image/jpeg",
         0.85,
       );
@@ -182,13 +187,17 @@ export const getConversationHistory = (
   connectivity: Connectivity,
   signal?: AbortSignal,
 ) =>
-  apiFetch<ConversationHistoryResponse>(
-    `/api/v1/farmer/${encodeURIComponent(farmerId)}/conversations/${encodeURIComponent(conversationId)}/history?connectivity=${queryConnectivityWire(connectivity)}`,
-    {
-      baseUrl: getApiBaseUrl(),
-      timeoutMs: TIMEOUTS_MS.conversation,
-      ...(signal ? { signal } : {}),
-    },
+  withTransientRetry(
+    () =>
+      apiFetch<ConversationHistoryResponse>(
+        `/api/v1/farmer/${encodeURIComponent(farmerId)}/conversations/${encodeURIComponent(conversationId)}/history?connectivity=${queryConnectivityWire(connectivity)}`,
+        {
+          baseUrl: getApiBaseUrl(),
+          timeoutMs: TIMEOUTS_MS.conversationHistory,
+          ...(signal ? { signal } : {}),
+        },
+      ),
+    { attempts: 3, baseDelayMs: 400, ...(signal ? { signal } : {}) },
   );
 
 /** DELETE `/api/v1/farmer/{farmer_id}/conversations/{conversation_id}` — removes session on server. */

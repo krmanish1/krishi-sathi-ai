@@ -3,6 +3,9 @@ import { postConversation } from "@/shared/api";
 import type { Connectivity } from "@/shared/api/types";
 import { MAIN_THREAD_ID } from "./chatMessagesRepo";
 
+/** Tracks overlapping POST /conversation calls so `finally` only clears the spinner when the last one ends. */
+let pendingConversationCreates = 0;
+
 type ChatState = {
   /** Backend conversation UUID, or MAIN_THREAD_ID when offline / creation failed. */
   conversationId: string;
@@ -42,6 +45,7 @@ export const useChatStore = create<ChatStore>((set) => ({
   conversationError: null,
 
   startConversation: async (farmerId, connectivity, signal) => {
+    pendingConversationCreates += 1;
     set({ isCreatingConversation: true, conversationError: null });
     try {
       const conv = await postConversation(
@@ -52,7 +56,6 @@ export const useChatStore = create<ChatStore>((set) => ({
       if (!signal.aborted) {
         set({
           conversationId: conv.conversation_id,
-          isCreatingConversation: false,
           conversationError: null,
         });
       }
@@ -61,9 +64,14 @@ export const useChatStore = create<ChatStore>((set) => ({
       const msg = e instanceof Error ? e.message : "Failed to start chat session";
       set({
         conversationId: MAIN_THREAD_ID,
-        isCreatingConversation: false,
         conversationError: msg,
       });
+    } finally {
+      pendingConversationCreates -= 1;
+      if (pendingConversationCreates <= 0) {
+        pendingConversationCreates = 0;
+        set({ isCreatingConversation: false });
+      }
     }
   },
 

@@ -124,6 +124,26 @@ describe("getConversationHistory", () => {
       }),
     );
   });
+
+  it("retries GET history once on transient network failure", async () => {
+    jest.useFakeTimers();
+    const fetchMock = jest
+      .fn()
+      .mockRejectedValueOnce(new TypeError("Network request failed"))
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        text: async () => JSON.stringify({ messages: [] }),
+      } as Response);
+    global.fetch = fetchMock;
+
+    const p = getConversationHistory("farmer-1", "conv-uuid", "online");
+    await Promise.resolve();
+    await jest.advanceTimersByTimeAsync(450);
+    await expect(p).resolves.toEqual({ messages: [] });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    jest.useRealTimers();
+  });
 });
 
 describe("deleteFarmerConversation", () => {

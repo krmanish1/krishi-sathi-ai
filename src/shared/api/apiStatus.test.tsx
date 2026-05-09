@@ -28,14 +28,20 @@ describe("useApiStatus", () => {
   it("transitions to warm when getHealth succeeds", async () => {
     mockHealth.mockResolvedValue({ status: "ok" });
     const { result } = renderHook(() => useApiStatus(), { wrapper });
-    await act(async () => {});
+    await act(async () => {
+      jest.advanceTimersByTime(500);
+      await Promise.resolve();
+    });
     expect(result.current).toBe("warm");
   });
 
   it("transitions to cold after first failure", async () => {
     mockHealth.mockRejectedValue(new Error("timeout"));
     const { result } = renderHook(() => useApiStatus(), { wrapper });
-    await act(async () => {});
+    await act(async () => {
+      jest.advanceTimersByTime(500);
+      await Promise.resolve();
+    });
     expect(result.current).toBe("cold");
   });
 
@@ -43,7 +49,10 @@ describe("useApiStatus", () => {
     mockHealth.mockRejectedValue(new Error("timeout"));
     const { result } = renderHook(() => useApiStatus(), { wrapper });
     // First failure
-    await act(async () => {});
+    await act(async () => {
+      jest.advanceTimersByTime(500);
+      await Promise.resolve();
+    });
     expect(result.current).toBe("cold");
     // Failures 2-5 via timer advances
     for (let i = 1; i < 5; i++) {
@@ -58,7 +67,10 @@ describe("useApiStatus", () => {
   it("stays warm after first success even if later calls would fail", async () => {
     mockHealth.mockResolvedValueOnce({ status: "ok" });
     const { result } = renderHook(() => useApiStatus(), { wrapper });
-    await act(async () => {});
+    await act(async () => {
+      jest.advanceTimersByTime(500);
+      await Promise.resolve();
+    });
     expect(result.current).toBe("warm");
     expect(result.current).toBe("warm");
   });

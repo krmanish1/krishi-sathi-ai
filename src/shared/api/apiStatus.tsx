@@ -35,10 +35,14 @@ export const ApiStatusProvider = ({ children }: { children: React.ReactNode }) =
       }
     };
 
-    void ping();
+    // Brief delay so the first health check doesn’t race the same CDN slot as sync bundle / twin.
+    const kickoff = setTimeout(() => {
+      void ping();
+    }, 500);
 
     return () => {
       ref.cancelled = true;
+      clearTimeout(kickoff);
       if (ref.timer) clearTimeout(ref.timer);
     };
   }, []);

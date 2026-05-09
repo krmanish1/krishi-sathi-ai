@@ -33,10 +33,11 @@ export function useChatSessionActions(opts: {
     [farmerId, connectivity, resumeConversation, qc],
   );
 
-  const startNewSession = useCallback(async () => {
+  const startNewSession = useCallback(async (signal?: AbortSignal) => {
     if (!farmerId || connectivity === "offline") return;
-    const ctrl = new AbortController();
-    await startConversation(farmerId, connectivity, ctrl.signal);
+    if (signal?.aborted) return;
+    const local = new AbortController();
+    await startConversation(farmerId, connectivity, signal ?? local.signal);
     await qc.invalidateQueries({
       queryKey: FARMER_CONVERSATIONS_QUERY_KEY(farmerId, connectivity),
     });

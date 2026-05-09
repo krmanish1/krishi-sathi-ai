@@ -84,32 +84,31 @@ export const RootProviders = ({ children }: { children: ReactNode }) => {
     };
   }, []);
 
-  if (!fonts || !ready) {
-    return (
-      <View style={styles.splash} accessibilityLabel="Loading">
-        <ActivityIndicator size="large" color={theme.brand} />
-      </View>
-    );
-  }
-
+  // Keep GestureHandlerRootView + inversify Provider mounted from the first ready frame so
+  // `container` is never swapped when leaving the splash branch (avoids inversify-react runtime errors).
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
         <I18nextProvider i18n={i18n}>
           <QueryClientProvider client={queryClient}>
             <Provider container={container}>
-            <ConnectivityProvider>
-              <AuthProvider>
-                {/* Syncs auth + onboarding → useUserStore (no UI rendered) */}
-                <UserStoreSyncer />
-                <SyncOnResumeEffect />
-                <SyncPushScheduler />
-                <ApiStatusProvider>
-                  <StatusBar style="light" />
-                  {children}
-                </ApiStatusProvider>
-              </AuthProvider>
-            </ConnectivityProvider>
+              {!fonts || !ready ? (
+                <View style={styles.splash} accessibilityLabel="Loading">
+                  <ActivityIndicator size="large" color={theme.brand} />
+                </View>
+              ) : (
+                <ConnectivityProvider>
+                  <AuthProvider>
+                    <UserStoreSyncer />
+                    <SyncOnResumeEffect />
+                    <SyncPushScheduler />
+                    <ApiStatusProvider>
+                      <StatusBar style="light" />
+                      {children}
+                    </ApiStatusProvider>
+                  </AuthProvider>
+                </ConnectivityProvider>
+              )}
             </Provider>
           </QueryClientProvider>
         </I18nextProvider>

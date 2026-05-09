@@ -9,6 +9,8 @@ import {
   type OnDeviceModel,
   type QueryRequest,
 } from "@/shared/api/types";
+import { withFetchLane } from "@/shared/api/fetchLane";
+import { wrapFetchWithApiLogging } from "@/shared/api/requestLog";
 import type { Language } from "@/shared/config/constants";
 
 export type KrishiStreamTransportOpts = {
@@ -45,7 +47,11 @@ export function createKrishiSathiChatTransport(
 
   return new KrishiCompatChatTransport<UIMessage>({
     api,
-    fetch: expoFetch as unknown as typeof globalThis.fetch,
+    fetch: wrapFetchWithApiLogging(
+      (input, init) =>
+        withFetchLane(() => (expoFetch as unknown as typeof globalThis.fetch)(input, init)),
+      "POST",
+    ),
     prepareSendMessagesRequest: ({ messages }) => {
       const text = lastUserPlainText(messages).trim();
       const intent = opts.guessIntent(text);

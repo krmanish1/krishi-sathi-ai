@@ -1,6 +1,14 @@
 import { injectable } from 'inversify';
+import { Platform } from "react-native";
 import type { IHttpService, HttpOptions } from "./interfaces/IHttpService";
 import { ApiError, parseErrorResponse } from "@/shared/api/errors";
+import { withFetchLane } from "@/shared/api/fetchLane";
+import {
+  bodySummaryForLog,
+  logApiEndErr,
+  logApiEndOk,
+  logApiStart,
+} from "@/shared/api/requestLog";
 import { getApiBaseUrl } from "@/shared/config/env";
 
 @injectable()
@@ -38,6 +46,10 @@ export class HttpService implements IHttpService {
         })()
       : ctrl.signal;
     const t = setTimeout(() => ctrl.abort(), options?.timeoutMs ?? 30_000);
+    const url = `${baseUrl}${path}`;
+    const bodyHint = bodySummaryForLog(method, body);
+    logApiStart(method, url, bodyHint);
+    const started = Date.now();
 
     try {
       const isPlainObject = body != null && typeof body === "object" && !(body instanceof FormData);
@@ -46,6 +58,7 @@ export class HttpService implements IHttpService {
         headers: {
           Accept: "application/json",
           ...(isPlainObject ? { "Content-Type": "application/json" } : {}),
+          ...(Platform.OS !== "web" ? { Connection: "close" } : {}),
           ...options?.headers,
         },
         signal: linked,
@@ -56,7 +69,7 @@ export class HttpService implements IHttpService {
         requestInit.body = body;
       }
 
-      const res = await fetch(`${baseUrl}${path}`, requestInit);
+      const res = await withFetchLane(() => fetch(url, requestInit));
       const text = await res.text();
       let json: unknown = null;
       if (text) {
@@ -70,8 +83,10 @@ export class HttpService implements IHttpService {
         }
       }
       if (!res.ok) throw parseErrorResponse(res.status, json);
+      logApiEndOk(method, url, res.status, Date.now() - started);
       return json as T;
     } catch (e) {
+      logApiEndErr(method, url, Date.now() - started, e);
       if (e instanceof ApiError) throw e;
       if (e instanceof Error && e.name === "AbortError") {
         throw new ApiError("LLM_TIMEOUT", 408, "Request timed out", true, undefined, "USE_ONDEVICE");

@@ -1,14 +1,7 @@
-export const TIMEOUTS_MS = {
-  query: 90_000,
-  queryImage: 30_000,
-  syncBundle: 15_000,
-  syncPush: 30_000,
-  health: 5_000,
-  conversation: 10_000,
-  weather: 30_000,
-} as const;
-
-export const CONFIDENCE_THRESHOLD_LOW = 0.7;
-
-export const SUPPORTED_LANGUAGES = ["hi", "en", "pa", "te", "mr", "bn"] as const;
-export type Language = (typeof SUPPORTED_LANGUAGES)[number];
+/** Re-export so DTOs and legacy imports stay aligned with `src/shared/config/constants`. */
+export {
+  TIMEOUTS_MS,
+  CONFIDENCE_THRESHOLD_LOW,
+  SUPPORTED_LANGUAGES,
+  type Language,
+} from "@/shared/config/constants";

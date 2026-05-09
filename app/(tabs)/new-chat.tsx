@@ -23,6 +23,7 @@ export default function NewChatTabScreen() {
   useLayoutEffect(() => {
     if (!ready) return undefined;
     let cancelled = false;
+    const ac = new AbortController();
 
     if (!farmerId || !isOnline) {
       router.replace("/(tabs)/chats" as never);
@@ -33,14 +34,15 @@ export default function NewChatTabScreen() {
 
     void (async () => {
       try {
-        await startNewSession();
+        await startNewSession(ac.signal);
       } finally {
-        if (!cancelled) router.replace("/(tabs)/chat" as never);
+        if (!cancelled && !ac.signal.aborted) router.replace("/(tabs)/chat" as never);
       }
     })();
 
     return () => {
       cancelled = true;
+      ac.abort();
     };
   }, [ready, farmerId, isOnline, router, startNewSession]);
 

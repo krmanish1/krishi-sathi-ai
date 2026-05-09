@@ -7,7 +7,7 @@ import { ApiError } from "@/shared/api/errors";
 import { createKrishiSathiChatTransport } from "@/shared/api/streamTransport";
 import type { Connectivity } from "@/shared/api/types";
 import type { Language } from "@/shared/config/constants";
-import { appendMessage, MAIN_THREAD_ID } from "./chatMessagesRepo";
+import { appendMessage, listThreadMessages, MAIN_THREAD_ID } from "./chatMessagesRepo";
 import { guessDeviceIntent } from "./guessDeviceIntent";
 import { CHAT_THREAD_QUERY_KEY } from "./useChatThread";
 import type { StageEvent } from "./thinkingStages";
@@ -162,6 +162,7 @@ export function useStreamChatMessage(opts: UseStreamChatMessageOpts) {
         const meta = extractMetadata(message);
         const source: "backend" | "ondevice" =
           meta?.data_source === "live" ? "backend" : "ondevice";
+        await qc.cancelQueries({ queryKey: CHAT_THREAD_QUERY_KEY(conversationId) });
         await appendMessage({
           role: "assistant",
           text,
@@ -169,12 +170,14 @@ export function useStreamChatMessage(opts: UseStreamChatMessageOpts) {
           confidence: meta?.confidence_score ?? null,
           threadId: conversationId,
         });
-        await qc.invalidateQueries({ queryKey: CHAT_THREAD_QUERY_KEY(conversationId) });
+        const next = await listThreadMessages(conversationId);
+        qc.setQueryData(CHAT_THREAD_QUERY_KEY(conversationId), next);
       })();
     },
     onError: (err) => {
       setInFlight(false);
       void (async () => {
+        await qc.cancelQueries({ queryKey: CHAT_THREAD_QUERY_KEY(conversationId) });
         await appendMessage({
           role: "assistant",
           text: mapErr(err),
@@ -182,7 +185,8 @@ export function useStreamChatMessage(opts: UseStreamChatMessageOpts) {
           confidence: null,
           threadId: conversationId,
         });
-        await qc.invalidateQueries({ queryKey: CHAT_THREAD_QUERY_KEY(conversationId) });
+        const next = await listThreadMessages(conversationId);
+        qc.setQueryData(CHAT_THREAD_QUERY_KEY(conversationId), next);
       })();
     },
     onData: (part) => {
@@ -212,8 +216,12 @@ export function useStreamChatMessage(opts: UseStreamChatMessageOpts) {
       if (!trimmed) return;
       setStageEvents([]);
       if (!streamOpts?.skipUserMessage) {
+        // Same pattern as offline `useSendChatMessage`: cancel in-flight thread reads so a stale
+        // refetch cannot resolve after `appendMessage` and overwrite the cache with [].
+        await qc.cancelQueries({ queryKey: CHAT_THREAD_QUERY_KEY(conversationId) });
         await appendMessage({ role: "user", text: trimmed, threadId: conversationId });
-        await qc.invalidateQueries({ queryKey: CHAT_THREAD_QUERY_KEY(conversationId) });
+        const next = await listThreadMessages(conversationId);
+        qc.setQueryData(CHAT_THREAD_QUERY_KEY(conversationId), next);
       }
       setInFlight(true);
       await sendMessage({ text: trimmed });
