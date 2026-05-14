@@ -3,7 +3,7 @@ import { Provider } from "inversify-react";
 import { container } from "@/config/ioc";
 import { I18nextProvider } from "react-i18next";
 import { useEffect, useState, type ReactNode } from "react";
-import { View, ActivityIndicator, StyleSheet } from "react-native";
+import { View, ActivityIndicator, StyleSheet, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
@@ -20,16 +20,28 @@ import { ApiStatusProvider } from "@/shared/api";
 import { SyncPushScheduler } from "@/shared/providers/SyncPushScheduler";
 import Constants from "expo-constants";
 import { initDb } from "@/shared/storage/db";
-import { setGemmaBackend } from "@/shared/ondevice/gemma";
-import { mockGemmaBackend } from "@/shared/ondevice/mock";
-import { createNativeBackend } from "@/shared/ondevice/native-backend";
+import {
+  checkLocalGemmaModelOnDisk,
+  createNativeBackend,
+  getModelPath,
+  mockGemmaBackend,
+  setGemmaBackend,
+  setModelReady,
+} from "@/shared/ondevice";
 import { isNativeGemmaModuleLinked } from "@/modules/gemma-llm/src";
 import { theme } from "@/shared/ui/theme/tokens";
 import { initAuthBrowser } from "@/shared/supabase";
 import { ConnectivityProvider, useSyncOnResume } from "@/shared/network";
-import { getModelPath } from "@/shared/ondevice/modelState";
 import { UserStoreSyncer } from "@/features/user";
 import { runChatLocalCacheMigrationIfNeeded } from "@/features/chat";
+
+if (Platform.OS !== "web") {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { registerGlobals } = require("@livekit/react-native") as {
+    registerGlobals: () => void;
+  };
+  registerGlobals();
+}
 
 function SyncOnResumeEffect(): null {
   useSyncOnResume();
@@ -63,6 +75,7 @@ export const RootProviders = ({ children }: { children: ReactNode }) => {
       try {
         await initDb();
         await runChatLocalCacheMigrationIfNeeded(queryClient);
+        await checkLocalGemmaModelOnDisk().catch(() => undefined);
         const useNative = Constants.expoConfig?.extra?.useNativeGemma === "1";
         const modelPath = getModelPath() || String(
           Constants.expoConfig?.extra?.nativeGemmaModelPath ??
@@ -70,6 +83,11 @@ export const RootProviders = ({ children }: { children: ReactNode }) => {
         );
         if (useNative && isNativeGemmaModuleLinked()) {
           setGemmaBackend(createNativeBackend(modelPath));
+          try {
+            if (modelPath.trim()) setModelReady(modelPath);
+          } catch {
+            /* setModelReady rejects empty path */
+          }
         } else {
           setGemmaBackend(mockGemmaBackend);
         }
