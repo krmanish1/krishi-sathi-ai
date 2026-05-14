@@ -113,6 +113,10 @@ describe("useVoiceSession — online path", () => {
     expect(mockPostVoiceToken).toHaveBeenCalledWith(
       expect.objectContaining({ farmer_id: "farmer1", language: "hi" }),
     );
+    const { AudioSession } = require("@livekit/react-native") as {
+      AudioSession: { startAudioSession: jest.Mock };
+    };
+    expect(AudioSession.startAudioSession).toHaveBeenCalled();
     expect(mockRoomConnect).toHaveBeenCalledWith("wss://lk.test", "tok", expect.any(Object));
     expect(mockSetMicEnabled).toHaveBeenCalledWith(true);
     expect(result.current.phase).toBe("listening");
@@ -139,6 +143,23 @@ describe("useVoiceSession — online path", () => {
     expect(mockAppendMessage).toHaveBeenCalledWith(
       expect.objectContaining({ role: "assistant", text: "answer" }),
     );
+  });
+
+  it("sets webUnsupported error on web platform", async () => {
+    const Platform = require("react-native").Platform as { OS: string };
+    const original = Platform.OS;
+    Platform.OS = "web";
+    try {
+      const { result } = renderHook(() => useVoiceSession(INPUT));
+      await act(async () => {
+        await result.current.start();
+      });
+      expect(result.current.phase).toBe("error");
+      expect(useVoiceSessionStore.getState().errorMessage).toBe("voice.error.webUnsupported");
+      expect(mockPostVoiceToken).not.toHaveBeenCalled();
+    } finally {
+      Platform.OS = original;
+    }
   });
 
   it("ignores second start() call when already active", async () => {
