@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Provider } from "inversify-react";
 import { container } from "@/config/ioc";
 import { I18nextProvider } from "react-i18next";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { View, ActivityIndicator, StyleSheet, Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { StatusBar } from "expo-status-bar";
@@ -78,6 +78,9 @@ const queryClient = new QueryClient({
 });
 
 export const RootProviders = ({ children }: { children: ReactNode }) => {
+  // Freeze container reference on first render — Fast Refresh re-evaluates the ioc module
+  // and creates a new container object, which inversify-react rejects as a prop swap.
+  const containerRef = useRef(container);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -131,7 +134,7 @@ export const RootProviders = ({ children }: { children: ReactNode }) => {
       <SafeAreaProvider>
         <I18nextProvider i18n={i18n}>
           <QueryClientProvider client={queryClient}>
-            <Provider container={container}>
+            <Provider container={containerRef.current}>
               {!fonts || !ready ? (
                 <View style={styles.splash} accessibilityLabel="Loading">
                   <ActivityIndicator size="large" color={theme.brand} />
