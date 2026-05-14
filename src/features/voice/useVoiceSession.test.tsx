@@ -194,6 +194,18 @@ describe("useVoiceSession — offline path", () => {
     expect(result.current.phase).toBe("listening");
   });
 
+  it("stop() calls stopListening and cancelSpeech when offline", async () => {
+    const { result } = renderHook(() => useVoiceSession(INPUT));
+    await act(async () => {
+      await result.current.start();
+    });
+    await act(async () => {
+      await result.current.stop();
+    });
+    expect(mockStopListening).toHaveBeenCalled();
+    expect(mockCancelSpeech).toHaveBeenCalled();
+  });
+
   it("speech result triggers askAgent and speak and appendMessage", async () => {
     const { speak: mockSpeak } = require("@/shared/voice") as {
       speak: jest.Mock;

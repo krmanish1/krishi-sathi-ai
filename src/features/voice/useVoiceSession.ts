@@ -106,7 +106,18 @@ export function useVoiceSession(input: VoiceSessionInput) {
         }
       });
 
-      room.on(RoomEvent.Disconnected, () => store.reset());
+      room.on(RoomEvent.Disconnected, async () => {
+        const { transcript } = useVoiceSessionStore.getState();
+        if (transcript) {
+          try {
+            await appendMessage({ role: "user", text: transcript.user, threadId: MAIN_THREAD_ID });
+            await appendMessage({ role: "assistant", text: transcript.agent, threadId: MAIN_THREAD_ID });
+          } catch {
+            // ignore — best-effort save on unexpected disconnect
+          }
+        }
+        store.reset();
+      });
 
       await room.connect(serverUrl, token, { autoSubscribe: true });
       await room.localParticipant.setMicrophoneEnabled(true);
