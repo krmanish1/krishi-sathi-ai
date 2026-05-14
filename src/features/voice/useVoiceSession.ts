@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useEffect } from "react";
 import { Platform } from "react-native";
 import { useConnectivity } from "@/shared/network";
 import { useVoice, speak as speakText } from "@/shared/voice";
@@ -32,6 +32,16 @@ export function useVoiceSession(input: VoiceSessionInput) {
   const connectivity = useConnectivity();
   const store = useVoiceSessionStore();
   const roomRef = useRef<import("livekit-client").Room | null>(null);
+  // True while stop() is executing — prevents Disconnected handler from double-resetting
+  const stoppedByUser = useRef(false);
+
+  // Cleanup room on unmount
+  useEffect(() => {
+    return () => {
+      roomRef.current?.disconnect();
+      roomRef.current = null;
+    };
+  }, []);
 
   const handleSpeechResult = useCallback(
     async (text: string) => {
@@ -80,13 +90,25 @@ export function useVoiceSession(input: VoiceSessionInput) {
         throw new Error("LiveKit not available");
       }
       const { Room: LKRoom, RoomEvent } = livekitClient;
-      const { AudioSession } = livekitRN;
+      const { AudioSession, AndroidAudioTypePresets } = livekitRN;
+
+      // Route audio to speaker by default (headset/bluetooth override automatically)
+      await AudioSession.configureAudio({
+        android: {
+          preferredOutputList: ["speaker", "earpiece"],
+          audioTypeOptions: AndroidAudioTypePresets.communication,
+        },
+        ios: { defaultOutput: "speaker" },
+      });
+      await AudioSession.startAudioSession();
 
       const { server_url, participant_token } = await postVoiceToken({
         farmer_id: input.farmerId,
+        ...(input.conversationId ? { conversation_id: input.conversationId } : {}),
+        participant_identity: input.farmerId,
         language: input.language,
       });
-      await AudioSession.startAudioSession();
+
       const room = new LKRoom();
       roomRef.current = room;
 
@@ -106,16 +128,30 @@ export function useVoiceSession(input: VoiceSessionInput) {
         }
       });
 
+      // When agent stops speaking, go back to listening for next query
+      room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+        if (speakers.length === 0 && useVoiceSessionStore.getState().phase === "speaking") {
+          store.setPhase("listening");
+        }
+      });
+
+      // Reconnect resilience on brief network drops
+      room.on(RoomEvent.Reconnecting, () => store.setPhase("connecting"));
+      room.on(RoomEvent.Reconnected, () => store.setPhase("listening"));
+
       room.on(RoomEvent.Disconnected, async () => {
+        if (stoppedByUser.current) return; // stop() handles its own cleanup
+        // Unexpected disconnect (backend closed room after agent response)
         const { transcript } = useVoiceSessionStore.getState();
         if (transcript) {
           try {
             await appendMessage({ role: "user", text: transcript.user, threadId: MAIN_THREAD_ID });
             await appendMessage({ role: "assistant", text: transcript.agent, threadId: MAIN_THREAD_ID });
           } catch {
-            // ignore — best-effort save on unexpected disconnect
+            // best-effort save
           }
         }
+        roomRef.current = null;
         store.reset();
       });
 
@@ -143,6 +179,7 @@ export function useVoiceSession(input: VoiceSessionInput) {
   }, [connectivity, store, startOnline, startOffline]);
 
   const stop = useCallback(async () => {
+    stoppedByUser.current = true;
     const room = roomRef.current;
     if (room) {
       const { transcript } = useVoiceSessionStore.getState();
@@ -170,6 +207,7 @@ export function useVoiceSession(input: VoiceSessionInput) {
       voice.cancelSpeech();
     }
     store.reset();
+    stoppedByUser.current = false;
   }, [store, voice]);
 
   return { phase: store.phase, start, stop };

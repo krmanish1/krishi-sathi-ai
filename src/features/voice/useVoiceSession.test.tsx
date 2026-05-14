@@ -70,13 +70,26 @@ jest.mock("livekit-client", () => ({
     on: mockRoomOn,
     localParticipant: { setMicrophoneEnabled: mockSetMicEnabled },
   })),
-  RoomEvent: { DataReceived: "dataReceived", Disconnected: "disconnected" },
+  RoomEvent: {
+    DataReceived: "dataReceived",
+    Disconnected: "disconnected",
+    TrackSubscribed: "trackSubscribed",
+    ActiveSpeakersChanged: "activeSpeakersChanged",
+    Reconnecting: "reconnecting",
+    Reconnected: "reconnected",
+  },
+  Track: { Kind: { Audio: "audio", Video: "video" } },
 }));
 
 jest.mock("@livekit/react-native", () => ({
   AudioSession: {
+    configureAudio: jest.fn().mockResolvedValue(undefined),
     startAudioSession: jest.fn().mockResolvedValue(undefined),
     stopAudioSession: jest.fn().mockResolvedValue(undefined),
+  },
+  AndroidAudioTypePresets: {
+    communication: { audioMode: "inCommunication" },
+    media: { audioMode: "normal" },
   },
 }));
 
@@ -115,8 +128,11 @@ describe("useVoiceSession — online path", () => {
       expect.objectContaining({ farmer_id: "farmer1", language: "hi" }),
     );
     const { AudioSession } = require("@livekit/react-native") as {
-      AudioSession: { startAudioSession: jest.Mock };
+      AudioSession: { configureAudio: jest.Mock; startAudioSession: jest.Mock };
     };
+    expect(AudioSession.configureAudio).toHaveBeenCalledWith(
+      expect.objectContaining({ android: expect.any(Object), ios: expect.any(Object) }),
+    );
     expect(AudioSession.startAudioSession).toHaveBeenCalled();
     expect(mockRoomConnect).toHaveBeenCalledWith("wss://lk.test", "tok", expect.any(Object));
     expect(mockSetMicEnabled).toHaveBeenCalledWith(true);
