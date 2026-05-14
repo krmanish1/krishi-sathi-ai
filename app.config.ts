@@ -56,12 +56,15 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       ITSAppUsesNonExemptEncryption: false,
     },
   },
+  // Dynamic app.config.ts is not auto-edited by `expo install --fix`. When you add
+  // a native Expo module, register its config plugin here (CLI will print a hint).
   plugins: [
     "expo-router",
     "expo-image",
     "expo-web-browser",
     "expo-localization",
     "expo-secure-store",
+    "expo-sqlite",
     ["expo-image-picker", { photosPermission: "We use photos to diagnose crop issues." }],
     [
       "expo-location",
