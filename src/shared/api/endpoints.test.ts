@@ -66,7 +66,7 @@ describe("postQuery", () => {
   });
 
   it("returns a typed QueryResponse", async () => {
-    global.fetch = jest.fn().mockResolvedValue({
+    const fetchMock = jest.fn().mockResolvedValue({
       ok: true,
       status: 200,
       text: async () =>
@@ -84,6 +84,7 @@ describe("postQuery", () => {
           timestamp: new Date().toISOString(),
         }),
     } as Response);
+    global.fetch = fetchMock;
 
     const r = await postQuery({
       farmer_id: "f1",
@@ -97,6 +98,9 @@ describe("postQuery", () => {
       },
     });
     expect(r.text).toBe("hello f1");
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
+    expect(init?.body).toContain('"connectivity":"online"');
+    expect(JSON.stringify(init?.headers)).not.toContain("X-Client-Connectivity");
   });
 });
 
@@ -210,6 +214,39 @@ describe("deleteFarmerConversation", () => {
   });
 });
 
+describe("postVoiceToken", () => {
+  const orig = global.fetch;
+
+  afterEach(() => {
+    global.fetch = orig;
+  });
+
+  it("POSTs to /api/v1/voice/token with farmer_id and language", async () => {
+    const fetchMock = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      text: async () =>
+        JSON.stringify({
+          serverUrl: "wss://example.livekit.cloud",
+          token: "tok123",
+          room: "room-xyz",
+        }),
+    } as Response);
+    global.fetch = fetchMock;
+
+    const { postVoiceToken } = await import("./endpoints");
+    const result = await postVoiceToken({ farmer_id: "f1", language: "hi" });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://test/api/v1/voice/token",
+      expect.objectContaining({ method: "POST" }),
+    );
+    expect(result.serverUrl).toBe("wss://example.livekit.cloud");
+    expect(result.token).toBe("tok123");
+    expect(result.room).toBe("room-xyz");
+  });
+});
+
 describe("getFarmerWeather", () => {
   const orig = global.fetch;
 
@@ -279,8 +316,10 @@ describe("getFarmerWeather", () => {
     await getFarmerWeather("x", "degraded");
 
     expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining("connectivity=online"),
+      expect.stringMatching(/connectivity=online/),
       expect.anything(),
     );
+    const url = fetchMock.mock.calls[0]?.[0] as string;
+    expect(url).not.toContain("client_connectivity");
   });
 });

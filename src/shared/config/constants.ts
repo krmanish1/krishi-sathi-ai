@@ -12,6 +12,7 @@ export const TIMEOUTS_MS = {
   /** GET …/history can be slower / flakier on Space proxies than list conversations. */
   conversationHistory: 45_000,
   weather: 45_000,
+  voiceToken: 5_000,
 } as const;
 
 export const CONFIDENCE_THRESHOLD_LOW = 0.7;

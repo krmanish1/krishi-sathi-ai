@@ -1,5 +1,5 @@
 import { Platform } from "react-native";
-import { getApiBaseUrl } from "@/shared/config/env";
+import { getApiBaseUrl, getDataGovApiKey } from "@/shared/config/env";
 import { TIMEOUTS_MS } from "@/shared/config/constants";
 import { apiFetch } from "./client";
 import { withTransientRetry } from "./withTransientRetry";
@@ -7,15 +7,19 @@ import type {
   Connectivity,
   Conversation,
   ConversationHistoryResponse,
+  DataGovMandiResponse,
+  DataGovRecordsEnvelope,
   FarmerTwin,
   FarmerWeatherReport,
   ImageUploadResponse,
   QueryRequest,
   QueryResponse,
   SyncBundle,
+  VoiceTokenRequest,
+  VoiceTokenResponse,
 } from "./types";
-import { normalizeTwinFromApi, serializeTwinForApi, twinTwinQueryString } from "./twinWire";
 import { queryConnectivityWire } from "./types";
+import { normalizeTwinFromApi, serializeTwinForApi, twinTwinQueryString } from "./twinWire";
 
 /** JSON POST `/api/v1/query` — body shape matches `/api/v1/query/stream` (`QueryRequest`). */
 export const postQuery = (req: QueryRequest, signal?: AbortSignal) =>
@@ -88,11 +92,7 @@ export const getHealth = (signal?: AbortSignal) =>
     ...(signal ? { signal } : {}),
   });
 
-export const getSyncBundle = (params: {
-  state: string;
-  district: string;
-  bundleVersion?: string;
-}) => {
+export const getSyncBundle = (params: { state: string; district: string; bundleVersion?: string }) => {
   const q = new URLSearchParams({ state: params.state, district: params.district });
   if (params.bundleVersion) {
     q.set("bundle_version", params.bundleVersion);
@@ -138,15 +138,20 @@ export const putFarmerTwin = async (
 
 /** POST `/api/v1/sync/push` — triggers server-side sync; empty body. Sends Bearer when session exists. */
 export const postSyncPush = (accessToken?: string | null, signal?: AbortSignal) =>
-  apiFetch<unknown>("/api/v1/sync/push", {
-    baseUrl: getApiBaseUrl(),
-    timeoutMs: TIMEOUTS_MS.syncPush,
-    method: "POST",
-    headers: {
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-    },
-    ...(signal ? { signal } : {}),
-  });
+  withTransientRetry(
+    () =>
+      apiFetch<unknown>("/api/v1/sync/push", {
+        baseUrl: getApiBaseUrl(),
+        timeoutMs: TIMEOUTS_MS.syncPush,
+        method: "POST",
+        headers: {
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        ...(signal ? { signal } : {}),
+      }),
+    /** HF Spaces / mobile radios often drop long POSTs; backoff keeps load off the cold proxy. */
+    { attempts: 3, baseDelayMs: 1_200, ...(signal ? { signal } : {}) },
+  );
 
 /** POST `/api/v1/conversation` — creates a new conversation session for the farmer. */
 export const postConversation = (
@@ -221,6 +226,97 @@ export const deleteFarmerConversation = (
     },
   );
 
+/** POST `/api/v1/voice/token` — get LiveKit room credentials for a voice session. */
+export const postVoiceToken = (req: VoiceTokenRequest, signal?: AbortSignal) =>
+  apiFetch<VoiceTokenResponse>("/api/v1/voice/token", {
+    baseUrl: getApiBaseUrl(),
+    timeoutMs: TIMEOUTS_MS.voiceToken,
+    method: "POST",
+    body: req,
+    ...(signal ? { signal } : {}),
+  });
+
+const DATA_GOV_MANDI_URL =
+  "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070";
+
+/**
+ * GET data.gov.in AGMARKNET mandi prices.
+ * External API — uses its own base URL and `api-key` query param (not our backend).
+ * Filters by state and/or district when provided.
+ * Returns `null` when the API key is not configured (key missing from env).
+ */
+export const getMandiPricesFromGov = async (params: {
+  state?: string;
+  district?: string;
+  limit?: number;
+  offset?: number;
+  signal?: AbortSignal;
+}): Promise<DataGovMandiResponse | null> => {
+  const apiKey = getDataGovApiKey();
+  if (!apiKey) return null;
+
+  const q = new URLSearchParams({
+    "api-key": apiKey,
+    format: "json",
+    limit: String(params.limit ?? 100),
+    offset: String(params.offset ?? 0),
+  });
+  // API requires lowercase values; state uses `.keyword` suffix, district does not
+  if (params.state) q.set("filters[state.keyword]", params.state.toLowerCase());
+  if (params.district) q.set("filters[district]", params.district.toLowerCase());
+
+  const url = `${DATA_GOV_MANDI_URL}?${q.toString()}`;
+  if (__DEV__) console.info(`[MandiAPI] → GET state=${params.state ?? "*"} district=${params.district ?? "*"}`);
+
+  const res = await fetch(url, params.signal ? { signal: params.signal } : undefined);
+  if (!res.ok) {
+    if (__DEV__) console.warn(`[MandiAPI] ✗ ${res.status} ${res.statusText}`);
+    throw new Error(`data.gov.in mandi API error: ${res.status} ${res.statusText}`);
+  }
+  const data = (await res.json()) as DataGovMandiResponse;
+  if (__DEV__) console.info(`[MandiAPI] ✓ total=${data.total} count=${data.count} state=${params.state ?? "*"} district=${params.district ?? "*"}`);
+  return data;
+};
+
+const DATA_GOV_ENAM_TRADE_URL =
+  "https://api.data.gov.in/resource/5d623a19-f2ca-4b1f-9e3e-24e340f86ef2";
+
+/**
+ * eNAM / alternate mandi trade data on data.gov.in (fallback when AGMARKNET has no rows).
+ * Uses `filters[State]` and optional `filters[District]` per published API examples.
+ */
+export const getEnamMandiPricesFromGov = async (params: {
+  state?: string;
+  district?: string;
+  limit?: number;
+  offset?: number;
+  signal?: AbortSignal;
+}): Promise<DataGovRecordsEnvelope | null> => {
+  const apiKey = getDataGovApiKey();
+  if (!apiKey) return null;
+
+  const q = new URLSearchParams({
+    "api-key": apiKey,
+    format: "json",
+    limit: String(params.limit ?? 100),
+    offset: String(params.offset ?? 0),
+  });
+  if (params.state) q.set("filters[State]", params.state);
+  if (params.district) q.set("filters[District]", params.district);
+
+  const url = `${DATA_GOV_ENAM_TRADE_URL}?${q.toString()}`;
+  if (__DEV__) console.info(`[MandiENAM] → GET state=${params.state ?? "*"} district=${params.district ?? "*"}`);
+
+  const res = await fetch(url, params.signal ? { signal: params.signal } : undefined);
+  if (!res.ok) {
+    if (__DEV__) console.warn(`[MandiENAM] ✗ ${res.status}`);
+    throw new Error(`data.gov.in eNAM mandi error: ${res.status}`);
+  }
+  const data = (await res.json()) as DataGovRecordsEnvelope;
+  if (__DEV__) console.info(`[MandiENAM] ✓ total=${data.total} count=${data.count}`);
+  return data;
+};
+
 /** GET `/api/v1/weather/{farmer_id}` — farmer-scoped weather; `force_refresh=true` bypasses server cache. */
 export const getFarmerWeather = (
   farmerId: string,
@@ -231,9 +327,14 @@ export const getFarmerWeather = (
     connectivity: queryConnectivityWire(connectivity),
     force_refresh: opts?.forceRefresh === true ? "true" : "false",
   });
-  return apiFetch<FarmerWeatherReport>(`/api/v1/weather/${encodeURIComponent(farmerId)}?${q.toString()}`, {
-    baseUrl: getApiBaseUrl(),
-    timeoutMs: TIMEOUTS_MS.weather,
-    ...(opts?.signal ? { signal: opts.signal } : {}),
-  });
+  const path = `/api/v1/weather/${encodeURIComponent(farmerId)}?${q.toString()}`;
+  return withTransientRetry(
+    () =>
+      apiFetch<FarmerWeatherReport>(path, {
+        baseUrl: getApiBaseUrl(),
+        timeoutMs: TIMEOUTS_MS.weather,
+        ...(opts?.signal ? { signal: opts.signal } : {}),
+      }),
+    { attempts: 3, baseDelayMs: 400, ...(opts?.signal ? { signal: opts.signal } : {}) },
+  );
 };
