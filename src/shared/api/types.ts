@@ -210,11 +210,14 @@ export type DataGovRecordsEnvelope = {
 export type VoiceTokenRequest = {
   farmer_id: string;
   conversation_id?: string;
+  room_name?: string;
+  participant_identity?: string;
   language?: Language;
 };
 
 export type VoiceTokenResponse = {
-  serverUrl: string;
-  token: string;
-  room: string;
+  server_url: string;
+  room_name: string;
+  participant_token: string;
+  participant_identity: string;
 };

@@ -34,9 +34,10 @@ jest.mock("@/shared/voice", () => ({
 }));
 
 const mockPostVoiceToken = jest.fn().mockResolvedValue({
-  serverUrl: "wss://lk.test",
-  token: "tok",
-  room: "r1",
+  server_url: "wss://lk.test",
+  participant_token: "tok",
+  room_name: "r1",
+  participant_identity: "farmer1",
 });
 const mockAskAgent = jest.fn().mockResolvedValue({
   text: "agent response",

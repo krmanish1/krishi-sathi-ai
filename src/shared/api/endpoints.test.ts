@@ -227,9 +227,10 @@ describe("postVoiceToken", () => {
       status: 200,
       text: async () =>
         JSON.stringify({
-          serverUrl: "wss://example.livekit.cloud",
-          token: "tok123",
-          room: "room-xyz",
+          server_url: "wss://example.livekit.cloud",
+          participant_token: "tok123",
+          room_name: "room-xyz",
+          participant_identity: "farmer-f1",
         }),
     } as Response);
     global.fetch = fetchMock;
@@ -241,9 +242,9 @@ describe("postVoiceToken", () => {
       "http://test/api/v1/voice/token",
       expect.objectContaining({ method: "POST" }),
     );
-    expect(result.serverUrl).toBe("wss://example.livekit.cloud");
-    expect(result.token).toBe("tok123");
-    expect(result.room).toBe("room-xyz");
+    expect(result.server_url).toBe("wss://example.livekit.cloud");
+    expect(result.participant_token).toBe("tok123");
+    expect(result.room_name).toBe("room-xyz");
   });
 });
 

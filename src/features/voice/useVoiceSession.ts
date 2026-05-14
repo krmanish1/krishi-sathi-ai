@@ -82,7 +82,7 @@ export function useVoiceSession(input: VoiceSessionInput) {
       const { Room: LKRoom, RoomEvent } = livekitClient;
       const { AudioSession } = livekitRN;
 
-      const { serverUrl, token } = await postVoiceToken({
+      const { server_url, participant_token } = await postVoiceToken({
         farmer_id: input.farmerId,
         language: input.language,
       });
@@ -119,7 +119,7 @@ export function useVoiceSession(input: VoiceSessionInput) {
         store.reset();
       });
 
-      await room.connect(serverUrl, token, { autoSubscribe: true });
+      await room.connect(server_url, participant_token, { autoSubscribe: true });
       await room.localParticipant.setMicrophoneEnabled(true);
       store.setPhase("listening");
     } catch {
