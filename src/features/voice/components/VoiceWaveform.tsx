@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import { Animated, StyleSheet, View } from "react-native";
 
 type Props = {
@@ -13,9 +13,10 @@ const BAR_MIN_HEIGHT = 6;
 const ANIMATION_DURATION = 500;
 
 export function VoiceWaveform({ active, color = "#4CAF50" }: Props) {
-  const animations = useRef(
-    Array.from({ length: BAR_COUNT }, () => new Animated.Value(BAR_MIN_HEIGHT)),
-  ).current;
+  const animations = useMemo(
+    () => Array.from({ length: BAR_COUNT }, () => new Animated.Value(BAR_MIN_HEIGHT)),
+    [],
+  );
 
   useEffect(() => {
     if (!active) {

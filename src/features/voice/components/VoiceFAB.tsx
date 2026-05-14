@@ -4,7 +4,7 @@ import {
   Pressable,
   StyleSheet,
 } from "react-native";
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { VoiceWaveform } from "./VoiceWaveform";
 import type { VoicePhase } from "../useVoiceSessionStore";
@@ -16,7 +16,7 @@ type Props = {
 };
 
 function PhaseIcon({ phase }: { phase: VoicePhase }) {
-  const pulseAnim = useRef(new Animated.Value(1)).current;
+  const pulseAnim = useMemo(() => new Animated.Value(1), []);
 
   useEffect(() => {
     if (phase === "listening") {
