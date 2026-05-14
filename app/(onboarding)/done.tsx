@@ -8,15 +8,15 @@ import { flushOnboardingToStorage, useOnboarding } from "@/features/onboarding/s
 import { OnboardingShell, useSyncTwin } from "@/features/onboarding";
 import { postSyncPush } from "@/shared/api";
 import { useSupabaseSession } from "@/shared/auth";
-import { useConnectivity } from "@/shared/network";
+import { useConnectivityUi } from "@/shared/network";
 
 export default function DoneScreen() {
   const { t } = useTranslation();
   const setCompleted = useOnboarding((s) => s.setCompleted);
   const syncTwin = useSyncTwin();
   const session = useSupabaseSession();
-  const connectivity = useConnectivity();
-  const online = connectivity === "online" || connectivity === "degraded";
+  const ui = useConnectivityUi();
+  const online = ui.backendReachable;
 
   useEffect(() => {
     setCompleted(true);
@@ -43,7 +43,7 @@ export default function DoneScreen() {
     <OnboardingShell step={5}>
       <View className="flex-1 items-center justify-center px-4">
         <LinearGradient
-          colors={["#1ed760", "#168d40"]}
+          colors={[ui.headerAccentHex, ui.gradientPartnerHex]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           className="h-28 w-28 items-center justify-center rounded-full shadow-dialog"

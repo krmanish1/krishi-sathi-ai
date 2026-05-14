@@ -12,7 +12,12 @@ export {
 } from "./store";
 export { runInitialSync } from "./useInitialSync";
 export { detectLocation } from "./useLocation";
-export { downloadGemmaE4B } from "./useModelDownload";
+export {
+  checkModelExists,
+  downloadGemmaE4B,
+  downloadGemmaModel,
+  modelFilePath,
+} from "./useModelDownload";
 export type { DownloadProgress } from "./useModelDownload";
 export { useSyncTwin, syncTwinOnboarding } from "./useSyncTwin";
 export { OnboardingShell } from "./components/OnboardingShell";

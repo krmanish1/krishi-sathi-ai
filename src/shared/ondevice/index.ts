@@ -1,3 +1,9 @@
+export {
+  checkLocalGemmaModelOnDisk,
+  detectModelVariant,
+  modelFilePath,
+} from "./localGemmaModelFile";
+export type { ModelVariant } from "./localGemmaModelFile";
 export { isLowConfidence } from "./confidence";
 export { generate, setGemmaBackend, getBackend } from "./gemma";
 export type { GemmaBackend, GenerateInput, GenerateOutput } from "./gemma";

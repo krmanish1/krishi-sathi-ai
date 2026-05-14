@@ -9,6 +9,11 @@ const defaultConnectivity: Connectivity = "online";
 
 export const ConnectivityContext = createContext<Connectivity>(defaultConnectivity);
 
+/**
+ * Raw connectivity from NetInfo (`"online" | "offline" | "degraded"`).
+ * Use in **non-UI** code (API clients, hooks, sync). Screens should use
+ * `useConnectivityUi` and read `ui.connectivity` only when passing into domain APIs.
+ */
 export function useConnectivity(): Connectivity {
   return useContext(ConnectivityContext);
 }

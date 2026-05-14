@@ -21,7 +21,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useOnboarding } from "@/features/onboarding/store";
 import { useAuthReady, useFarmerId } from "@/shared/auth/AuthProvider";
-import { useConnectivity } from "@/shared/network";
+import { useConnectivityUi } from "@/shared/network";
 import {
   useChatThread,
   useSendChatMessage,
@@ -195,8 +195,8 @@ export default function ChatScreen() {
   const lngRaw = useOnboarding((s) => s.lng);
   const lat = latRaw != null && Number.isFinite(latRaw) ? latRaw : undefined;
   const lng = lngRaw != null && Number.isFinite(lngRaw) ? lngRaw : undefined;
-  const connectivity = useConnectivity();
-  const isOnline = connectivity === "online" || connectivity === "degraded";
+  const ui = useConnectivityUi();
+  const connectivity = ui.connectivity;
 
   // Bootstrap session on first open / web reload; does not reset on tab blur.
   useConversation({ farmerId, connectivity });
@@ -219,12 +219,12 @@ export default function ChatScreen() {
   }, [sessionsRaw]);
 
   const headerSubtitle = useMemo(() => {
-    if (!isOnline) return t("chat.offlineStrip");
+    if (!ui.backendReachable) return t("chat.offlineStrip");
     const hit = sessions.find((s) => s.conversation_id === conversationId);
     if (hit?.title?.trim()) return hit.title.trim();
     if (conversationId !== MAIN_THREAD_ID) return t("chat.sessionUntitled");
     return t("chat.headerSubtitleDefault");
-  }, [sessions, conversationId, isOnline, t]);
+  }, [sessions, conversationId, ui.backendReachable, t]);
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -309,7 +309,7 @@ export default function ChatScreen() {
   }, [conversationId]);
 
   const onThreadRefresh = useCallback(async () => {
-    if (!farmerId || !isOnline || conversationId === MAIN_THREAD_ID) return;
+    if (!farmerId || !ui.backendReachable || conversationId === MAIN_THREAD_ID) return;
     setRefreshing(true);
     try {
       // Always hit GET …/history on pull-to-refresh (not only SQLite hydrate).
@@ -328,7 +328,7 @@ export default function ChatScreen() {
     } finally {
       setRefreshing(false);
     }
-  }, [farmerId, isOnline, conversationId, connectivity, qc, refetchSessions]);
+  }, [farmerId, ui.backendReachable, conversationId, connectivity, qc, refetchSessions]);
 
   useEffect(() => {
     const raw = newChat;
@@ -336,7 +336,7 @@ export default function ChatScreen() {
     if (!flag) return;
     if (
       !farmerId ||
-      !isOnline ||
+      !ui.backendReachable ||
       send.isPending ||
       stream.isStreaming ||
       attachment.isUploading ||
@@ -357,7 +357,7 @@ export default function ChatScreen() {
   }, [
     newChat,
     farmerId,
-    isOnline,
+    ui.backendReachable,
     send.isPending,
     stream.isStreaming,
     attachment.isUploading,
@@ -373,7 +373,7 @@ export default function ChatScreen() {
       userScrolledUpRef.current = false;
       setShowScrollToBottom(false);
       const trimmed = text.trim();
-      if (isOnline) {
+      if (ui.backendReachable) {
         void stream
           .send(
             trimmed,
@@ -400,14 +400,14 @@ export default function ChatScreen() {
       };
       void send.mutateAsync(payload).catch(() => undefined);
     },
-    [farmerId, language, state, district, lat, lng, connectivity, conversationId, send, stream, isOnline],
+    [farmerId, language, state, district, lat, lng, connectivity, conversationId, send, stream, ui.backendReachable],
   );
 
   const onSend = useCallback(async () => {
     const hasImage = !!attachment.pickedUri;
     const hasText = !!draft.trim();
     if ((!hasText && !hasImage) || send.isPending || stream.isStreaming || attachment.isUploading) return;
-    if (hasImage && !isOnline) {
+    if (hasImage && !ui.backendReachable) {
       // uploadError banner handles display — we just block the send
       return;
     }
@@ -428,7 +428,7 @@ export default function ChatScreen() {
       attachment.clearImage();
     }
 
-    if (!hasImage && isOnline) {
+    if (!hasImage && ui.backendReachable) {
       void stream.send(text).catch(() => undefined);
       return;
     }
@@ -447,7 +447,7 @@ export default function ChatScreen() {
       ...(localUri ? { imageLocalUri: localUri } : {}),
     };
     void send.mutateAsync(payload).catch(() => undefined);
-  }, [attachment, draft, farmerId, language, state, district, lat, lng, connectivity, conversationId, send, stream, isOnline, t]);
+  }, [attachment, draft, farmerId, language, state, district, lat, lng, connectivity, conversationId, send, stream, ui.backendReachable, t]);
 
   const handleMicPress = useCallback(async () => {
     if (send.isPending) {
@@ -501,7 +501,7 @@ export default function ChatScreen() {
         style={{ paddingTop: insets.top }}
         accessibilityLabel={t("chat.loading")}
       >
-        <ActivityIndicator color="#1ed760" />
+        <ActivityIndicator color={ui.accentHex} />
       </View>
     );
   }
@@ -533,7 +533,7 @@ export default function ChatScreen() {
           hitSlop={8}
           className="mr-1 items-center justify-center rounded-xl p-2 active:opacity-80"
         >
-          <MaterialCommunityIcons name="chevron-left" size={26} color="#1ed760" />
+          <MaterialCommunityIcons name="chevron-left" size={26} color={ui.headerAccentHex} />
         </Pressable>
         <View className="min-w-0 flex-1 flex-row items-center gap-3 pr-2">
           <View
@@ -541,7 +541,7 @@ export default function ChatScreen() {
               width: 40,
               height: 40,
               borderRadius: 20,
-              backgroundColor: "#1ed760",
+              backgroundColor: ui.headerAccentHex,
               alignItems: "center",
               justifyContent: "center",
             }}
@@ -561,8 +561,31 @@ export default function ChatScreen() {
             </Text>
           </View>
         </View>
-        {isCreating ? <ActivityIndicator size="small" color="#1ed760" style={{ marginRight: 8 }} /> : null}
+        {isCreating ? <ActivityIndicator size="small" color={ui.accentHex} style={{ marginRight: 8 }} /> : null}
       </View>
+
+      {ui.chatModeBannerKey ? (
+        <View
+          style={{
+            paddingVertical: 8,
+            paddingHorizontal: 14,
+            backgroundColor: ui.chatInlineBannerBackgroundRgba,
+            borderBottomWidth: 1,
+            borderBottomColor: "rgba(255,255,255,0.06)",
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 12,
+              lineHeight: 17,
+              color: ui.chatInlineBannerTextHex,
+              fontWeight: "500",
+            }}
+          >
+            {t(`chat.${ui.chatModeBannerKey}`)}
+          </Text>
+        </View>
+      ) : null}
 
       {/* Message list */}
       <View style={{ flex: 1 }}>
@@ -572,11 +595,13 @@ export default function ChatScreen() {
         data={messages}
         keyExtractor={(m) => m.id}
         refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={() => void onThreadRefresh()}
-            tintColor="#1ed760"
-          />
+          ui.enableChatHistoryRefresh ? (
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => void onThreadRefresh()}
+              tintColor={ui.accentHex}
+            />
+          ) : undefined
         }
         onScroll={onScrollHandler}
         scrollEventThrottle={100}
@@ -592,7 +617,7 @@ export default function ChatScreen() {
             item.source === "ondevice" &&
             item.confidence != null &&
             item.confidence < CONFIDENCE_THRESHOLD_LOW &&
-            isOnline;
+            ui.backendReachable;
           return (
             <>
               <MessageBubble
@@ -613,7 +638,7 @@ export default function ChatScreen() {
                 </Text>
               )}
               {item.role === "assistant" && item.source === "backend" && (
-                <Text style={{ fontSize: 10, color: "#1ed760", marginLeft: 12, marginTop: 2, marginBottom: 6 }}>
+                <Text style={{ fontSize: 10, color: ui.headerAccentHex, marginLeft: 12, marginTop: 2, marginBottom: 6 }}>
                   {t("chat.onlineBadge", { model: "Gemma 4" })}
                 </Text>
               )}
@@ -623,7 +648,7 @@ export default function ChatScreen() {
         ListEmptyComponent={
           refreshing ? (
             <View className="items-center px-6 py-14" accessibilityLabel={t("chat.loading")}>
-              <ActivityIndicator color="#1ed760" />
+              <ActivityIndicator color={ui.accentHex} />
               <Text className="mt-4 text-center font-body text-sm text-ink-muted">{t("chat.loading")}</Text>
             </View>
           ) : (
@@ -633,7 +658,7 @@ export default function ChatScreen() {
               </View>
               <Text className="mt-5 text-center font-display text-lg text-ink">{t("chat.emptyTitle")}</Text>
               <Text className="mt-2 max-w-[280px] text-center font-body text-sm leading-5 text-ink-muted">
-                {t("chat.emptyHint")}
+                {t(`chat.${ui.chatEmptyHintKey}`)}
               </Text>
             </View>
           )
@@ -666,7 +691,7 @@ export default function ChatScreen() {
             width: 40,
             height: 40,
             borderRadius: 20,
-            backgroundColor: "#1ed760",
+            backgroundColor: ui.accentHex,
             alignItems: "center",
             justifyContent: "center",
             shadowColor: "#000",
@@ -696,9 +721,9 @@ export default function ChatScreen() {
             borderTopColor: "#1e3a1e",
           }}
         >
-          <ActivityIndicator size="small" color="#1ed760" />
-          <Text style={{ fontSize: 12, color: "#1ed760", fontWeight: "500" }}>
-            {t("chat.sessionStarting")}
+          <ActivityIndicator size="small" color={ui.accentHex} />
+          <Text style={{ fontSize: 12, color: ui.accentHex, fontWeight: "500" }}>
+            {t(`chat.${ui.newChatLoadingKey}`)}
           </Text>
         </View>
       ) : null}
@@ -749,7 +774,7 @@ export default function ChatScreen() {
           </Text>
         </View>
       ) : null}
-      {attachment.pickedUri && !isOnline ? (
+      {attachment.pickedUri && !ui.backendReachable ? (
         <View className="bg-amber/10 px-4 py-2">
           <Text className="text-center font-body text-sm text-amber">
             {t("chat.imageRequiresInternet")}
@@ -829,7 +854,7 @@ export default function ChatScreen() {
                 paddingLeft: 14,
                 textAlignVertical: "center",
               }}
-              placeholder={t("chat.placeholder")}
+              placeholder={t(`chat.${ui.composerPlaceholderKey}`)}
               placeholderTextColor="#b3b3b3"
               value={draft}
               onChangeText={setDraft}
@@ -846,9 +871,13 @@ export default function ChatScreen() {
               onPress={() => { void attachment.pickImage("gallery"); }}
               style={{ paddingHorizontal: 8 }}
               hitSlop={8}
-              disabled={isBusy}
+              disabled={isBusy || !ui.enableImageAttach}
             >
-              <MaterialCommunityIcons name="paperclip" size={22} color="#b3b3b3" />
+              <MaterialCommunityIcons
+                name="paperclip"
+                size={22}
+                color={ui.enableImageAttach ? "#b3b3b3" : "#4b5563"}
+              />
             </Pressable>
 
             {/* Camera */}
@@ -858,9 +887,13 @@ export default function ChatScreen() {
               onPress={() => { void attachment.pickImage("camera"); }}
               style={{ paddingLeft: 4, paddingRight: 14 }}
               hitSlop={8}
-              disabled={isBusy}
+              disabled={isBusy || !ui.enableImageAttach}
             >
-              <MaterialCommunityIcons name="camera-outline" size={22} color="#b3b3b3" />
+              <MaterialCommunityIcons
+                name="camera-outline"
+                size={22}
+                color={ui.enableImageAttach ? "#b3b3b3" : "#4b5563"}
+              />
             </Pressable>
           </View>
 
@@ -877,7 +910,7 @@ export default function ChatScreen() {
               width: 52,
               height: 52,
               borderRadius: 26,
-              backgroundColor: voice.listening ? "#ffa42b" : voice.speaking ? "#a78bfa" : "#1ed760",
+              backgroundColor: voice.listening ? "#ffa42b" : voice.speaking ? "#a78bfa" : ui.accentHex,
               alignItems: "center",
               justifyContent: "center",
               shadowColor: "#000000",

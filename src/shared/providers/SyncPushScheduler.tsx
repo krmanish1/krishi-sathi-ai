@@ -19,7 +19,7 @@ export function SyncPushScheduler() {
     // Defer push so cold HF / CDN isn’t hit at the same instant as health, twin, weather, bundle.
     const t = setTimeout(() => {
       void postSyncPush(token).catch(() => undefined);
-    }, 2500);
+    }, 4_500);
     return () => clearTimeout(t);
   }, [farmerId, online, session?.access_token]);
 

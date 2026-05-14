@@ -4,6 +4,7 @@ import { getInitialURL, useLinkingURL } from "expo-linking";
 import { router, useLocalSearchParams } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { getSupabase } from "@/shared/supabase/client";
+import { useConnectivityUi } from "@/shared/network";
 import { createSessionFromAuthUrl } from "@/shared/supabase/socialAuth";
 
 function syntheticOAuthUrl(params: {
@@ -43,6 +44,7 @@ function pickOAuthReturnUrl(
  */
 export default function AuthCallbackScreen() {
   const { t } = useTranslation();
+  const ui = useConnectivityUi();
   const linkingUrl = useLinkingURL();
   const params = useLocalSearchParams<{ code?: string; error?: string; error_description?: string }>();
 
@@ -109,7 +111,7 @@ export default function AuthCallbackScreen() {
 
   return (
     <View className="flex-1 items-center justify-center bg-page px-6">
-      <ActivityIndicator size="large" color="#1ed760" />
+      <ActivityIndicator size="large" color={ui.accentHex} />
       <Text className="mt-4 text-center text-ink-muted">{t("auth.callbackWorking")}</Text>
     </View>
   );

@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from "react";
 import { LinearGradient } from "expo-linear-gradient";
 import { format } from "date-fns";
-import { router } from "expo-router";
+import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import {
   View,
@@ -18,11 +18,12 @@ import { useOnboarding } from "@/features/onboarding/store";
 import { greetingFirstName, useDisplayName } from "@/features/twin";
 import { useFarmerWeather } from "@/features/weather";
 import { useFarmerId } from "@/shared/auth/AuthProvider";
-import { useConnectivity } from "@/shared/network";
+import { useConnectivityUi } from "@/shared/network";
 import { runInitialSync } from "@/features/onboarding/useInitialSync";
 import { useMandiFromBundle } from "@/features/mandi/mandiFromBundle";
 
 export default function HomeScreen() {
+  const router = useRouter();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
@@ -31,9 +32,10 @@ export default function HomeScreen() {
   const farmerId = useFarmerId();
   const displayName = useDisplayName();
   const greetingName = greetingFirstName(displayName);
-  const connectivity = useConnectivity();
-  const isOffline = connectivity === "offline";
-  const isOnlineMode = connectivity === "online" || connectivity === "degraded";
+  const ui = useConnectivityUi();
+  const connectivity = ui.connectivity;
+  const isOffline = ui.isFullyOffline;
+  const isOnlineMode = ui.backendReachable;
   const timeLabel = format(new Date(), "hh:mm a");
   const farmPlaceLabel = district && state ? `${district}, ${state}` : "—";
   const {
@@ -98,12 +100,27 @@ export default function HomeScreen() {
       >
         {isOffline ? (
           <View className="mb-6 items-center">
-            <View className="flex-row items-center gap-2 rounded-full border border-amber/30 bg-amber/10 px-4 py-2.5">
-              <MaterialCommunityIcons name="cloud-off-outline" size={16} color="#ffa42b" />
-              <Text className="font-body-semibold text-xs uppercase tracking-[1.2px] text-amber">
+            <View
+              className="flex-row items-center gap-2 rounded-full border px-4 py-2.5"
+              style={{
+                backgroundColor: ui.offlinePillBackgroundRgba,
+                borderColor: ui.offlinePillBorderRgba,
+              }}
+            >
+              <MaterialCommunityIcons name="cloud-off-outline" size={16} color={ui.offlinePillIconHex} />
+              <Text
+                className="font-body-semibold text-xs uppercase tracking-[1.2px]"
+                style={{ color: ui.offlinePillTextHex }}
+              >
                 {t("home.offlinePill")}
               </Text>
             </View>
+            <Text
+              className="mt-3 max-w-[320px] text-center font-body text-[13px] leading-5 text-ink-muted"
+              accessibilityRole="text"
+            >
+              {t("home.offlineGoOnlineHint")}
+            </Text>
           </View>
         ) : null}
 
@@ -142,8 +159,11 @@ export default function HomeScreen() {
         <View testID="home-weather-card" className="mb-7 overflow-hidden rounded-bento bg-card p-5 shadow-dialog">
           <View className="flex-row items-start justify-between">
             <View className="flex-1 pr-2">
-              <View className="self-start rounded-full bg-amber/12 px-3 py-1">
-                <Text className="font-body-semibold text-[10px] uppercase tracking-[1.4px] text-amber">
+              <View className="self-start rounded-full px-3 py-1" style={{ backgroundColor: ui.weatherBadgeBackgroundRgba }}>
+                <Text
+                  className="font-body-semibold text-[10px] uppercase tracking-[1.4px]"
+                  style={{ color: ui.weatherBadgeTextHex }}
+                >
                   {weatherBadgeLabel}
                 </Text>
               </View>
@@ -176,14 +196,14 @@ export default function HomeScreen() {
                   hitSlop={6}
                 >
                   {isRefreshingWeather ? (
-                    <ActivityIndicator size="small" color="#1ed760" />
+                    <ActivityIndicator size="small" color={ui.accentHex} />
                   ) : (
-                    <MaterialCommunityIcons name="refresh" size={22} color="#1ed760" />
+                    <MaterialCommunityIcons name="refresh" size={22} color={ui.headerAccentHex} />
                   )}
                 </Pressable>
               ) : null}
-              <View className="rounded-full bg-amber/15 p-3">
-                <MaterialCommunityIcons name="weather-partly-cloudy" size={36} color="#ffa42b" />
+              <View className="rounded-full p-3" style={{ backgroundColor: ui.weatherHeroWellBackgroundRgba }}>
+                <MaterialCommunityIcons name="weather-partly-cloudy" size={36} color={ui.weatherHeroIconHex} />
               </View>
             </View>
           </View>
@@ -206,13 +226,15 @@ export default function HomeScreen() {
         {!isOnlineMode ? (
           <View className="mb-7 rounded-bento border border-dashed border-border-light bg-muted/60 p-5">
             <View className="size-11 items-center justify-center rounded-full bg-danger/15">
-              <MaterialCommunityIcons name="sync-alert" size={20} color="#f3727f" />
+              <MaterialCommunityIcons name="sync-alert" size={20} color={ui.offlineSyncAlertIconHex} />
             </View>
             <Text className="mt-3 font-display text-lg text-ink">{t("home.syncTitle")}</Text>
             <Text className="mt-2 font-body text-sm leading-relaxed text-ink-muted">{t("home.syncBody")}</Text>
             <Pressable className="mt-4 flex-row items-center gap-1 self-start active:opacity-80" onPress={() => undefined}>
-              <Text className="font-body-semibold text-sm text-brand">{t("home.retrySync")}</Text>
-              <MaterialCommunityIcons name="chevron-right" size={18} color="#1ed760" />
+              <Text className="font-body-semibold text-sm" style={{ color: ui.headerAccentHex }}>
+                {t("home.retrySync")}
+              </Text>
+              <MaterialCommunityIcons name="chevron-right" size={18} color={ui.headerAccentHex} />
             </Pressable>
           </View>
         ) : null}
@@ -222,7 +244,7 @@ export default function HomeScreen() {
           <View className="mb-7">
             <View className="mb-5 flex-row gap-3">
               <LinearGradient
-                colors={["#1ed760", "#168d40"]}
+                colors={[ui.headerAccentHex, ui.gradientPartnerHex]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={[styles.bentoGreen, styles.shadowHeavy]}
@@ -244,7 +266,7 @@ export default function HomeScreen() {
               <View className="flex-1 justify-between rounded-bento border border-white/[0.06] bg-muted p-4 shadow-card">
                 <View>
                   <View className="mb-2 self-start rounded-full bg-brand/12 p-2">
-                    <MaterialCommunityIcons name="cash-multiple" size={20} color="#1ed760" />
+                    <MaterialCommunityIcons name="cash-multiple" size={20} color={ui.headerAccentHex} />
                   </View>
                   <Text className="font-body-medium text-[11px] text-ink-muted">{t("home.mandiPriceShort")}</Text>
                   <Text className="mt-0.5 font-display text-3xl text-ink">{primaryMandi?.price ?? "—"}</Text>
@@ -274,7 +296,7 @@ export default function HomeScreen() {
                       primaryMandi?.up === false
                         ? "#f3727f"
                         : primaryMandi?.up === true
-                          ? "#1ed760"
+                          ? ui.headerAccentHex
                           : "#b3b3b3"
                     }
                   />
@@ -299,7 +321,7 @@ export default function HomeScreen() {
                   className="min-w-0 flex-1 items-center active:opacity-85"
                 >
                   <View className="w-full items-center rounded-2xl border border-white/[0.07] bg-muted py-4 shadow-card">
-                    <MaterialCommunityIcons name={item.icon} size={22} color="#1ed760" />
+                    <MaterialCommunityIcons name={item.icon} size={22} color={ui.headerAccentHex} />
                   </View>
                   <Text className="mt-2 text-center font-body-semibold text-[9px] uppercase leading-tight tracking-wide text-ink-muted">
                     {item.label}
@@ -312,9 +334,15 @@ export default function HomeScreen() {
           <View className="mb-7 rounded-bento border border-white/[0.06] bg-card p-5 shadow-dialog">
             <View className="flex-row items-start justify-between">
               <Text className="font-display text-lg text-ink">{t("home.marketTitle")}</Text>
-              <View className="flex-row items-center gap-1.5 rounded-full bg-amber/12 px-2 py-1">
-                <View className="size-1.5 rounded-full bg-amber" />
-                <Text className="font-body-semibold text-[9px] uppercase tracking-wide text-amber">
+              <View
+                className="flex-row items-center gap-1.5 rounded-full px-2 py-1"
+                style={{ backgroundColor: ui.marketPendingChipBackgroundRgba }}
+              >
+                <View className="size-1.5 rounded-full" style={{ backgroundColor: ui.marketPendingDotHex }} />
+                <Text
+                  className="font-body-semibold text-[9px] uppercase tracking-wide"
+                  style={{ color: ui.marketPendingLabelHex }}
+                >
                   {t("home.pending")}
                 </Text>
               </View>
@@ -323,7 +351,7 @@ export default function HomeScreen() {
               <View className="flex-row items-center justify-between">
                 <View className="flex-row items-center gap-3">
                   <View className="rounded-full bg-muted p-2">
-                    <MaterialCommunityIcons name="barley" size={20} color="#1ed760" />
+                    <MaterialCommunityIcons name="barley" size={20} color={ui.headerAccentHex} />
                   </View>
                   <View>
                     <Text className="font-body-semibold text-sm text-ink">{primaryMandi?.label ?? "Wheat"}</Text>
@@ -350,7 +378,7 @@ export default function HomeScreen() {
               <View className="flex-row items-center justify-between">
                 <View className="flex-row items-center gap-3">
                   <View className="rounded-full bg-muted p-2">
-                    <MaterialCommunityIcons name="leaf" size={20} color="#1ed760" />
+                    <MaterialCommunityIcons name="leaf" size={20} color={ui.headerAccentHex} />
                   </View>
                   <View>
                     <Text className="font-body-semibold text-sm text-ink">{secondaryMandi?.label ?? "Mustard"}</Text>
@@ -383,7 +411,7 @@ export default function HomeScreen() {
 
         {/* Sowing CTA */}
         <LinearGradient
-          colors={["#1ed760", "#168d40"]}
+          colors={[ui.headerAccentHex, ui.gradientPartnerHex]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={[styles.sowingCard, styles.shadowHeavy]}
@@ -416,7 +444,7 @@ export default function HomeScreen() {
         ) : (
           <View className="mb-8 overflow-hidden rounded-bento shadow-dialog">
             <LinearGradient
-              colors={["#0f3d22", "#168d40", "#1ed760"]}
+              colors={[...ui.homeExpertGradientHex]}
               start={{ x: 0, y: 1 }}
               end={{ x: 1, y: 0 }}
               style={{ padding: 22, minHeight: 168, justifyContent: "flex-end" }}
@@ -441,7 +469,7 @@ export default function HomeScreen() {
           style={styles.fabShadow}
         >
           <LinearGradient
-            colors={["#1ed760", "#168d40"]}
+            colors={[ui.headerAccentHex, ui.gradientPartnerHex]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={{

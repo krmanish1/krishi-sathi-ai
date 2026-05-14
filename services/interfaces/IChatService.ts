@@ -8,11 +8,10 @@ import type { Connectivity } from "@/types/api";
 
 export interface IChatService {
   postQuery(req: QueryRequestDto, signal?: AbortSignal): Promise<QueryResponseDto>;
-  postQueryImage(params: {
-    uri: string;
-    farmerId: string;
-    purpose: "crop_disease" | "soil_photo" | "pest_id";
-  }, signal?: AbortSignal): Promise<ImageUploadResponseDto>;
+  postQueryImage(
+    params: { uri: string; farmerId: string; purpose: "crop_disease" | "soil_photo" | "pest_id" },
+    signal?: AbortSignal,
+  ): Promise<ImageUploadResponseDto>;
   getHealth(signal?: AbortSignal): Promise<{ status: string; version: string }>;
   getSyncBundle(params: { state: string; district: string; bundleVersion?: string }): Promise<SyncBundleDto>;
   getFarmerTwin(farmerId: string, connectivity: Connectivity): Promise<FarmerTwinDto>;

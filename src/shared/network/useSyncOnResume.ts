@@ -34,7 +34,7 @@ export function useSyncOnResume(): void {
             ...(bundleVer ? { bundleVersion: bundleVer } : {}),
           }).catch(() => undefined);
           // Stagger push after bundle/sync traffic so HF Spaces doesn't hit connection limits.
-          await new Promise((r) => setTimeout(r, 2000));
+          await new Promise((r) => setTimeout(r, 3500));
           await postSyncPush(session?.access_token, undefined).catch(() => undefined);
         } catch (e) {
           console.warn("[useSyncOnResume] sync failed", e);

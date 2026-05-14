@@ -7,17 +7,22 @@ import { appendMessage, MAIN_THREAD_ID } from "@/features/chat";
 import { useVoiceSessionStore } from "./useVoiceSessionStore";
 import type { Language } from "@/shared/config/constants";
 
-// Conditionally import native LiveKit modules to avoid web/test crashes.
-// In test environments these are mocked via jest.mock().
-let livekitClient: typeof import("livekit-client") | null = null;
-let livekitRN: typeof import("@livekit/react-native") | null = null;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  livekitClient = require("livekit-client") as typeof import("livekit-client");
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  livekitRN = require("@livekit/react-native") as typeof import("@livekit/react-native");
-} catch {
-  // Not available in this environment (web without bundler polyfill)
+// Lazy loader — called at voice-session start time, AFTER registerGlobals() has run.
+// Module-level require would execute before RootProviders calls registerGlobals(),
+// making livekitRN permanently null even in dev builds.
+function loadLiveKit(): {
+  livekitClient: typeof import("livekit-client");
+  livekitRN: typeof import("@livekit/react-native");
+} | null {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const lk = require("livekit-client") as typeof import("livekit-client");
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const lkRN = require("@livekit/react-native") as typeof import("@livekit/react-native");
+    return { livekitClient: lk, livekitRN: lkRN };
+  } catch {
+    return null;
+  }
 }
 
 export type VoiceSessionInput = {
@@ -86,9 +91,11 @@ export function useVoiceSession(input: VoiceSessionInput) {
   const startOnline = useCallback(async () => {
     store.setPhase("connecting");
     try {
-      if (!livekitClient || !livekitRN) {
-        throw new Error("LiveKit not available");
+      const livekit = loadLiveKit();
+      if (!livekit) {
+        throw new Error("LiveKit native module not available — running in Expo Go or web");
       }
+      const { livekitClient, livekitRN } = livekit;
       const { Room: LKRoom, RoomEvent } = livekitClient;
       const { AudioSession, AndroidAudioTypePresets } = livekitRN;
 
@@ -158,8 +165,12 @@ export function useVoiceSession(input: VoiceSessionInput) {
       await room.connect(server_url, participant_token, { autoSubscribe: true });
       await room.localParticipant.setMicrophoneEnabled(true);
       store.setPhase("listening");
-    } catch {
-      // LiveKit failed — fall back to local STT
+    } catch (err) {
+      // LiveKit failed — log for debugging then fall back to local STT
+      if (__DEV__) {
+        // eslint-disable-next-line no-console
+        console.warn("[VoiceSession] startOnline failed, falling back to offline STT:", err);
+      }
       roomRef.current = null;
       await startOffline();
     }
@@ -197,7 +208,8 @@ export function useVoiceSession(input: VoiceSessionInput) {
       }
       room.disconnect();
       try {
-        await livekitRN?.AudioSession.stopAudioSession();
+        const lk = loadLiveKit();
+        if (lk) await lk.livekitRN.AudioSession.stopAudioSession();
       } catch {
         // ignore — web or mock env
       }

@@ -1,66 +1,159 @@
-import { Text, View, FlatList, RefreshControl, ActivityIndicator, Alert } from "react-native";
+import { Text, View, FlatList, RefreshControl, ActivityIndicator, TouchableOpacity } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useQueryClient } from "@tanstack/react-query";
-import { runInitialSync } from "@/features/onboarding/useInitialSync";
 import { useOnboarding } from "@/features/onboarding/store";
 import {
-  MANDI_QUERY_KEY,
-  useMandiFromBundle,
+  useMandiApi,
+  useIndiaLocationLists,
+  MandiFilterModal,
+  type MandiFilter,
   type MandiPriceRow,
-} from "@/features/mandi/mandiFromBundle";
-import { useState, memo, useEffect, useCallback } from "react";
-import { useConnectivity } from "@/shared/network";
+} from "@/features/mandi";
+import { useState, memo, useCallback } from "react";
+import { useConnectivityUi } from "@/shared/network";
 
 export default function MandiScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const qc = useQueryClient();
-  const state = useOnboarding((s) => s.state);
-  const district = useOnboarding((s) => s.district);
-  const { data, isLoading, refetch, isRefetching } = useMandiFromBundle();
-  const [syncing, setSyncing] = useState(false);
-  const connectivity = useConnectivity();
+  const obState = useOnboarding((s) => s.state) ?? "";
+  const obDistrict = useOnboarding((s) => s.district) ?? "";
+  const ui = useConnectivityUi();
 
-  const rows = data?.rows ?? [];
-  const canSync = connectivity === "online" || connectivity === "degraded";
+  const {
+    rows,
+    total,
+    filter,
+    setFilter,
+    resetFilter: resetMandiFilter,
+    isManualFilter,
+    isLoading,
+    isRefetching,
+    isLive,
+    liveSource,
+    isStateLevelFallback,
+    refetch,
+    state,
+    district,
+    arrivalDate,
+  } = useMandiApi();
 
-  const doSync = useCallback(async () => {
-    if (!state || !district) {
-      await refetch();
-      return;
-    }
-    await runInitialSync({ state, district });
-    await qc.invalidateQueries({ queryKey: MANDI_QUERY_KEY });
-  }, [state, district, refetch, qc]);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [draftState, setDraftState] = useState(filter.state);
+  const [draftDistrict, setDraftDistrict] = useState(filter.district);
+
+  const {
+    states,
+    districts,
+    statesLoading,
+    districtsLoading,
+    statesError,
+    districtsError,
+    listsBlocked,
+    refetchStates,
+    refetchDistricts,
+  } = useIndiaLocationLists(draftState);
+
+  const openFilter = useCallback(() => {
+    setDraftState(filter.state);
+    setDraftDistrict(filter.district);
+    setFilterModalVisible(true);
+  }, [filter]);
+
+  const applyFilter = useCallback(() => {
+    const next: MandiFilter = { state: draftState.trim(), district: draftDistrict.trim() };
+    setFilter(next);
+    setFilterModalVisible(false);
+  }, [draftState, draftDistrict, setFilter]);
+
+  const resetFilter = useCallback(() => {
+    resetMandiFilter();
+    setDraftState(obState);
+    setDraftDistrict(obDistrict);
+    setFilterModalVisible(false);
+  }, [resetMandiFilter, obState, obDistrict]);
 
   const onRefresh = useCallback(async () => {
-    setSyncing(true);
-    try {
-      await doSync();
-    } catch {
-      Alert.alert(t("errors.retryLater"));
-    } finally {
-      setSyncing(false);
-    }
-  }, [doSync, t]);
+    refetch();
+  }, [refetch]);
 
-  useEffect(() => {
-    if (!state || !district || !canSync || rows.length > 0) return;
-    void doSync().catch(() => undefined);
-  }, [state, district, canSync, rows.length, doSync]);
+  const sourceShort =
+    liveSource === "enam"
+      ? t("mandi.sourceEnamShort")
+      : liveSource === "agmarknet_district" || liveSource === "agmarknet_state"
+        ? t("mandi.sourceAgmarknetShort")
+        : null;
 
   return (
     <View className="flex-1 bg-page" style={{ paddingTop: insets.top }}>
-      <View className="border-b border-border/60 bg-card px-4 py-4">
-        <Text className="font-display text-lg text-title-green">{t("mandi.title")}</Text>
+      {/* Header */}
+      <View
+        className="border-b border-border/60 px-4 pb-3 pt-4"
+        style={{ backgroundColor: ui.chatsHeaderSurfaceHex }}
+      >
+        <View className="flex-row items-center justify-between">
+          <Text className="font-display text-lg text-title-green">{t("mandi.title")}</Text>
+          <View className="flex-row items-center gap-2">
+            {/* Live / Cached badge */}
+            <View
+              className={`rounded-full px-2 py-0.5 ${isLive ? "bg-success/15" : "bg-border/60"}`}
+            >
+              <Text
+                className={`font-body text-xs ${isLive ? "text-success" : "text-ink-muted"}`}
+              >
+                {isLive && sourceShort
+                  ? `${t("mandi.liveBadge")} · ${sourceShort}`
+                  : isLive
+                    ? t("mandi.liveBadge")
+                    : t("mandi.cachedBadge")}
+              </Text>
+            </View>
+            {/* Filter button */}
+            <TouchableOpacity
+              onPress={openFilter}
+              className="rounded-full border border-border/60 px-3 py-1"
+              accessibilityLabel={t("mandi.filterBtn")}
+            >
+              <Text className="font-body text-xs text-ink-muted">{t("mandi.filterBtn")}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
         <Text className="mt-1 font-body text-sm text-ink-muted">
-          {t("mandi.region", { state: data?.state ?? "—", district: data?.district ?? "—" })}
+          {isStateLevelFallback
+            ? t("mandi.regionStateOnly", { state })
+            : t("mandi.region", { state, district: district || "—" })}
         </Text>
+
+        {/* Arrival date + count row */}
+        {(arrivalDate || rows.length > 0) && (
+          <View className="mt-1 flex-row items-center gap-3">
+            {arrivalDate ? (
+              <Text className="font-body text-xs text-ink-muted">
+                {t("mandi.arrivalDate", { date: arrivalDate })}
+              </Text>
+            ) : null}
+            {rows.length > 0 && (
+              <Text className="font-body text-xs text-ink-muted">
+                {t("mandi.totalRecords", { count: total })}
+              </Text>
+            )}
+          </View>
+        )}
+
+        {/* Manual filter active indicator */}
+        {isManualFilter && (
+          <TouchableOpacity onPress={resetFilter} className="mt-1.5 self-start">
+            <Text className="font-body text-xs text-ink-muted underline">
+              {t("mandi.filterReset")}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
+
+      {/* Content */}
       {isLoading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="#1ed760" />
+          <ActivityIndicator color={ui.accentHex} />
         </View>
       ) : (
         <FlatList
@@ -70,24 +163,55 @@ export default function MandiScreen() {
           ItemSeparatorComponent={() => <View className="h-px bg-border" />}
           refreshControl={
             <RefreshControl
-              refreshing={isRefetching || syncing}
+              refreshing={isRefetching}
               onRefresh={onRefresh}
-              tintColor="#1ed760"
+              tintColor={ui.accentHex}
             />
           }
           ListEmptyComponent={
-            <View className="items-center py-10">
-              <Text className="text-center font-body text-ink-muted">{t("mandi.empty")}</Text>
+            <View className="items-center px-6 py-10">
+              <Text className="text-center font-body text-ink-muted">
+                {ui.backendReachable && (filter.state.trim() || filter.district.trim())
+                  ? t("mandi.emptyNoReport")
+                  : t("mandi.empty")}
+              </Text>
             </View>
           }
-          renderItem={({ item }) => <MandiRowItem item={item} />}
+          renderItem={({ item }) => <MandiRowItem item={item} isLive={isLive} />}
         />
       )}
+
+      <MandiFilterModal
+        visible={filterModalVisible}
+        onClose={() => setFilterModalVisible(false)}
+        draftState={draftState}
+        draftDistrict={draftDistrict}
+        onDraftStateChange={setDraftState}
+        onDraftDistrictChange={setDraftDistrict}
+        onApply={applyFilter}
+        onReset={resetFilter}
+        states={states}
+        districts={districts}
+        statesLoading={statesLoading}
+        districtsLoading={districtsLoading}
+        statesError={statesError}
+        districtsError={districtsError}
+        listsBlocked={listsBlocked}
+        onRefetchStates={refetchStates}
+        onRefetchDistricts={refetchDistricts}
+        ui={ui}
+      />
     </View>
   );
 }
 
-const MandiRowItem = memo(function MandiRowItem({ item }: { item: MandiPriceRow }) {
+const MandiRowItem = memo(function MandiRowItem({
+  item,
+  isLive,
+}: {
+  item: MandiPriceRow;
+  isLive: boolean;
+}) {
   const { t } = useTranslation();
   return (
     <View className="flex-row items-center justify-between py-4">
@@ -101,15 +225,17 @@ const MandiRowItem = memo(function MandiRowItem({ item }: { item: MandiPriceRow 
         <Text className="font-body-semibold text-ink">{item.price}</Text>
         {item.changeLabel !== "—" ? (
           <Text
-            className={`font-body-semibold text-xs ${
-              item.up === true
-                ? "text-success"
-                : item.up === false
-                  ? "text-danger"
-                  : "text-ink-muted"
+            className={`font-body text-xs ${
+              isLive
+                ? "text-ink-muted"
+                : item.up === true
+                  ? "text-success"
+                  : item.up === false
+                    ? "text-danger"
+                    : "text-ink-muted"
             }`}
           >
-            {item.changeLabel}
+            {isLive ? t("mandi.priceRange", { range: item.changeLabel }) : item.changeLabel}
           </Text>
         ) : null}
       </View>

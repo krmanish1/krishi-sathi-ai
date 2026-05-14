@@ -4,7 +4,8 @@ import { Platform } from "react-native";
  * Limits parallel HTTP calls on native. Hosts like Hugging Face Spaces often
  * drop or stall when many connections open at once; web keeps default behavior.
  */
-const MAX_CONCURRENT = 4;
+/** HF Spaces and similar proxies often reset excess parallel TLS connections on Android. */
+const MAX_CONCURRENT = 3;
 let inFlight = 0;
 const waitQueue: (() => void)[] = [];
 

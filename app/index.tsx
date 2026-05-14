@@ -8,9 +8,11 @@ import {
 } from "@/features/onboarding/store";
 import { useAuthReady, useSupabaseSession } from "@/shared/auth/AuthProvider";
 import { useTranslation } from "react-i18next";
+import { useConnectivityUi } from "@/shared/network";
 
 export default function Index() {
   const { t } = useTranslation();
+  const ui = useConnectivityUi();
   const [boot, setBoot] = useState(false);
   const { hasCompletedOnboarding } = useOnboarding();
   const authReady = useAuthReady();
@@ -49,7 +51,7 @@ export default function Index() {
 
   return (
     <View className="flex-1 items-center justify-center bg-page" accessibilityLabel={t("app.name")}>
-      <ActivityIndicator size="large" color="#1ed760" />
+      <ActivityIndicator size="large" color={ui.accentHex} />
       <Text className="mt-3 text-sm text-text-muted opacity-80">{t("app.name")}</Text>
     </View>
   );

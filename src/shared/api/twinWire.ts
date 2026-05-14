@@ -1,16 +1,9 @@
-import type { Connectivity } from "@/shared/api/types";
+import { queryConnectivityWire, type Connectivity } from "@/shared/api/types";
 import type { FarmerTwin } from "@/shared/api/types";
 
-/** Query value expected by backend: `?connectivity=online|offline` */
-export function twinConnectivityForQuery(c: Connectivity): "online" | "offline" {
-  return c === "offline" ? "offline" : "online";
-}
-
+/** Query value for twin GET/PUT: `?connectivity=online|offline` (per backend OpenAPI). */
 export function twinTwinQueryString(connectivity: Connectivity): string {
-  const q = new URLSearchParams({
-    connectivity: twinConnectivityForQuery(connectivity),
-  });
-  return `?${q.toString()}`;
+  return `?connectivity=${queryConnectivityWire(connectivity)}`;
 }
 
 /** Normalize API irrigation strings to canonical irrigated | rainfed for internal storage. */

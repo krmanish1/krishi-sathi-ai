@@ -8,6 +8,8 @@ import {
   Animated,
 } from "react-native";
 import type { BottomTabBarProps } from "@react-navigation/bottom-tabs";
+import { useConnectivityUi } from "@/shared/network";
+import { hexToRgba } from "@/shared/utils";
 import { theme } from "@/shared/ui/theme/tokens";
 
 const CENTER_NAME = "new-chat";
@@ -16,7 +18,6 @@ const TAB_ORDER = ["home", "chats", CENTER_NAME, "mandi", "profile"] as const;
 
 const SIDE_ICON = 26;
 
-const ACTIVE = theme.brand;
 const INACTIVE = "rgba(255,255,255,0.42)";
 
 const springPress = {
@@ -40,15 +41,17 @@ function SideTabButton({
   options,
   onPress,
   onLongPress,
+  activeAccent,
 }: {
   route: BottomTabBarProps["state"]["routes"][number];
   isFocused: boolean;
   options: BottomTabBarProps["descriptors"][string]["options"];
   onPress: () => void;
   onLongPress: () => void;
+  activeAccent: string;
 }) {
   const [scale] = useState(() => new Animated.Value(1));
-  const color = isFocused ? ACTIVE : INACTIVE;
+  const color = isFocused ? activeAccent : INACTIVE;
   const labelText = typeof options.title === "string" ? options.title : route.name;
 
   const icon = options.tabBarIcon?.({
@@ -72,10 +75,24 @@ function SideTabButton({
       onPressOut={() => runSpring(1)}
     >
       <Animated.View style={[styles.sideTab, { transform: [{ scale }] }]}>
-        <View style={[styles.iconSlot, isFocused ? styles.iconSlotFocused : styles.iconSlotIdle]}>
+        <View
+          style={[
+            styles.iconSlot,
+            isFocused
+              ? {
+                  backgroundColor: hexToRgba(activeAccent, 0.08),
+                  borderColor: hexToRgba(activeAccent, 0.55),
+                  borderWidth: StyleSheet.hairlineWidth,
+                }
+              : styles.iconSlotIdle,
+          ]}
+        >
           {icon}
         </View>
-        <Text style={[styles.label, isFocused ? styles.labelFocused : styles.labelIdle]} numberOfLines={1}>
+        <Text
+          style={[styles.label, isFocused ? { color: activeAccent, opacity: 1 } : styles.labelIdle]}
+          numberOfLines={1}
+        >
           {labelText}
         </Text>
       </Animated.View>
@@ -84,6 +101,8 @@ function SideTabButton({
 }
 
 export function KrishiTabBar({ state, descriptors, navigation, insets }: BottomTabBarProps) {
+  const ui = useConnectivityUi();
+  const activeAccent = ui.headerAccentHex;
   const visibleRoutes = useMemo(
     () => state.routes.filter((r) => r.name !== "chat"),
     [state.routes],
@@ -148,6 +167,7 @@ export function KrishiTabBar({ state, descriptors, navigation, insets }: BottomT
                       options={desc.options}
                       onPress={() => emitTabPress(route)}
                       onLongPress={() => emitTabLongPress(route)}
+                      activeAccent={activeAccent}
                     />
                   </View>
                 );
@@ -227,10 +247,8 @@ const styles = StyleSheet.create({
   },
   iconSlotIdle: {
     backgroundColor: "transparent",
-  },
-  iconSlotFocused: {
-    backgroundColor: "rgba(30, 215, 96, 0.08)",
-    borderColor: "rgba(30, 215, 96, 0.55)",
+    borderColor: "transparent",
+    borderWidth: StyleSheet.hairlineWidth,
   },
   label: {
     fontSize: 10,
@@ -239,10 +257,6 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     maxWidth: 76,
     textAlign: "center",
-  },
-  labelFocused: {
-    color: ACTIVE,
-    opacity: 1,
   },
   labelIdle: {
     color: INACTIVE,

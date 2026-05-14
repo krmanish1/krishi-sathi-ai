@@ -3,16 +3,18 @@ import { useTranslation } from "react-i18next";
 import { Platform } from "react-native";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { KrishiTabBar } from "@/shared/ui/primitives/KrishiTabBar";
+import { useConnectivityUi } from "@/shared/network";
 
 export default function TabsLayout() {
   const { t } = useTranslation();
+  const ui = useConnectivityUi();
   return (
     <Tabs
       safeAreaInsets={{ left: 0, right: 0 }}
       tabBar={(props) => <KrishiTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#1ed760",
+        tabBarActiveTintColor: ui.headerAccentHex,
         tabBarInactiveTintColor: "#8e8e8e",
         tabBarShowLabel: true,
         tabBarStyle: {

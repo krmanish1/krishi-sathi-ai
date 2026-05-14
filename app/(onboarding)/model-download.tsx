@@ -15,9 +15,12 @@ import { runInitialSync } from "@/features/onboarding/useInitialSync";
 import { loadBundleVersion } from "@/shared/storage/bundle";
 import { OnboardingShell } from "@/features/onboarding";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import { useConnectivityUi } from "@/shared/network";
+import { hexToRgba } from "@/shared/utils";
 
 export default function ModelDownloadScreen() {
   const { t } = useTranslation();
+  const ui = useConnectivityUi();
   const { state, district } = useOnboarding();
   const [pct, setPct] = useState(0);
   const [variant, setVariant] = useState<ModelVariant>("e4b");
@@ -137,11 +140,14 @@ export default function ModelDownloadScreen() {
 
       <View className="flex-1 items-center justify-center px-1">
         <LinearGradient
-          colors={["rgba(30,215,96,0.2)", "rgba(22,141,64,0.06)"]}
+          colors={[hexToRgba(ui.headerAccentHex, 0.2), hexToRgba(ui.gradientPartnerHex, 0.06)]}
           className="mb-8 items-center justify-center rounded-full p-6"
         >
-          <View className="h-20 w-20 items-center justify-center rounded-full bg-brand/25">
-            <MaterialCommunityIcons name="download-network" size={40} color="#1ed760" />
+          <View
+            className="h-20 w-20 items-center justify-center rounded-full"
+            style={{ backgroundColor: hexToRgba(ui.headerAccentHex, 0.25) }}
+          >
+            <MaterialCommunityIcons name="download-network" size={40} color={ui.headerAccentHex} />
           </View>
         </LinearGradient>
 
@@ -160,14 +166,14 @@ export default function ModelDownloadScreen() {
             </Text>
           ) : null}
 
-          <Text className="mt-8 text-center font-display text-5xl tabular-nums text-brand">
+          <Text className="mt-8 text-center font-display text-5xl tabular-nums" style={{ color: ui.headerAccentHex }}>
             {pct}%
           </Text>
 
           <View className="mt-6 h-2.5 w-full overflow-hidden rounded-full bg-muted">
             <View
-              className="h-full rounded-full bg-brand"
-              style={{ width: barWidth as `${number}%` }}
+              className="h-full rounded-full"
+              style={{ width: barWidth as `${number}%`, backgroundColor: ui.headerAccentHex }}
             />
           </View>
         </View>

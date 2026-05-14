@@ -40,11 +40,21 @@ import { VoiceFAB, VoiceSessionSheet, useVoiceSession } from "@/features/voice";
 import type { Language } from "@/shared/config/constants";
 
 if (Platform.OS !== "web") {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { registerGlobals } = require("@livekit/react-native") as {
-    registerGlobals: () => void;
-  };
-  registerGlobals();
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { registerGlobals } = require("@livekit/react-native") as {
+      registerGlobals: () => void;
+    };
+    registerGlobals();
+  } catch {
+    // Expo Go and other environments without LiveKit/WebRTC native code.
+    if (__DEV__) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        "[RootProviders] LiveKit native module unavailable; voice/LiveKit features disabled.",
+      );
+    }
+  }
 }
 
 function SyncOnResumeEffect(): null {

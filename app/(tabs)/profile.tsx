@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } from "react";
 import {
   Text,
   View,
@@ -7,8 +7,8 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-  StyleSheet,
   Linking,
+  StyleSheet,
 } from "react-native";
 import Constants from "expo-constants";
 import { router } from "expo-router";
@@ -21,6 +21,7 @@ import { greetingFirstName, useDisplayName, useFarmerTwin, useUpdateFarmerTwin }
 import type { FarmerTwin } from "@/shared/api/types";
 import type { Language } from "@/shared/config/constants";
 import i18n from "@/shared/i18n";
+import { useConnectivityUi } from "@/shared/network";
 
 const APP_LANG: Language[] = ["en", "hi"];
 const APP_VERSION = (Constants.expoConfig?.version as string | undefined) ?? "1.0.0";
@@ -104,6 +105,33 @@ function SettingsRow({
 export default function ProfileScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const ui = useConnectivityUi();
+  const avatarStyles = useMemo(
+    () =>
+      StyleSheet.create({
+        avatarRing: {
+          width: 60,
+          height: 60,
+          borderRadius: 30,
+          borderWidth: 2,
+          borderColor: ui.headerAccentHex,
+          padding: 2,
+        },
+        avatarInner: {
+          flex: 1,
+          borderRadius: 28,
+          backgroundColor: ui.gradientPartnerHex,
+          alignItems: "center",
+          justifyContent: "center",
+        },
+        avatarText: {
+          fontSize: 22,
+          fontWeight: "700",
+          color: ui.headerAccentHex,
+        },
+      }),
+    [ui.headerAccentHex, ui.gradientPartnerHex],
+  );
   const farmerId = useFarmerId();
   const session = useSupabaseSession();
   const { signOutSocial } = useSupabaseAuth();
@@ -245,7 +273,7 @@ export default function ProfileScreen() {
   if (!farmerId) {
     return (
       <View className="flex-1 items-center justify-center bg-page" style={{ paddingTop: insets.top }}>
-        <ActivityIndicator size="large" color="#1ed760" />
+        <ActivityIndicator size="large" color={ui.accentHex} />
       </View>
     );
   }
@@ -254,15 +282,15 @@ export default function ProfileScreen() {
     <View className="flex-1 bg-page">
       {/* ── Header ─────────────────────────────────────────────── */}
       <View
-        className="border-b border-white/[0.07] bg-card px-5 pb-5"
-        style={{ paddingTop: insets.top + 12 }}
+        className="border-b border-white/[0.07] px-5 pb-5"
+        style={{ paddingTop: insets.top + 12, backgroundColor: ui.chatsHeaderSurfaceHex }}
       >
         <Text className="font-display text-base text-ink">{t("profile.title")}</Text>
 
         <View className="mt-5 flex-row items-center gap-4">
-          <View style={styles.avatarRing}>
-            <View style={styles.avatarInner}>
-              <Text style={styles.avatarText}>{avatarLetter}</Text>
+          <View style={avatarStyles.avatarRing}>
+            <View style={avatarStyles.avatarInner}>
+              <Text style={avatarStyles.avatarText}>{avatarLetter}</Text>
             </View>
           </View>
           <View className="min-w-0 flex-1">
@@ -299,7 +327,7 @@ export default function ProfileScreen() {
         <SectionHeader label={t("profile.sectionFarm")} />
         {isLoading ? (
           <View className="items-center py-6">
-            <ActivityIndicator color="#1ed760" />
+            <ActivityIndicator color={ui.accentHex} />
           </View>
         ) : twin ? (
           <>
@@ -465,25 +493,3 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  avatarRing: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 2,
-    borderColor: "#1ed760",
-    padding: 2,
-  },
-  avatarInner: {
-    flex: 1,
-    borderRadius: 28,
-    backgroundColor: "#14532d",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#1ed760",
-  },
-});

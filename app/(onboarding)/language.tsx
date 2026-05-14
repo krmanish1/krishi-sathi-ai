@@ -6,6 +6,8 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import type { Language } from "@/shared/config/constants";
 import { useOnboarding } from "@/features/onboarding/store";
 import { OnboardingShell } from "@/features/onboarding";
+import { useConnectivityUi } from "@/shared/network";
+import { hexToRgba } from "@/shared/utils";
 
 const CHOICES: { key: Language; title: string; subtitle: string; icon: string; iconBg: string }[] = [
   { key: "hi", title: "हिंदी", subtitle: "Hindi", icon: "translate-variant", iconBg: "#252525" },
@@ -14,6 +16,7 @@ const CHOICES: { key: Language; title: string; subtitle: string; icon: string; i
 
 export default function LanguageScreen() {
   const { t, i18n } = useTranslation();
+  const ui = useConnectivityUi();
   const setLanguage = useOnboarding((s) => s.setLanguage);
   const selectedLanguage = (useOnboarding((s) => s.language) ?? "hi") as Language;
 
@@ -40,7 +43,7 @@ export default function LanguageScreen() {
       <ScrollView className="flex-1" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
         <View className="items-center pb-4 pt-1">
           <LinearGradient
-            colors={["#1ed760", "#168d40"]}
+            colors={[ui.headerAccentHex, ui.gradientPartnerHex]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             className="h-16 w-16 items-center justify-center rounded-full shadow-dialog"
@@ -74,7 +77,7 @@ export default function LanguageScreen() {
                     className="h-11 w-11 items-center justify-center rounded-full"
                     style={{ backgroundColor: item.iconBg }}
                   >
-                    <MaterialCommunityIcons name={item.icon as never} size={20} color="#1ed760" />
+                    <MaterialCommunityIcons name={item.icon as never} size={20} color={ui.headerAccentHex} />
                   </View>
                   <View>
                     <Text className="font-display text-lg leading-6 text-ink">{item.title}</Text>
@@ -94,12 +97,12 @@ export default function LanguageScreen() {
         </View>
 
         <LinearGradient
-          colors={["rgba(30,215,96,0.12)", "rgba(18,18,18,0.95)"]}
+          colors={[hexToRgba(ui.headerAccentHex, 0.12), "rgba(18,18,18,0.95)"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           className="mt-4 min-h-[96px] justify-end overflow-hidden rounded-xl border border-white/[0.06] px-4 py-3"
         >
-          <MaterialCommunityIcons name="sprout-outline" size={36} color="#1ed760" style={{ opacity: 0.35 }} />
+          <MaterialCommunityIcons name="sprout-outline" size={36} color={ui.headerAccentHex} style={{ opacity: 0.35 }} />
           <Text className="mt-2 font-body-semibold text-[10px] uppercase tracking-[1.6px] text-brand">
             {t("home.recommended")}
           </Text>
