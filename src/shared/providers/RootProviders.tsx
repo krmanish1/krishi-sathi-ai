@@ -34,6 +34,10 @@ import { initAuthBrowser } from "@/shared/supabase";
 import { ConnectivityProvider, useSyncOnResume } from "@/shared/network";
 import { UserStoreSyncer } from "@/features/user";
 import { runChatLocalCacheMigrationIfNeeded } from "@/features/chat";
+import { useFarmerId } from "@/shared/auth/AuthProvider";
+import { useOnboarding } from "@/features/onboarding";
+import { VoiceFAB, VoiceSessionSheet, useVoiceSession } from "@/features/voice";
+import type { Language } from "@/shared/config/constants";
 
 if (Platform.OS !== "web") {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -46,6 +50,24 @@ if (Platform.OS !== "web") {
 function SyncOnResumeEffect(): null {
   useSyncOnResume();
   return null;
+}
+
+function VoiceFABConnector() {
+  const farmerId = useFarmerId() ?? "";
+  const { state, district, language } = useOnboarding();
+  const { phase, start, stop } = useVoiceSession({
+    farmerId,
+    language: (language ?? "hi") as Language,
+    state: state ?? "",
+    district: district ?? "",
+  });
+
+  return (
+    <>
+      <VoiceFAB phase={phase} onStart={start} onStop={stop} />
+      <VoiceSessionSheet onStop={stop} />
+    </>
+  );
 }
 
 const queryClient = new QueryClient({
@@ -123,6 +145,7 @@ export const RootProviders = ({ children }: { children: ReactNode }) => {
                     <ApiStatusProvider>
                       <StatusBar style="light" />
                       {children}
+                      <VoiceFABConnector />
                     </ApiStatusProvider>
                   </AuthProvider>
                 </ConnectivityProvider>
