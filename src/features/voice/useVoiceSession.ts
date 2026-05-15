@@ -1,11 +1,30 @@
-import { useCallback, useRef, useEffect } from "react";
+import { useCallback, useRef, useEffect, useState } from "react";
 import { Platform } from "react-native";
+import type { LocalAudioTrack, RemoteAudioTrack } from "livekit-client";
 import { useConnectivity } from "@/shared/network";
 import { useVoice, speak as speakText } from "@/shared/voice";
 import { askAgent, postVoiceToken } from "@/shared/api";
 import { appendMessage, MAIN_THREAD_ID } from "@/features/chat";
 import { useVoiceSessionStore } from "./useVoiceSessionStore";
 import type { Language } from "@/shared/config/constants";
+
+export type VoiceSessionAudioTracks = {
+  localMic?: LocalAudioTrack;
+  remoteAgent?: RemoteAudioTrack;
+};
+
+const STT_LOCALE: Record<string, string> = {
+  hi: "hi-IN",
+  en: "en-IN",
+  pa: "pa-IN",
+  te: "te-IN",
+  mr: "mr-IN",
+  bn: "bn-IN",
+};
+
+function toSttLocale(lang: string): string {
+  return STT_LOCALE[lang] ?? `${lang}-IN`;
+}
 
 // Lazy loader — called at voice-session start time, AFTER registerGlobals() has run.
 // Module-level require would execute before RootProviders calls registerGlobals(),
@@ -37,20 +56,58 @@ export function useVoiceSession(input: VoiceSessionInput) {
   const connectivity = useConnectivity();
   const store = useVoiceSessionStore();
   const roomRef = useRef<import("livekit-client").Room | null>(null);
+  const [audioTracks, setAudioTracks] = useState<VoiceSessionAudioTracks>({});
   // True while stop() is executing — prevents Disconnected handler from double-resetting
   const stoppedByUser = useRef(false);
+
+  const syncAudioFromRoom = useCallback(() => {
+    const r = roomRef.current;
+    const lk = loadLiveKit();
+    if (!r || !lk) {
+      setAudioTracks({});
+      return;
+    }
+    const { Track } = lk.livekitClient;
+    const localPub = r.localParticipant.getTrackPublication(Track.Source.Microphone);
+    let localMic: LocalAudioTrack | undefined;
+    if (localPub?.track?.kind === Track.Kind.Audio) {
+      localMic = localPub.track as LocalAudioTrack;
+    }
+    let remoteAgent: RemoteAudioTrack | undefined;
+    for (const p of r.remoteParticipants.values()) {
+      for (const pub of p.trackPublications.values()) {
+        if (pub.track?.kind === Track.Kind.Audio) {
+          remoteAgent = pub.track as RemoteAudioTrack;
+          break;
+        }
+      }
+      if (remoteAgent) break;
+    }
+    const next: VoiceSessionAudioTracks = {};
+    if (localMic !== undefined) next.localMic = localMic;
+    if (remoteAgent !== undefined) next.remoteAgent = remoteAgent;
+    setAudioTracks(next);
+    store.setAgentJoined(r.remoteParticipants.size > 0);
+  }, [store]);
 
   // Cleanup room on unmount
   useEffect(() => {
     return () => {
-      roomRef.current?.disconnect();
+      const r = roomRef.current;
       roomRef.current = null;
+      if (r) {
+        r.removeAllListeners();
+        try { r.disconnect(); } catch { /* ignore */ }
+      }
     };
   }, []);
+
+  const startOfflineRef = useRef<(() => Promise<void>) | null>(null);
 
   const handleSpeechResult = useCallback(
     async (text: string) => {
       store.setPhase("speaking");
+      let hadError = false;
       try {
         const response = await askAgent(
           { text, language: input.language, intent: "general" },
@@ -71,9 +128,17 @@ export function useVoiceSession(input: VoiceSessionInput) {
           threadId: MAIN_THREAD_ID,
         });
       } catch {
+        hadError = true;
         store.setError("voice.error.unavailable");
       } finally {
-        store.reset();
+        if (!hadError && !stoppedByUser.current) {
+          // Stay active — restart STT for next query
+          store.setPhase("listening");
+          startOfflineRef.current?.().catch(() => store.setError("voice.error.unavailable"));
+        } else if (!stoppedByUser.current) {
+          // Error state — leave error visible, don't reset
+        }
+        // If stoppedByUser: stop() is handling cleanup, do nothing
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -83,10 +148,15 @@ export function useVoiceSession(input: VoiceSessionInput) {
   const voice = useVoice({ onSpeechResult: handleSpeechResult });
 
   const startOffline = useCallback(async () => {
-    const locale = input.language === "hi" ? "hi-IN" : input.language;
+    setAudioTracks({});
+    const locale = toSttLocale(input.language);
     await voice.startListening(locale);
     store.setPhase("listening");
   }, [input.language, voice, store]);
+
+  useEffect(() => {
+    startOfflineRef.current = startOffline;
+  }, [startOffline]);
 
   const startOnline = useCallback(async () => {
     store.setPhase("connecting");
@@ -103,11 +173,21 @@ export function useVoiceSession(input: VoiceSessionInput) {
       await AudioSession.configureAudio({
         android: {
           preferredOutputList: ["speaker", "earpiece"],
-          audioTypeOptions: AndroidAudioTypePresets.communication,
+          audioTypeOptions: AndroidAudioTypePresets.media,
         },
         ios: { defaultOutput: "speaker" },
       });
       await AudioSession.startAudioSession();
+
+      // Disconnect any stale room before creating a new one.
+      // removeAllListeners() first — prevents stale room's WebSocket error
+      // from becoming an unhandled promise rejection after disconnect.
+      if (roomRef.current) {
+        const stale = roomRef.current;
+        roomRef.current = null;
+        stale.removeAllListeners();
+        try { stale.disconnect(); } catch { /* ignore */ }
+      }
 
       const { server_url, participant_token } = await postVoiceToken({
         farmer_id: input.farmerId,
@@ -135,20 +215,37 @@ export function useVoiceSession(input: VoiceSessionInput) {
         }
       });
 
-      // When agent stops speaking, go back to listening for next query
+      const onRoomTracksChanged = () => {
+        syncAudioFromRoom();
+      };
+      room.on(RoomEvent.TrackPublished, onRoomTracksChanged);
+      room.on(RoomEvent.TrackUnpublished, onRoomTracksChanged);
+      room.on(RoomEvent.TrackSubscribed, onRoomTracksChanged);
+      room.on(RoomEvent.TrackUnsubscribed, onRoomTracksChanged);
+      room.on(RoomEvent.LocalTrackPublished, onRoomTracksChanged);
+      room.on(RoomEvent.LocalTrackUnpublished, onRoomTracksChanged);
+      room.on(RoomEvent.ParticipantConnected, onRoomTracksChanged);
+      room.on(RoomEvent.ParticipantDisconnected, onRoomTracksChanged);
+
+      // Track agent speaking state via active speakers
       room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
-        if (speakers.length === 0 && useVoiceSessionStore.getState().phase === "speaking") {
+        const agentSpeaking = speakers.some((s) => s.sid !== room.localParticipant.sid);
+        if (agentSpeaking) {
+          store.setPhase("speaking");
+        } else if (useVoiceSessionStore.getState().phase === "speaking") {
           store.setPhase("listening");
         }
       });
 
       // Reconnect resilience on brief network drops
       room.on(RoomEvent.Reconnecting, () => store.setPhase("connecting"));
-      room.on(RoomEvent.Reconnected, () => store.setPhase("listening"));
+      room.on(RoomEvent.Reconnected, () => {
+        store.setPhase("listening");
+        syncAudioFromRoom();
+      });
 
       room.on(RoomEvent.Disconnected, async () => {
-        if (stoppedByUser.current) return; // stop() handles its own cleanup
-        // Unexpected disconnect (backend closed room after agent response)
+        if (stoppedByUser.current) return;
         const { transcript } = useVoiceSessionStore.getState();
         if (transcript) {
           try {
@@ -158,23 +255,24 @@ export function useVoiceSession(input: VoiceSessionInput) {
             // best-effort save
           }
         }
+        setAudioTracks({});
         roomRef.current = null;
         store.reset();
       });
 
       await room.connect(server_url, participant_token, { autoSubscribe: true });
       await room.localParticipant.setMicrophoneEnabled(true);
+      syncAudioFromRoom();
       store.setPhase("listening");
     } catch (err) {
-      // LiveKit failed — log for debugging then fall back to local STT
       if (__DEV__) {
-        // eslint-disable-next-line no-console
         console.warn("[VoiceSession] startOnline failed, falling back to offline STT:", err);
       }
       roomRef.current = null;
+      setAudioTracks({});
       await startOffline();
     }
-  }, [input.farmerId, input.language, store, startOffline]);
+  }, [input.farmerId, input.language, input.conversationId, store, startOffline, syncAudioFromRoom]);
 
   const start = useCallback(async () => {
     if (store.phase !== "idle") return;
@@ -191,6 +289,7 @@ export function useVoiceSession(input: VoiceSessionInput) {
 
   const stop = useCallback(async () => {
     stoppedByUser.current = true;
+    setAudioTracks({});
     const room = roomRef.current;
     if (room) {
       const { transcript } = useVoiceSessionStore.getState();
@@ -222,5 +321,27 @@ export function useVoiceSession(input: VoiceSessionInput) {
     stoppedByUser.current = false;
   }, [store, voice]);
 
-  return { phase: store.phase, start, stop };
+  const toggleMute = useCallback(async () => {
+    const room = roomRef.current;
+    const nextMuted = !useVoiceSessionStore.getState().muted;
+    store.setMuted(nextMuted);
+    if (room) {
+      try {
+        await room.localParticipant.setMicrophoneEnabled(!nextMuted);
+        syncAudioFromRoom();
+      } catch {
+        // ignore — may not be connected yet
+      }
+    }
+  }, [store, syncAudioFromRoom]);
+
+  return {
+    phase: store.phase,
+    agentJoined: store.agentJoined,
+    muted: store.muted,
+    audioTracks,
+    start,
+    stop,
+    toggleMute,
+  };
 }

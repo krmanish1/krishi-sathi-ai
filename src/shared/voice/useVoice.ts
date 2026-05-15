@@ -33,17 +33,24 @@ export function useVoice(opts?: {
     }, silenceTimeoutMs);
   }, [silenceTimeoutMs]);
 
+  const lastResultRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!voiceStt) return;
     voiceStt.onSpeechResults = (e) => {
       const v = e.value?.[0];
       if (v) {
-        onSpeechResultRef.current?.(v);
+        lastResultRef.current = v;
         resetSilenceTimer();
       }
     };
     voiceStt.onSpeechError = () => setListening(false);
-    voiceStt.onSpeechEnd = () => setListening(false);
+    voiceStt.onSpeechEnd = () => {
+      setListening(false);
+      const final = lastResultRef.current;
+      lastResultRef.current = null;
+      if (final) onSpeechResultRef.current?.(final);
+    };
     return () => {
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);

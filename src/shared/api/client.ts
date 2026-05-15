@@ -87,7 +87,7 @@ export const apiFetch = async <T>(path: string, opts: ApiFetchOptions): Promise<
       }
     }
 
-    if (!res.ok) {
+    if (!res.ok && res.status !== 304) {
       throw parseErrorResponse(res.status, json);
     }
     logApiEndOk(method, url, res.status, Date.now() - started);

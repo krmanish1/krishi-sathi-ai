@@ -12,9 +12,8 @@ import { useConnectivityUi } from "@/shared/network";
 import { hexToRgba } from "@/shared/utils";
 import { theme } from "@/shared/ui/theme/tokens";
 
-const CENTER_NAME = "new-chat";
 /** Left-to-right order — each gets equal column width for even gaps. */
-const TAB_ORDER = ["home", "chats", CENTER_NAME, "mandi", "profile"] as const;
+const TAB_ORDER = ["home", "chats", "voice", "new-chat", "mandi", "profile"] as const;
 
 const SIDE_ICON = 26;
 
@@ -156,8 +155,8 @@ export function KrishiTabBar({ state, descriptors, navigation, insets }: BottomT
                 const desc = descriptors[route.key];
                 if (!desc) return null;
                 const isFocused =
-                  route.name === CENTER_NAME
-                    ? focusedRouteName === CENTER_NAME || focusedRouteName === "chat"
+                  route.name === "new-chat"
+                    ? focusedRouteName === "new-chat" || focusedRouteName === "chat"
                     : focusedRouteName === route.name;
                 return (
                   <View key={route.key} style={styles.tabCell}>
@@ -255,7 +254,7 @@ const styles = StyleSheet.create({
     fontFamily: "PlusJakartaSans_600SemiBold",
     letterSpacing: 0.55,
     textTransform: "uppercase",
-    maxWidth: 76,
+    maxWidth: 64,
     textAlign: "center",
   },
   labelIdle: {

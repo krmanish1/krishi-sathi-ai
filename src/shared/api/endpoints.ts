@@ -21,15 +21,78 @@ import type {
 import { queryConnectivityWire } from "./types";
 import { normalizeTwinFromApi, serializeTwinForApi, twinTwinQueryString } from "./twinWire";
 
-/** JSON POST `/api/v1/query` — body shape matches `/api/v1/query/stream` (`QueryRequest`). */
-export const postQuery = (req: QueryRequest, signal?: AbortSignal) =>
-  apiFetch<QueryResponse>("/api/v1/query", {
-    baseUrl: getApiBaseUrl(),
-    timeoutMs: TIMEOUTS_MS.query,
-    method: "POST",
-    body: req,
-    ...(signal ? { signal } : {}),
-  });
+/** POST `/api/v1/query/stream` — consumes SSE, assembles text, returns QueryResponse. */
+export const postQuery = async (req: QueryRequest, signal?: AbortSignal): Promise<QueryResponse> => {
+  const base = getApiBaseUrl().replace(/\/$/, "");
+  const url = `${base}/api/v1/query/stream`;
+  const t0 = Date.now();
+  const bodyStr = JSON.stringify(req);
+  const { logApiStart, logApiEndOk, logApiEndErr } = await import("./requestLog");
+  logApiStart("POST", url, bodyStr);
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: bodyStr,
+      ...(signal ? { signal } : {}),
+    });
+  } catch (err) {
+    logApiEndErr("POST", url, Date.now() - t0, err);
+    throw err;
+  }
+  if (!res.ok) {
+    logApiEndErr("POST", url, Date.now() - t0, new Error(`HTTP ${res.status}`));
+    const { ApiError } = await import("./errors");
+    throw new ApiError("INTERNAL_ERROR", res.status, `HTTP ${res.status}`, false, undefined, "RETRY_ONLINE_LATER");
+  }
+
+  const reader = res.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let text = "";
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const data = line.slice(6).trim();
+        if (data === "[DONE]") break;
+        try {
+          const chunk = JSON.parse(data) as Record<string, unknown>;
+          if (chunk.type === "text-delta" && typeof chunk.delta === "string") {
+            text += chunk.delta;
+          }
+        } catch {
+          // skip malformed chunk
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  logApiEndOk("POST", url, res.status, Date.now() - t0);
+  return {
+    response_id: "",
+    text,
+    structured: null,
+    data_source: "live",
+    confidence_level: "high",
+    confidence_score: 1.0,
+    model_used: "backend-stream",
+    tool_trace: null,
+    safety_flags: null,
+    fallback_hint: null,
+    language: req.query.language,
+    timestamp: new Date().toISOString(),
+  };
+};
 
 const toJpegBlob = (source: Blob): Promise<Blob> =>
   new Promise((resolve, reject) => {

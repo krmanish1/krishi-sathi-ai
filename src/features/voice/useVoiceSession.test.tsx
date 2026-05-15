@@ -68,17 +68,31 @@ jest.mock("livekit-client", () => ({
     connect: mockRoomConnect,
     disconnect: mockRoomDisconnect,
     on: mockRoomOn,
-    localParticipant: { setMicrophoneEnabled: mockSetMicEnabled },
+    remoteParticipants: new Map(),
+    localParticipant: {
+      setMicrophoneEnabled: mockSetMicEnabled,
+      getTrackPublication: jest.fn(() => null),
+    },
   })),
   RoomEvent: {
     DataReceived: "dataReceived",
     Disconnected: "disconnected",
+    TrackPublished: "trackPublished",
+    TrackUnpublished: "trackUnpublished",
     TrackSubscribed: "trackSubscribed",
+    TrackUnsubscribed: "trackUnsubscribed",
+    LocalTrackPublished: "localTrackPublished",
+    LocalTrackUnpublished: "localTrackUnpublished",
+    ParticipantConnected: "participantConnected",
+    ParticipantDisconnected: "participantDisconnected",
     ActiveSpeakersChanged: "activeSpeakersChanged",
     Reconnecting: "reconnecting",
     Reconnected: "reconnected",
   },
-  Track: { Kind: { Audio: "audio", Video: "video" } },
+  Track: {
+    Source: { Microphone: "microphone" },
+    Kind: { Audio: "audio", Video: "video" },
+  },
 }));
 
 jest.mock("@livekit/react-native", () => ({

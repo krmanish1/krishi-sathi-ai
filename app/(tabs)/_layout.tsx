@@ -63,6 +63,15 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="voice"
+        options={{
+          title: t("tabs.voice"),
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="microphone" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="new-chat"
         options={{
           title: t("tabs.newChat"),
@@ -89,12 +98,7 @@ export default function TabsLayout() {
           ),
         }}
       />
-      <Tabs.Screen
-        name="chat"
-        options={{
-          href: null,
-        }}
-      />
+      <Tabs.Screen name="chat" options={{ href: null }} />
     </Tabs>
   );
 }
