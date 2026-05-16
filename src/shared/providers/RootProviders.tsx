@@ -34,6 +34,8 @@ import { initAuthBrowser } from "@/shared/supabase";
 import { ConnectivityProvider, useSyncOnResume } from "@/shared/network";
 import { UserStoreSyncer } from "@/features/user";
 import { runChatLocalCacheMigrationIfNeeded } from "@/features/chat";
+import { useModelDownloadStore } from "@/features/model-download";
+import { setPreferOffline as syncPreferOffline } from "@/shared/ondevice";
 
 if (Platform.OS !== "web") {
   try {
@@ -90,6 +92,17 @@ export const RootProviders = ({ children }: { children: ReactNode }) => {
         await initDb();
         await runChatLocalCacheMigrationIfNeeded(queryClient);
         await checkLocalGemmaModelOnDisk().catch(() => undefined);
+
+        // Sync persisted model-download state into routing layer.
+        // If the app was killed mid-download, reset to idle so user can retry.
+        const dlState = useModelDownloadStore.getState();
+        if (dlState.status === "downloading") {
+          dlState.resetToIdle();
+        }
+        if (dlState.preferOffline) {
+          syncPreferOffline(true);
+        }
+
         const useNative = Constants.expoConfig?.extra?.useNativeGemma === "1";
         const modelPath = getModelPath() || String(
           Constants.expoConfig?.extra?.nativeGemmaModelPath ??
@@ -135,7 +148,7 @@ export const RootProviders = ({ children }: { children: ReactNode }) => {
                     <SyncOnResumeEffect />
                     <SyncPushScheduler />
                     <ApiStatusProvider>
-                      <StatusBar style="light" />
+                      <StatusBar style="dark" />
                       {children}
                     </ApiStatusProvider>
                   </AuthProvider>
@@ -154,6 +167,6 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#121212",
+    backgroundColor: "#FFFFFF",
   },
 });
