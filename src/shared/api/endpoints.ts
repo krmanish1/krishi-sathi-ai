@@ -324,8 +324,9 @@ export const getMandiPricesFromGov = async (params: {
     limit: String(params.limit ?? 100),
     offset: String(params.offset ?? 0),
   });
-  // API requires lowercase values; state uses `.keyword` suffix, district does not
-  if (params.state) q.set("filters[state.keyword]", params.state.toLowerCase());
+  // state.keyword is case-sensitive — send as-is (Title Case from dataset)
+  // district filter is case-insensitive — lowercase works
+  if (params.state) q.set("filters[state.keyword]", params.state);
   if (params.district) q.set("filters[district]", params.district.toLowerCase());
 
   const url = `${DATA_GOV_MANDI_URL}?${q.toString()}`;
