@@ -7,42 +7,20 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
-      "android": { "buildType": "apk" },
-      "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://nikesh2290-krishisaathi-backend.hf.space",
-        "EXPO_PUBLIC_USE_NATIVE_GEMMA": "1",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://ivwnljoodlmpgbbfekdk.supabase.co",
-        "LIVEKIT_URL": "wss://krishisaathi-ai-lj1zo30a.livekit.cloud",
-        "LIVEKIT_API_KEY": "APIHKNoLgc9dSr5",
-        "LIVEKIT_API_SECRET": "L2mytehozOe5U2tPUfbwawo9ntzMU5BVMXR2OeQP1VIB",
-        "DEEPGRAM_API_KEY": "c9923e292ede61a2bcbeb4f2affbfea5441a4ad2"
-      }
+      "environment": "development",
+      "android": { "buildType": "apk" }
     },
     "preview": {
       "android": { "buildType": "apk" },
       "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://nikesh2290-krishisaathi-backend.hf.space",
-        "EXPO_PUBLIC_USE_NATIVE_GEMMA": "1",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://ivwnljoodlmpgbbfekdk.supabase.co",
-        "LIVEKIT_URL": "wss://krishisaathi-ai-lj1zo30a.livekit.cloud",
-        "LIVEKIT_API_KEY": "APIHKNoLgc9dSr5",
-        "LIVEKIT_API_SECRET": "L2mytehozOe5U2tPUfbwawo9ntzMU5BVMXR2OeQP1VIB",
-        "DEEPGRAM_API_KEY": "c9923e292ede61a2bcbeb4f2affbfea5441a4ad2"
-      }
+      "environment": "preview"
     },
     "production": {
       "android": { "buildType": "apk" },
       "distribution": "internal",
-      "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://nikesh2290-krishisaathi-backend.hf.space",
-        "EXPO_PUBLIC_USE_NATIVE_GEMMA": "1",
-        "EXPO_PUBLIC_SUPABASE_URL": "https://ivwnljoodlmpgbbfekdk.supabase.co",
-        "LIVEKIT_URL": "wss://krishisaathi-ai-lj1zo30a.livekit.cloud",
-        "LIVEKIT_API_KEY": "APIHKNoLgc9dSr5",
-        "LIVEKIT_API_SECRET": "L2mytehozOe5U2tPUfbwawo9ntzMU5BVMXR2OeQP1VIB",
-        "DEEPGRAM_API_KEY": "c9923e292ede61a2bcbeb4f2affbfea5441a4ad2"
-      }
+      "environment": "production",
+      "autoIncrement": true,
+      "prebuildCommand": "npx expo prebuild --platform android --no-install"
     }
   },
   "submit": {

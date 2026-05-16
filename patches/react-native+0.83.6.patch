@@ -2,16 +2,15 @@ diff --git a/node_modules/react-native/ReactCommon/react/renderer/core/graphicsC
 index ccc6510..cb6cb41 100644
 --- a/node_modules/react-native/ReactCommon/react/renderer/core/graphicsConversions.h
 +++ b/node_modules/react-native/ReactCommon/react/renderer/core/graphicsConversions.h
-@@ -8,7 +8,7 @@
+@@ -8,6 +8,7 @@
  #pragma once
  
  #include <array>
--#include <format>
 +#include <string>
  #include <unordered_map>
  
  #include <glog/logging.h>
-@@ -68,7 +68,8 @@ inline folly::dynamic toDynamic(const YGValue &dimension)
+@@ -68,7 +69,8 @@ inline folly::dynamic toDynamic(const YGValue &dimension)
      case YGUnitPoint:
        return dimension.value;
      case YGUnitPercent:
