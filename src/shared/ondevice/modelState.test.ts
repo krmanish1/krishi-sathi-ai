@@ -1,6 +1,4 @@
 import {
-  setModelReady,
-  isModelReady,
   resetModelState,
   setPreferOffline,
   getPreferOffline,
@@ -21,6 +19,12 @@ describe("modelState preferOffline", () => {
   it("resetModelState clears preferOffline", () => {
     setPreferOffline(true);
     resetModelState();
+    expect(getPreferOffline()).toBe(false);
+  });
+
+  it("setPreferOffline(false) after true returns false", () => {
+    setPreferOffline(true);
+    setPreferOffline(false);
     expect(getPreferOffline()).toBe(false);
   });
 });

@@ -25,7 +25,7 @@ export const setPreferOffline = (value: boolean): void => {
 /** True if the user has opted into preferring on-device inference. */
 export const getPreferOffline = (): boolean => _preferOffline;
 
-/** Reset state (for testing). */
+/** Resets all runtime state. Call at boot after re-hydrating preferOffline from persisted store. Used in tests to isolate state between cases. */
 export const resetModelState = (): void => {
   _ready = false;
   _modelPath = "";
