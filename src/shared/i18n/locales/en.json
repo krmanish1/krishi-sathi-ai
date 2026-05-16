@@ -377,6 +377,8 @@
     "permissionDenied": "Microphone permission denied",
     "unavailable": "Voice input unavailable",
     "silenceTimeout": "Stopped listening (silence)",
+    "currentTopic": "Current Topic",
+    "topicWaiting": "Ask me anything about your farm…",
     "error": {
       "noInternet": "Voice requires internet connection",
       "noMic": "Microphone permission needed",
