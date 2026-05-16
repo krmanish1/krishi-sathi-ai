@@ -784,7 +784,7 @@ export default function ChatScreen() {
       userScrolledUpRef.current = false;
       setShowScrollToBottom(false);
       const trimmed = text.trim();
-      if (ui.backendReachable) {
+      if (ui.enableStreamChat) {
         void stream
           .send(
             trimmed,
@@ -811,7 +811,7 @@ export default function ChatScreen() {
       };
       void send.mutateAsync(payload).catch(() => undefined);
     },
-    [farmerId, language, state, district, lat, lng, connectivity, conversationId, send, stream, ui.backendReachable],
+    [farmerId, language, state, district, lat, lng, connectivity, conversationId, send, stream, ui.enableStreamChat],
   );
 
   const onSend = useCallback(async () => {
@@ -839,11 +839,17 @@ export default function ChatScreen() {
       attachment.clearImage();
     }
 
-    if (!hasImage && ui.backendReachable) {
-      void stream.send(text).catch(() => undefined);
+    if (ui.backendReachable) {
+      void stream
+        .send(text, {
+          ...(imageRef ? { imageRef } : {}),
+          ...(localUri ? { imageLocalUri: localUri } : {}),
+        })
+        .catch(() => undefined);
       return;
     }
 
+    // Offline / prefer-offline text-only path (images already blocked above).
     const payload: SendQueryInput = {
       text,
       farmerId,
@@ -854,8 +860,6 @@ export default function ChatScreen() {
       ...(lng !== undefined ? { lng } : {}),
       connectivity,
       conversationId,
-      ...(imageRef ? { imageRef } : {}),
-      ...(localUri ? { imageLocalUri: localUri } : {}),
     };
     void send.mutateAsync(payload).catch(() => undefined);
   }, [attachment, draft, farmerId, language, state, district, lat, lng, connectivity, conversationId, send, stream, ui.backendReachable, t]);

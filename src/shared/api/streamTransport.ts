@@ -22,8 +22,8 @@ export type KrishiStreamTransportOpts = {
   lat?: number;
   lng?: number;
   connectivity: Connectivity;
-  /** Optional uploaded image ref when backend supports streaming multimodal later */
-  imageRef?: string;
+  /** Returns the current image ref at request time (read from a mutable ref). */
+  getImageRef?: () => string | undefined;
   guessIntent: (text: string) => DeviceIntent;
   ondeviceModel?: OnDeviceModel;
 };
@@ -61,7 +61,7 @@ export function createKrishiSathiChatTransport(
         query: {
           text,
           voice_b64: "",
-          image_ref: opts.imageRef ?? null,
+          image_ref: opts.getImageRef?.() ?? null,
           language: opts.language,
         },
         context: {
