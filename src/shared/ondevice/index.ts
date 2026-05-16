@@ -11,4 +11,4 @@ export { mockGemmaBackend } from "./mock";
 export { createNativeBackend } from "./native-backend";
 export { onDeviceAgent } from "./onDeviceAgent";
 export { offlineFallback } from "./offlineFallback";
-export { isModelReady, setModelReady, getModelPath } from "./modelState";
+export { isModelReady, setModelReady, getModelPath, resetModelState, setPreferOffline, getPreferOffline } from "./modelState";
