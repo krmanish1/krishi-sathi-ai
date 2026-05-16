@@ -226,6 +226,7 @@ export type VoiceScreenProps = {
   speakerOn: boolean;
   audioTracks: VoiceSessionAudioTracks;
   language: Language;
+  onStart: () => void;
   onStop: () => void;
   onToggleMute: () => void;
   onToggleSpeaker: () => void;
@@ -235,6 +236,7 @@ export function VoiceScreen({
   phase,
   muted,
   speakerOn,
+  onStart,
   onStop,
   onToggleMute,
   onToggleSpeaker,
@@ -276,10 +278,20 @@ export function VoiceScreen({
         <Text style={styles.pillSubtitle}>Krishisath AI Voice Session</Text>
       </View>
 
-      {/* ── Waveform ─────────────────────────────────────────────── */}
-      <View style={styles.waveArea}>
+      {/* ── Waveform — tappable when idle to start session ──────── */}
+      <Pressable
+        style={styles.waveArea}
+        onPress={phase === "idle" ? onStart : undefined}
+        accessibilityRole={phase === "idle" ? "button" : "none"}
+        accessibilityLabel={phase === "idle" ? t("voice.tapToStart") : undefined}
+      >
         <VoiceWaveform active={audioActive} />
-      </View>
+        {phase === "idle" && (
+          <View style={styles.idleOverlay}>
+            <MaterialCommunityIcons name="microphone" size={36} color={INK_MUTED} />
+          </View>
+        )}
+      </Pressable>
 
       {/* ── Current topic ────────────────────────────────────────── */}
       <View style={styles.topicSection}>
@@ -424,6 +436,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
     opacity: 0.6,
+  },
+  idleOverlay: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
+    opacity: 0.45,
   },
 
   // Controls row

@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { VoiceScreen } from "@/features/voice/components/VoiceScreen";
 import { useVoiceSession } from "@/features/voice";
 import { useFarmerId } from "@/shared/auth";
@@ -30,14 +31,15 @@ export default function VoiceTab() {
       district: district ?? "",
     });
 
-  // Auto-start when the voice tab is entered
-  useEffect(() => {
-    void start();
-    return () => {
-      void stop();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Re-run on every tab focus so returning after end-session restarts the session.
+  useFocusEffect(
+    useCallback(() => {
+      void start();
+      return () => {
+        void stop();
+      };
+    }, [start, stop]),
+  );
 
   const handleEndSession = useCallback(async () => {
     await stop();
@@ -51,6 +53,7 @@ export default function VoiceTab() {
       muted={muted}
       audioTracks={audioTracks}
       language={sessionLanguage}
+      onStart={start}
       onStop={handleEndSession}
       onToggleMute={toggleMute}
       speakerOn={speakerOn}
