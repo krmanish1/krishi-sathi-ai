@@ -20,8 +20,8 @@ export function WithAuthScreens() {
       tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#1ed760",
-        tabBarInactiveTintColor: "#8e8e8e",
+        tabBarActiveTintColor: "#00ED64",
+        tabBarInactiveTintColor: "#8997A0",
         tabBarShowLabel: true,
         tabBarStyle: {
           position: "absolute",

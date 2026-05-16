@@ -1,8 +1,7 @@
-import { useState, useEffect, useCallback, useRef, useMemo, type ReactNode } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Text,
   View,
-  TextInput,
   Pressable,
   ScrollView,
   ActivityIndicator,
@@ -17,135 +16,101 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useOnboarding } from "@/features/onboarding/store";
 import { useFarmerId, useSupabaseAuth, useSupabaseSession } from "@/shared/auth";
-import { greetingFirstName, useDisplayName, useFarmerTwin, useUpdateFarmerTwin } from "@/features/twin";
-import type { FarmerTwin } from "@/shared/api/types";
-import type { Language } from "@/shared/config/constants";
+import { greetingFirstName, useDisplayName, useFarmerTwin } from "@/features/twin";
 import i18n from "@/shared/i18n";
+import type { Language } from "@/shared/config/constants";
 import { useConnectivityUi } from "@/shared/network";
+import { SidebarDrawer } from "@/shared/ui/primitives";
 
 const APP_LANG: Language[] = ["en", "hi"];
 const APP_VERSION = (Constants.expoConfig?.version as string | undefined) ?? "1.0.0";
 
-/* ─── Primitives ──────────────────────────────────────────────── */
+// ─── Sub-components ───────────────────────────────────────────────────────────
 
-function SectionHeader({ label }: { label: string }) {
+function SectionLabel({ label }: { label: string }) {
   return (
-    <Text className="mb-2 mt-6 px-1 font-body-semibold text-[11px] uppercase tracking-[1.4px] text-ink-muted">
-      {label}
-    </Text>
+    <Text style={styles.sectionLabel}>{label}</Text>
   );
 }
 
-function SettingsCard({ children }: { children: ReactNode }) {
-  return (
-    <View className="overflow-hidden rounded-bento border border-white/[0.07] bg-muted">
-      {children}
-    </View>
-  );
-}
-
-function SettingsRow({
+function NavRow({
   icon,
   label,
-  value,
   onPress,
   last = false,
   danger = false,
-  iconColor = "#b3b3b3",
 }: {
   icon: string;
   label: string;
-  value?: string;
   onPress?: () => void;
   last?: boolean;
   danger?: boolean;
-  iconColor?: string;
 }) {
-  const inner = (
-    <View
-      className={`flex-row items-center px-4 py-4 ${!last ? "border-b border-white/[0.06]" : ""}`}
+  return (
+    <Pressable
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
     >
-      <View className="mr-3 h-8 w-8 items-center justify-center rounded-full bg-card">
-        <MaterialCommunityIcons
-          name={icon as never}
-          size={18}
-          color={danger ? "#f3727f" : iconColor}
-        />
-      </View>
-      <Text
-        className={`flex-1 font-body-medium text-[15px] ${danger ? "text-danger" : "text-ink"}`}
+      <View
+        style={[
+          styles.navRow,
+          !last && styles.navRowBorder,
+        ]}
       >
-        {label}
-      </Text>
-      {value ? (
-        <Text className="mr-2 font-body text-sm text-ink-muted" numberOfLines={1}>
-          {value}
-        </Text>
-      ) : null}
-      {onPress ? (
+        <View style={[styles.navIconWrap, danger && { backgroundColor: "#FFF0F0" }]}>
+          <MaterialCommunityIcons
+            name={icon as never}
+            size={18}
+            color={danger ? "#C0392B" : "#1B3A28"}
+          />
+        </View>
+        <Text style={[styles.navLabel, danger && { color: "#C0392B" }]}>{label}</Text>
         <MaterialCommunityIcons
           name="chevron-right"
           size={20}
-          color={danger ? "#f3727f" : "#525252"}
+          color={danger ? "#C0392B" : "#8997A0"}
         />
-      ) : null}
-    </View>
-  );
-
-  if (!onPress) return inner;
-  return (
-    <Pressable accessibilityRole="button" onPress={onPress} className="active:opacity-75">
-      {inner}
+      </View>
     </Pressable>
   );
 }
 
-/* ─── Main screen ─────────────────────────────────────────────── */
+function StatCard({
+  icon,
+  label,
+  value,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+}) {
+  return (
+    <View style={styles.statCard}>
+      <MaterialCommunityIcons name={icon as never} size={22} color="#1B3A28" />
+      <Text style={styles.statLabel}>{label}</Text>
+      <Text style={styles.statValue}>{value}</Text>
+    </View>
+  );
+}
+
+// ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function ProfileScreen() {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const ui = useConnectivityUi();
-  const avatarStyles = useMemo(
-    () =>
-      StyleSheet.create({
-        avatarRing: {
-          width: 60,
-          height: 60,
-          borderRadius: 30,
-          borderWidth: 2,
-          borderColor: ui.headerAccentHex,
-          padding: 2,
-        },
-        avatarInner: {
-          flex: 1,
-          borderRadius: 28,
-          backgroundColor: ui.gradientPartnerHex,
-          alignItems: "center",
-          justifyContent: "center",
-        },
-        avatarText: {
-          fontSize: 22,
-          fontWeight: "700",
-          color: ui.headerAccentHex,
-        },
-      }),
-    [ui.headerAccentHex, ui.gradientPartnerHex],
-  );
   const farmerId = useFarmerId();
   const session = useSupabaseSession();
   const { signOutSocial } = useSupabaseAuth();
   const [signOutBusy, setSignOutBusy] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const setLanguageStore = useOnboarding((s) => s.setLanguage);
-  const setLocationPersist = useOnboarding((s) => s.setLocation);
   const { data: twin, isLoading } = useFarmerTwin();
-  const update = useUpdateFarmerTwin();
   const displayName = useDisplayName();
   const [name, setName] = useState("");
-  const [crops, setCrops] = useState("");
   const [farmState, setFarmState] = useState("");
   const [farmDistrict, setFarmDistrict] = useState("");
-  const [farmLandAcres, setFarmLandAcres] = useState("");
   const farmHydratedForFarmer = useRef<string | null>(null);
 
   useEffect(() => {
@@ -162,15 +127,8 @@ export default function ProfileScreen() {
         farmHydratedForFarmer.current = fid;
         const ob = useOnboarding.getState();
         setName(twin.name ?? "");
-        setCrops(twin.current_crops?.length ? twin.current_crops.join(", ") : "");
         setFarmState(twin.location?.state?.trim() || ob.state || "");
         setFarmDistrict(twin.location?.district?.trim() || ob.district || "");
-        const twinAcres = twin.land?.total_acres;
-        const acresStr =
-          twinAcres != null && Number.isFinite(Number(twinAcres))
-            ? String(twinAcres)
-            : ob.landAcres ?? "";
-        setFarmLandAcres(acresStr);
       });
     });
     return () => {
@@ -190,7 +148,6 @@ export default function ProfileScreen() {
           style: "destructive",
           onPress: () => {
             setSignOutBusy(true);
-            // Fire-and-forget: always navigate to login regardless of signout errors
             void signOutSocial()
               .catch(() => undefined)
               .finally(() => {
@@ -203,293 +160,414 @@ export default function ProfileScreen() {
     );
   }, [t, signOutSocial]);
 
-  const handleSaveProfile = useCallback(() => {
-    if (!twin) return;
-    const st = farmState.trim();
-    const dist = farmDistrict.trim();
-    if (st.length < 2 || dist.length < 2) {
-      Alert.alert(t("profile.locationIncompleteTitle"), t("profile.locationIncompleteBody"));
-      return;
-    }
-    const names = crops
-      .split(",")
-      .map((s) => s.trim())
-      .filter(Boolean);
-    const nm = name.trim();
-    const lg: Language = APP_LANG.includes(i18n.language as Language)
-      ? (i18n.language as Language)
-      : ((twin.preferred_language as Language | null) ?? "en");
-
-    const acresRaw = farmLandAcres.trim().replace(",", ".");
-    const acresNum = acresRaw ? parseFloat(acresRaw) : NaN;
-    const acresOk = Number.isFinite(acresNum) && acresNum > 0;
-
-    const land: NonNullable<FarmerTwin["land"]> = twin.land ? { ...twin.land } : {};
-    delete land.irrigation;
-    if (acresOk) land.total_acres = acresNum;
-    else delete land.total_acres;
-
-    const next: FarmerTwin = {
-      ...twin,
-      farmer_id: twin.farmer_id,
-      preferred_language: lg,
-      location: { ...twin.location, state: st, district: dist },
-      current_crops: names,
-      name: nm || null,
-    };
-    if (Object.keys(land).length) {
-      next.land = land;
-    } else {
-      delete next.land;
-    }
-    void update
-      .mutateAsync(next)
-      .then(() => {
-        setLocationPersist(st, dist, {
-          landAcres: farmLandAcres.trim() || null,
-        });
-        Alert.alert(t("profile.saved"));
-      })
-      .catch(() => Alert.alert(t("errors.generic")));
-  }, [
-    crops,
-    name,
-    twin,
-    update,
-    t,
-    farmState,
-    farmDistrict,
-    farmLandAcres,
-    setLocationPersist,
-  ]);
-
-  const userEmail = session?.user?.email ?? null;
   const headerDisplayName = name.trim() ? name.trim() : displayName;
   const avatarLetter = (() => {
     const first = greetingFirstName(headerDisplayName);
     return first ? first.charAt(0).toUpperCase() : "K";
   })();
 
+  const locationText = (() => {
+    const parts = [farmDistrict, farmState].filter(Boolean);
+    return parts.length ? parts.join(", ") : null;
+  })();
+
+  const memberSinceYear = (() => {
+    const raw = session?.user?.created_at;
+    if (!raw) return null;
+    const yr = new Date(raw).getFullYear();
+    return Number.isFinite(yr) ? String(yr) : null;
+  })();
+
+  const totalLand = twin?.land?.total_acres;
+  const landLabel = totalLand != null ? `${totalLand} Ha` : "—";
+  const cropCount = twin?.current_crops?.length ?? 0;
+
   if (!farmerId) {
     return (
-      <View className="flex-1 items-center justify-center bg-page" style={{ paddingTop: insets.top }}>
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#F2EDE4", paddingTop: insets.top }}>
         <ActivityIndicator size="large" color={ui.accentHex} />
       </View>
     );
   }
 
   return (
-    <View className="flex-1 bg-page">
-      {/* ── Header ─────────────────────────────────────────────── */}
-      <View
-        className="border-b border-white/[0.07] px-5 pb-5"
-        style={{ paddingTop: insets.top + 12, backgroundColor: ui.chatsHeaderSurfaceHex }}
-      >
-        <Text className="font-display text-base text-ink">{t("profile.title")}</Text>
+    <View style={{ flex: 1, backgroundColor: "#F2EDE4" }}>
 
-        <View className="mt-5 flex-row items-center gap-4">
-          <View style={avatarStyles.avatarRing}>
-            <View style={avatarStyles.avatarInner}>
-              <Text style={avatarStyles.avatarText}>{avatarLetter}</Text>
-            </View>
+      {/* ── Top header bar ── */}
+      <View style={[styles.topBar, { paddingTop: insets.top + 10 }]}>
+        <Pressable hitSlop={10} accessibilityRole="button" onPress={() => setSidebarOpen(true)}>
+          <MaterialCommunityIcons name="menu" size={24} color="#001E2B" />
+        </Pressable>
+        <Text style={styles.topBarTitle}>Krishisath AI</Text>
+        <Pressable hitSlop={10} accessibilityRole="button" onPress={() => setSidebarOpen(true)}>
+          <View style={styles.topBarAvatar}>
+            <Text style={styles.topBarAvatarLetter}>{avatarLetter}</Text>
           </View>
-          <View className="min-w-0 flex-1">
-            <Text className="font-display text-lg leading-6 text-ink" numberOfLines={1}>
-              {headerDisplayName}
-            </Text>
-            {userEmail ? (
-              <Text className="mt-0.5 font-body text-xs text-ink-muted" numberOfLines={1}>
-                {userEmail}
-              </Text>
-            ) : null}
-          </View>
-          <Pressable
-            accessibilityRole="button"
-            onPress={handleSignOut}
-            disabled={signOutBusy}
-            className="h-9 w-9 items-center justify-center rounded-full border border-border active:opacity-70"
-          >
-            {signOutBusy ? (
-              <ActivityIndicator size="small" color="#f3727f" />
-            ) : (
-              <MaterialCommunityIcons name="logout-variant" size={18} color="#f3727f" />
-            )}
-          </Pressable>
-        </View>
+        </Pressable>
       </View>
 
       <ScrollView
-        className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: insets.bottom + 40 }}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 48 }}
       >
-        {/* ── Farm details ──────────────────────────────────────── */}
-        <SectionHeader label={t("profile.sectionFarm")} />
-        {isLoading ? (
-          <View className="items-center py-6">
-            <ActivityIndicator color={ui.accentHex} />
+        {/* ── Profile hero ── */}
+        <View style={styles.hero}>
+          {/* Large avatar circle */}
+          <View style={styles.heroAvatar}>
+            {isLoading ? (
+              <ActivityIndicator color="#FFFFFF" />
+            ) : (
+              <Text style={styles.heroAvatarLetter}>{avatarLetter}</Text>
+            )}
           </View>
-        ) : twin ? (
-          <>
-            <SettingsCard>
-              <View className="border-b border-white/[0.06] px-4 py-4">
-                <Text className="mb-1.5 font-body-semibold text-[11px] uppercase tracking-[1.2px] text-ink-muted">
-                  {t("profile.twinName")}
-                </Text>
-                <TextInput
-                  value={name}
-                  onChangeText={setName}
-                  className="font-body text-[15px] text-ink"
-                  placeholderTextColor="#737373"
-                  placeholder={t("auth.namePlaceholder")}
-                  style={{ minHeight: 32, padding: 0 }}
-                />
-              </View>
-              <View className="border-b border-white/[0.06] px-4 py-4">
-                <Text className="mb-1.5 font-body-semibold text-[11px] uppercase tracking-[1.2px] text-ink-muted">
-                  {t("profile.crops")}
-                </Text>
-                <TextInput
-                  value={crops}
-                  onChangeText={setCrops}
-                  className="font-body text-[15px] text-ink"
-                  placeholderTextColor="#737373"
-                  placeholder={t("profile.cropsPlaceholder")}
-                  style={{ minHeight: 32, padding: 0 }}
-                />
-                <Text className="mt-1 font-body text-[11px] text-ink-muted">
-                  {t("profile.cropsHint")}
-                </Text>
-              </View>
-              <View className="border-b border-white/[0.06] px-4 py-4">
-                <Text className="mb-1.5 font-body-semibold text-[11px] uppercase tracking-[1.2px] text-ink-muted">
-                  {t("onboarding.stateLabel")}
-                </Text>
-                <TextInput
-                  value={farmState}
-                  onChangeText={setFarmState}
-                  className="min-h-[44px] rounded-xl border border-white/[0.06] bg-card px-3 font-body text-[15px] text-ink"
-                  placeholderTextColor="#737373"
-                  placeholder={t("onboarding.statePlaceholder")}
-                  autoCorrect={false}
-                />
-              </View>
-              <View className="border-b border-white/[0.06] px-4 py-4">
-                <Text className="mb-1.5 font-body-semibold text-[11px] uppercase tracking-[1.2px] text-ink-muted">
-                  {t("onboarding.districtLabel")}
-                </Text>
-                <TextInput
-                  value={farmDistrict}
-                  onChangeText={setFarmDistrict}
-                  className="min-h-[44px] rounded-xl border border-white/[0.06] bg-card px-3 font-body text-[15px] text-ink"
-                  placeholderTextColor="#737373"
-                  placeholder={t("onboarding.districtPlaceholder")}
-                  autoCorrect={false}
-                />
-              </View>
-              <View className="border-b border-white/[0.06] px-4 py-4">
-                <Text className="mb-1.5 font-body-semibold text-[11px] uppercase tracking-[1.2px] text-ink-muted">
-                  {t("onboarding.landSizeLabel")}
-                </Text>
-                <View className="relative">
-                  <TextInput
-                    value={farmLandAcres}
-                    onChangeText={setFarmLandAcres}
-                    placeholder={t("onboarding.landSizePlaceholder")}
-                    keyboardType="decimal-pad"
-                    className="min-h-[44px] rounded-xl border border-white/[0.06] bg-card px-3 pr-16 font-body text-[15px] text-ink"
-                    placeholderTextColor="#737373"
-                  />
-                  <Text className="absolute right-3 top-3 font-body-semibold text-xs uppercase text-ink-muted">
-                    {t("onboarding.landSizeUnit")}
-                  </Text>
-                </View>
-              </View>
-            </SettingsCard>
-            <Pressable
-              accessibilityRole="button"
-              className="mt-4 min-h-[52px] items-center justify-center rounded-full bg-brand shadow-dialog active:opacity-90"
-              disabled={update.isPending}
-              onPress={handleSaveProfile}
-            >
-              {update.isPending ? (
-                <ActivityIndicator color="#000000" />
-              ) : (
-                <Text className="font-body-semibold text-[13px] uppercase tracking-button text-on-brand">
-                  {t("profile.save")}
-                </Text>
-              )}
-            </Pressable>
-          </>
-        ) : null}
 
-        {/* ── Language ──────────────────────────────────────────── */}
-        <SectionHeader label={t("profile.sectionLanguage")} />
-        <SettingsCard>
-          <View className="px-4 py-4">
-            <Text className="mb-3 font-body-semibold text-[11px] uppercase tracking-[1.2px] text-ink-muted">
-              {t("profile.appLanguage")}
-            </Text>
-            <View className="flex-row gap-3">
-              {APP_LANG.map((lg) => {
-                const active = i18n.language === lg;
-                return (
-                  <Pressable
-                    key={lg}
-                    accessibilityRole="button"
-                    onPress={() => {
-                      void i18n.changeLanguage(lg);
-                      setLanguageStore(lg);
-                    }}
-                    className={`flex-1 items-center rounded-full py-2.5 ${
-                      active ? "bg-brand" : "border border-border-light bg-transparent"
-                    }`}
-                  >
-                    <Text
-                      className={`font-body-semibold text-[13px] uppercase tracking-button ${
-                        active ? "text-on-brand" : "text-ink"
-                      }`}
-                    >
-                      {t(`profile.lang.${lg}`)}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+          {/* Premium badge */}
+          <View style={styles.premiumBadge}>
+            <MaterialCommunityIcons name="crown-outline" size={13} color="#FFFFFF" />
+            <Text style={styles.premiumBadgeText}>Premium Member</Text>
+          </View>
+
+          {/* Name */}
+          <Text style={styles.heroName}>{headerDisplayName}</Text>
+
+          {/* Location */}
+          {locationText ? (
+            <View style={styles.heroLocation}>
+              <MaterialCommunityIcons name="map-marker-outline" size={14} color="#5C6C75" />
+              <Text style={styles.heroLocationText}>{locationText}</Text>
             </View>
+          ) : null}
+
+          {/* Member since */}
+          {memberSinceYear ? (
+            <Text style={styles.heroMemberSince}>Member since {memberSinceYear}</Text>
+          ) : null}
+        </View>
+
+        {/* ── Stats row ── */}
+        <View style={styles.statsRow}>
+          <StatCard icon="terrain" label="Total Land" value={landLabel} />
+          <StatCard icon="sprout-outline" label="Active Crops" value={String(cropCount)} />
+          <StatCard icon="chart-bar" label="Soil Health" value="Optimal" />
+        </View>
+
+        {/* ── Account section ── */}
+        <View style={styles.sectionWrap}>
+          <SectionLabel label="Account" />
+          <View style={styles.card}>
+            <NavRow
+              icon="account-outline"
+              label="Personal Info"
+              onPress={() => router.push("/farm-settings")}
+            />
+            <NavRow
+              icon="shield-lock-outline"
+              label="Security"
+              onPress={() => {}}
+            />
+            <NavRow
+              icon="card-account-details-outline"
+              label="Membership"
+              onPress={() => {}}
+              last
+            />
           </View>
-        </SettingsCard>
+        </View>
 
-        {/* ── App info ──────────────────────────────────────────── */}
-        <SectionHeader label={t("profile.sectionApp")} />
-        <SettingsCard>
-          <SettingsRow
-            icon="information-outline"
-            label={t("profile.version")}
-            value={APP_VERSION}
-            iconColor="#539df5"
-          />
-          <SettingsRow
-            icon="shield-lock-outline"
-            label={t("profile.privacy")}
-            onPress={() => void Linking.openURL("https://krishisaathi.ai/privacy")}
-            iconColor="#b3b3b3"
-            last
-          />
-        </SettingsCard>
+        {/* ── Farm section ── */}
+        <View style={styles.sectionWrap}>
+          <SectionLabel label="Farm" />
+          <View style={styles.card}>
+            <NavRow
+              icon="cog-outline"
+              label={t("farmSettings.title")}
+              onPress={() => router.push("/farm-settings")}
+            />
+            <NavRow
+              icon="history"
+              label={t("soilHistory.title")}
+              onPress={() => router.push("/soil-history")}
+            />
+            <NavRow
+              icon="headset"
+              label={t("expertSupport.title")}
+              onPress={() => router.push("/expert-support")}
+              last
+            />
+          </View>
+        </View>
 
-        {/* ── Sign out ─────────────────────────────────────────── */}
-        <SectionHeader label="" />
-        <SettingsCard>
-          <SettingsRow
-            icon="logout-variant"
-            label={t("auth.signOut")}
-            onPress={handleSignOut}
-            last
-            danger
-          />
-        </SettingsCard>
+        {/* ── App & Language section ── */}
+        <View style={styles.sectionWrap}>
+          <SectionLabel label="App" />
+          <View style={styles.card}>
+            {/* Language toggle */}
+            <View style={[styles.navRow, styles.navRowBorder]}>
+              <View style={styles.navIconWrap}>
+                <MaterialCommunityIcons name="translate" size={18} color="#1B3A28" />
+              </View>
+              <Text style={styles.navLabel}>Language</Text>
+              <View style={{ flexDirection: "row", gap: 6 }}>
+                {APP_LANG.map((lg) => {
+                  const active = i18n.language === lg;
+                  return (
+                    <Pressable
+                      key={lg}
+                      accessibilityRole="button"
+                      onPress={() => {
+                        void i18n.changeLanguage(lg);
+                        setLanguageStore(lg);
+                      }}
+                      style={[styles.langPill, active && styles.langPillActive]}
+                    >
+                      <Text style={[styles.langPillText, active && styles.langPillTextActive]}>
+                        {t(`profile.lang.${lg}`)}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+
+            <NavRow
+              icon="information-outline"
+              label={`${t("profile.version")} ${APP_VERSION}`}
+              onPress={() => {}}
+            />
+            <NavRow
+              icon="shield-lock-outline"
+              label={t("profile.privacy")}
+              onPress={() => void Linking.openURL("https://krishisaathi.ai/privacy")}
+              last
+            />
+          </View>
+        </View>
+
+        {/* ── Sign out ── */}
+        <View style={[styles.sectionWrap, { marginTop: 4 }]}>
+          <View style={styles.card}>
+            <NavRow
+              icon="logout-variant"
+              label={signOutBusy ? "Signing out…" : t("auth.signOut")}
+              onPress={handleSignOut}
+              last
+              danger
+            />
+          </View>
+        </View>
       </ScrollView>
+
+      {/* Profile sidebar */}
+      <SidebarDrawer
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        displayName={headerDisplayName}
+        district={farmDistrict}
+        state={farmState}
+      />
     </View>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
+const styles = StyleSheet.create({
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingBottom: 14,
+  },
+  topBarTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#001E2B",
+  },
+  topBarAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#1B3A28",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  topBarAvatarLetter: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+
+  // Hero
+  hero: {
+    alignItems: "center",
+    paddingTop: 20,
+    paddingBottom: 30,
+    paddingHorizontal: 20,
+  },
+  heroAvatar: {
+    width: 108,
+    height: 108,
+    borderRadius: 54,
+    backgroundColor: "#1B3A28",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 4,
+    borderColor: "#FFFFFF",
+    shadowColor: "#001E2B",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  heroAvatarLetter: {
+    fontSize: 40,
+    fontWeight: "800",
+    color: "#FFFFFF",
+  },
+  premiumBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#F59E0B",
+    borderRadius: 20,
+    paddingVertical: 5,
+    paddingHorizontal: 14,
+    marginTop: 14,
+  },
+  premiumBadgeText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 12,
+    letterSpacing: 0.4,
+  },
+  heroName: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: "#001E2B",
+    marginTop: 14,
+    textAlign: "center",
+  },
+  heroLocation: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 6,
+  },
+  heroLocationText: {
+    fontSize: 13,
+    color: "#5C6C75",
+  },
+  heroMemberSince: {
+    fontSize: 12,
+    color: "#8997A0",
+    marginTop: 4,
+    fontWeight: "500",
+  },
+
+  // Stats
+  statsRow: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    gap: 10,
+    marginBottom: 8,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 10,
+    alignItems: "center",
+    shadowColor: "#001E2B",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  statLabel: {
+    fontSize: 11,
+    color: "#5C6C75",
+    marginTop: 7,
+    textAlign: "center",
+  },
+  statValue: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#001E2B",
+    marginTop: 3,
+    textAlign: "center",
+  },
+
+  // Sections
+  sectionWrap: {
+    paddingHorizontal: 16,
+    marginTop: 20,
+  },
+  sectionLabel: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#001E2B",
+    marginBottom: 8,
+    marginLeft: 2,
+  },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#001E2B",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+
+  // Nav rows
+  navRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+    columnGap: 12,
+  },
+  navRowBorder: {
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: "#E8EDEB",
+  },
+  navIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: "#F0F5F2",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  navLabel: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "500",
+    color: "#001E2B",
+  },
+
+  langPill: {
+    paddingVertical: 5,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#E8EDEB",
+    backgroundColor: "transparent",
+  },
+  langPillActive: {
+    backgroundColor: "#1B3A28",
+    borderColor: "#1B3A28",
+  },
+  langPillText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#5C6C75",
+  },
+  langPillTextActive: {
+    color: "#FFFFFF",
+  },
+});

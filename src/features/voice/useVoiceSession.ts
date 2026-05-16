@@ -59,6 +59,7 @@ export function useVoiceSession(input: VoiceSessionInput) {
   const [audioTracks, setAudioTracks] = useState<VoiceSessionAudioTracks>({});
   // True while stop() is executing — prevents Disconnected handler from double-resetting
   const stoppedByUser = useRef(false);
+  const [speakerOn, setSpeakerOn] = useState(true);
 
   const syncAudioFromRoom = useCallback(() => {
     const r = roomRef.current;
@@ -321,6 +322,26 @@ export function useVoiceSession(input: VoiceSessionInput) {
     stoppedByUser.current = false;
   }, [store, voice]);
 
+  const toggleSpeaker = useCallback(async () => {
+    const next = !speakerOn;
+    setSpeakerOn(next);
+    try {
+      const lk = loadLiveKit();
+      if (!lk) return;
+      const { AudioSession, AndroidAudioTypePresets } = lk.livekitRN;
+      await AudioSession.configureAudio({
+        android: {
+          preferredOutputList: next ? ["speaker", "earpiece"] : ["earpiece", "speaker"],
+          audioTypeOptions: AndroidAudioTypePresets.media,
+        },
+        ios: { defaultOutput: next ? "speaker" : "earpiece" },
+      });
+      await AudioSession.startAudioSession();
+    } catch {
+      // ignore — web or mock env
+    }
+  }, [speakerOn]);
+
   const toggleMute = useCallback(async () => {
     const room = roomRef.current;
     const nextMuted = !useVoiceSessionStore.getState().muted;
@@ -339,9 +360,11 @@ export function useVoiceSession(input: VoiceSessionInput) {
     phase: store.phase,
     agentJoined: store.agentJoined,
     muted: store.muted,
+    speakerOn,
     audioTracks,
     start,
     stop,
     toggleMute,
+    toggleSpeaker,
   };
 }

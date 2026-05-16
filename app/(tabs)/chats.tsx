@@ -194,9 +194,9 @@ export default function ChatsListScreen() {
                   flexDirection: "row",
                   alignItems: "center",
                   borderRadius: 12,
-                  backgroundColor: active ? "#1a3d24" : "#1f1f1f",
+                  backgroundColor: active ? "#E3FCF7" : "#FFFFFF",
                   borderWidth: 1,
-                  borderColor: active ? ui.headerAccentHex : "#333",
+                  borderColor: active ? ui.headerAccentHex : "#E8EDEB",
                   overflow: "hidden",
                 }}
               >

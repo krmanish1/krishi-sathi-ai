@@ -1,4 +1,4 @@
-/** Spotify-inspired dark theme — immersive UI, functional green accent (#1ed760). Typography: Inter / Plus Jakarta (Circular-like stack unavailable in-app). */
+/** MongoDB-inspired white theme — clean canvas, bright #00ED64 brand green, deep navy-teal ink. */
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: ["./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
@@ -15,42 +15,42 @@ module.exports = {
         jakarta: "PlusJakartaSans_600SemiBold",
       },
       colors: {
-        // Spotify surfaces (semantic aliases preserved for existing classNames)
-        page: { DEFAULT: "#121212" },
-        card: { DEFAULT: "#181818" },
-        "card-mid": { DEFAULT: "#252525" },
-        muted: { DEFAULT: "#1f1f1f" },
-        border: { DEFAULT: "#4d4d4d" },
-        "border-light": { DEFAULT: "#7c7c7c" },
-        separator: { DEFAULT: "#b3b3b3" },
-        // Text — inverted for dark immersion
-        ink: { DEFAULT: "#ffffff" },
-        "ink-muted": { DEFAULT: "#b3b3b3" },
-        "ink-soft": { DEFAULT: "#cbcbcb" },
-        /** Legacy screen headings — map to primary white on dark */
-        "title-green": { DEFAULT: "#ffffff" },
-        /** Functional accent only — CTAs, active nav, play */
-        brand: { DEFAULT: "#1ed760" },
-        "brand-border": { DEFAULT: "#1db954" },
-        "brand-mid": { DEFAULT: "#1db954" },
-        "brand-deep": { DEFAULT: "#168d40" },
-        /** Text/icons on Spotify green */
-        "on-brand": { DEFAULT: "#000000" },
-        primary: { DEFAULT: "#1ed760" },
-        /** Rare light pill (marketing / consent pattern) */
-        wheat: { DEFAULT: "#eeeeee" },
+        // Canvas white surfaces
+        page: { DEFAULT: "#FFFFFF" },
+        card: { DEFAULT: "#FFFFFF" },
+        "card-mid": { DEFAULT: "#F3F6F4" },
+        muted: { DEFAULT: "#F9FBFA" },
+        border: { DEFAULT: "#E8EDEB" },
+        "border-light": { DEFAULT: "#C8D5D1" },
+        separator: { DEFAULT: "#8997A0" },
+        // Text — deep navy-teal for light backgrounds
+        ink: { DEFAULT: "#001E2B" },
+        "ink-muted": { DEFAULT: "#5C6C75" },
+        "ink-soft": { DEFAULT: "#8997A0" },
+        /** Primary headings on white canvas */
+        "title-green": { DEFAULT: "#001E2B" },
+        /** MongoDB green — CTAs, active nav, primary actions */
+        brand: { DEFAULT: "#00ED64" },
+        "brand-border": { DEFAULT: "#00A35C" },
+        "brand-mid": { DEFAULT: "#00A35C" },
+        "brand-deep": { DEFAULT: "#00684A" },
+        /** Deep navy-teal on MongoDB green (sufficient contrast) */
+        "on-brand": { DEFAULT: "#001E2B" },
+        primary: { DEFAULT: "#00ED64" },
+        /** Pale mint pill for marketing / soft accents */
+        wheat: { DEFAULT: "#E3FCF7" },
         earth: { DEFAULT: "#a67c52" },
-        amber: { DEFAULT: "#ffa42b" },
-        success: { DEFAULT: "#1ed760" },
-        danger: { DEFAULT: "#f3727f" },
-        warning: { DEFAULT: "#ffa42b" },
-        announcement: { DEFAULT: "#539df5" },
-        surface: { DEFAULT: "#181818", muted: "#1f1f1f", paper: "#121212" },
-        text: { DEFAULT: "#ffffff", muted: "#b3b3b3" },
-        coral: { DEFAULT: "#3d2a28" },
-        "mint-subtle": { DEFAULT: "#86efac" },
-        stone: { DEFAULT: "#a3a3a3" },
-        header: { blur: "rgba(18,18,18,0.88)" },
+        amber: { DEFAULT: "#F59E0B" },
+        success: { DEFAULT: "#00ED64" },
+        danger: { DEFAULT: "#DB3030" },
+        warning: { DEFAULT: "#F59E0B" },
+        announcement: { DEFAULT: "#3B82F6" },
+        surface: { DEFAULT: "#F9FBFA", muted: "#F3F6F4", paper: "#FFFFFF" },
+        text: { DEFAULT: "#001E2B", muted: "#5C6C75" },
+        coral: { DEFAULT: "#FEF2F2" },
+        "mint-subtle": { DEFAULT: "#BBFDE8" },
+        stone: { DEFAULT: "#8997A0" },
+        header: { blur: "rgba(255,255,255,0.90)" },
       },
       borderRadius: {
         bento: "12px",
@@ -62,12 +62,12 @@ module.exports = {
         button: "1.6px",
       },
       boxShadow: {
-        fab: "0px 25px 50px -12px rgba(0,0,0,0.5)",
-        cta: "0px 8px 24px rgba(0,0,0,0.45)",
-        card: "0px 8px 8px rgba(0,0,0,0.35)",
-        dialog: "0px 8px 24px rgba(0,0,0,0.5)",
-        "nav-up": "0px -8px 24px rgba(0,0,0,0.35)",
-        inset: "rgb(18,18,18) 0px 1px 0px, rgb(124,124,124) 0px 0px 0px 1px inset",
+        fab: "0px 25px 50px -12px rgba(0,30,43,0.18)",
+        cta: "0px 8px 24px rgba(0,30,43,0.12)",
+        card: "0px 4px 12px rgba(0,30,43,0.08)",
+        dialog: "0px 16px 48px rgba(0,30,43,0.12)",
+        "nav-up": "0px -8px 24px rgba(0,30,43,0.08)",
+        inset: "rgb(232,237,235) 0px 1px 0px, rgb(200,213,209) 0px 0px 0px 1px inset",
       },
     },
   },

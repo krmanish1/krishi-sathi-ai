@@ -1,13 +1,15 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "expo-router";
 import { VoiceScreen } from "@/features/voice/components/VoiceScreen";
 import { useVoiceSession } from "@/features/voice";
-import { useFarmerId } from "@/shared/auth/AuthProvider";
+import { useFarmerId } from "@/shared/auth";
 import { useOnboarding } from "@/features/onboarding";
 import type { Language } from "@/shared/config/constants";
 import { SUPPORTED_LANGUAGES } from "@/shared/config/constants";
 import { useTranslation } from "react-i18next";
 
 export default function VoiceTab() {
+  const router = useRouter();
   const farmerId = useFarmerId() ?? "";
   const { state, district, language } = useOnboarding();
   const { i18n } = useTranslation();
@@ -18,16 +20,17 @@ export default function VoiceTab() {
     onboardingLang ??
     (SUPPORTED_LANGUAGES.includes(i18nBase as Language) ? (i18nBase as Language) : "en");
 
-  const [sessionLanguage, setSessionLanguage] = useState<Language>(defaultLang);
+  const [sessionLanguage] = useState<Language>(defaultLang);
 
-  const { phase, agentJoined, muted, audioTracks, start, stop, toggleMute } = useVoiceSession({
-    farmerId,
-    language: sessionLanguage,
-    state: state ?? "",
-    district: district ?? "",
-  });
+  const { phase, agentJoined, muted, speakerOn, audioTracks, start, stop, toggleMute, toggleSpeaker } =
+    useVoiceSession({
+      farmerId,
+      language: sessionLanguage,
+      state: state ?? "",
+      district: district ?? "",
+    });
 
-  // Auto-start when tab is entered
+  // Auto-start when the voice tab is entered
   useEffect(() => {
     void start();
     return () => {
@@ -36,6 +39,11 @@ export default function VoiceTab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const handleEndSession = useCallback(async () => {
+    await stop();
+    router.replace("/(tabs)/home");
+  }, [stop, router]);
+
   return (
     <VoiceScreen
       phase={phase}
@@ -43,8 +51,10 @@ export default function VoiceTab() {
       muted={muted}
       audioTracks={audioTracks}
       language={sessionLanguage}
-      onStop={stop}
+      onStop={handleEndSession}
       onToggleMute={toggleMute}
+      speakerOn={speakerOn}
+      onToggleSpeaker={toggleSpeaker}
     />
   );
 }

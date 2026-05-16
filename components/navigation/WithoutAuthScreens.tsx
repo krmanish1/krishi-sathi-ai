@@ -11,7 +11,7 @@ export function WithoutAuthScreens() {
     <Stack.Navigator
       screenOptions={{
         headerShown: false,
-        contentStyle: { backgroundColor: "#121212" },
+        contentStyle: { backgroundColor: "#FFFFFF" },
       }}
     >
       <Stack.Screen name="Login" component={LoginScreen} />

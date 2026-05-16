@@ -283,10 +283,10 @@ export function VoiceScreen({
 
       {/* ── Current topic ────────────────────────────────────────── */}
       <View style={styles.topicSection}>
-        <Text style={styles.topicHeading}>{t("voice.currentTopic")}</Text>
+        {/* <Text style={styles.topicHeading}>{t("voice.currentTopic")}</Text> */}
         {currentTopic ? (
           <Text style={styles.topicText} numberOfLines={3}>
-            "{currentTopic}"
+            {currentTopic}
           </Text>
         ) : (
           <Text style={styles.topicPlaceholder}>

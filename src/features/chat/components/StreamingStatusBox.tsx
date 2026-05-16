@@ -62,9 +62,9 @@ export function StreamingStatusBox({
         >
           <View style={[styles.statusOrb, !isStreaming ? styles.statusOrbComplete : null]}>
             {isStreaming ? (
-              <ActivityIndicator size="small" color="#1ed760" />
+              <ActivityIndicator size="small" color="#00ED64" />
             ) : (
-              <MaterialCommunityIcons name="check" size={18} color="#000000" />
+              <MaterialCommunityIcons name="check" size={18} color="#001E2B" />
             )}
           </View>
           <View className="min-w-0 flex-1">
@@ -82,14 +82,14 @@ export function StreamingStatusBox({
               <MaterialCommunityIcons
                 name={expanded ? "chevron-up" : "chevron-down"}
                 size={22}
-                color="#b3b3b3"
+                color="#5C6C75"
               />
             </View>
           ) : null}
         </Pressable>
 
         {expanded && hasDetails ? (
-          <View className="border-t border-white/[0.08] bg-card/80 px-4 pb-4 pt-4">
+          <View className="border-t border-border bg-muted px-4 pb-4 pt-4">
             {reasoning.length > 0 ? (
               <View className="mb-5">
                 <Text className="mb-2 font-body text-[10px] font-semibold uppercase tracking-[1.4px] text-ink-muted">
@@ -149,11 +149,11 @@ function ThinkingTimelineRow({
   done: boolean;
 }) {
   const pending = !active && !done;
-  const iconBg = active ? "#1ed760" : "#2a2a2a";
-  const iconFg = active ? "#000000" : pending ? "#737373" : "#b3b3b3";
+  const iconBg = active ? "#00ED64" : "#F3F6F4";
+  const iconFg = active ? "#001E2B" : pending ? "#8997A0" : "#5C6C75";
   const borderStyle = active
     ? { borderWidth: 0 }
-    : { borderWidth: 1.5, borderColor: pending ? "#3f3f3f" : "#525252" };
+    : { borderWidth: 1.5, borderColor: pending ? "#E8EDEB" : "#C8D5D1" };
 
   return (
     <View className="flex-row">
@@ -189,29 +189,29 @@ function ThinkingTimelineRow({
 
 const styles = StyleSheet.create({
   cardShadow: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.45,
-    shadowRadius: 20,
-    elevation: 6,
+    shadowColor: "#001E2B",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 4,
   },
   headerInset: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: "rgba(255,255,255,0.06)",
+    borderBottomColor: "rgba(0,30,43,0.1)",
   },
   statusOrb: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: "#121212",
+    backgroundColor: "#F9FBFA",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "rgba(0,30,43,0.1)",
     alignItems: "center",
     justifyContent: "center",
   },
   statusOrbComplete: {
-    backgroundColor: "#1ed760",
-    borderColor: "rgba(0,0,0,0.12)",
+    backgroundColor: "#00ED64",
+    borderColor: "rgba(0,30,43,0.12)",
   },
   iconCircle: {
     width: 36,
@@ -227,9 +227,9 @@ const styles = StyleSheet.create({
     marginTop: 5,
     marginBottom: 3,
     borderRadius: 1,
-    backgroundColor: "#3a3a3a",
+    backgroundColor: "#E8EDEB",
     alignSelf: "center",
-    opacity: 0.85,
+    opacity: 1,
   },
   rowBody: {
     marginBottom: 14,
@@ -239,9 +239,9 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
   },
   rowBodyActive: {
-    backgroundColor: "rgba(30, 215, 96, 0.08)",
+    backgroundColor: "rgba(0, 237, 100, 0.08)",
     borderWidth: 1,
-    borderColor: "rgba(30, 215, 96, 0.22)",
+    borderColor: "rgba(0, 237, 100, 0.3)",
   },
   rowBodySingle: {
     paddingVertical: 8,

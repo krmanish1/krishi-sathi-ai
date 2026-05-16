@@ -32,7 +32,7 @@ function AuthAtmosphere({ insetTop }: { insetTop: number }) {
   return (
     <View style={StyleSheet.absoluteFillObject} pointerEvents="none">
       <LinearGradient
-        colors={["#0f1a12", "#121a14", "#121212", "#121212"]}
+        colors={["#F0FFF9", "#FAFFFE", "#FFFFFF", "#FFFFFF"]}
         locations={[0, 0.22, 0.45, 1]}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
@@ -84,7 +84,7 @@ function AuthAtmosphere({ insetTop }: { insetTop: number }) {
           { name: "chart-line" as const },
         ].map(({ name }) => (
           <View key={name} style={styles.decorIconBubble}>
-            <MaterialCommunityIcons name={name} size={22} color="rgba(30,215,96,0.35)" />
+            <MaterialCommunityIcons name={name} size={22} color="rgba(0,164,100,0.5)" />
           </View>
         ))}
       </View>
@@ -123,7 +123,7 @@ export function AuthScreenLayout({ headline, subtitle, children, footer, topAcce
           <View style={styles.brand}>
             <View style={styles.logoRing}>
               <View style={styles.logoInner}>
-                <MaterialCommunityIcons name="sprout" size={32} color="#1ed760" />
+                <MaterialCommunityIcons name="sprout" size={32} color="#00684A" />
               </View>
             </View>
             <Text
@@ -149,18 +149,18 @@ export function AuthScreenLayout({ headline, subtitle, children, footer, topAcce
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#121212",
+    backgroundColor: "#FFFFFF",
   },
   glowBlob: {
     position: "absolute",
     width: 220,
     height: 220,
     borderRadius: 110,
-    backgroundColor: "#1ed760",
-    opacity: 0.07,
+    backgroundColor: "#00ED64",
+    opacity: 0.1,
   },
   glowBlobMuted: {
-    opacity: 0.045,
+    opacity: 0.06,
     width: 180,
     height: 180,
     borderRadius: 90,
@@ -170,8 +170,8 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: "#1ed760",
-    opacity: 0.05,
+    backgroundColor: "#00ED64",
+    opacity: 0.07,
   },
   orbitWrap: {
     position: "absolute",
@@ -181,13 +181,13 @@ const styles = StyleSheet.create({
   },
   orbitOuterDisk: {
     borderWidth: 1,
-    borderColor: "rgba(30, 215, 96, 0.14)",
+    borderColor: "rgba(0, 237, 100, 0.25)",
     alignItems: "center",
     justifyContent: "center",
   },
   orbitInnerDisk: {
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.07)",
+    borderColor: "rgba(0, 30, 43, 0.08)",
   },
   watermark: {
     position: "absolute",
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     fontSize: 34,
     fontWeight: "800",
-    color: "rgba(255, 255, 255, 0.05)",
+    color: "rgba(0, 30, 43, 0.04)",
     letterSpacing: 0.5,
   },
   decorStrip: {
@@ -211,11 +211,11 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: "rgba(0,30,43,0.04)",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
+    borderColor: "rgba(0,30,43,0.07)",
   },
   scroll: {
     flex: 1,
@@ -241,18 +241,18 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: 36,
     borderWidth: 2,
-    borderColor: "#1ed760",
+    borderColor: "#00ED64",
     padding: 3,
-    shadowColor: "#1ed760",
+    shadowColor: "#00ED64",
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.25,
     shadowRadius: 14,
-    elevation: 8,
+    elevation: 6,
   },
   logoInner: {
     flex: 1,
     borderRadius: 32,
-    backgroundColor: "#14532d",
+    backgroundColor: "#E3FCF7",
     alignItems: "center",
     justifyContent: "center",
   },

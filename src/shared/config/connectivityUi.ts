@@ -15,24 +15,24 @@ export type ConnectivityUiComposerKey =
  * Adjust these constants (and `visualRow` below) to change look & feel app-wide.
  */
 const C = {
-  brand: "#1ed760",
-  brandDeep: "#168d40",
-  expertOnline: ["#0f3d22", "#168d40", "#1ed760"] as const,
+  brand: "#00ED64",
+  brandDeep: "#00684A",
+  expertOnline: ["#00684A", "#00A35C", "#00ED64"] as const,
   amber: "#f59e0b",
   amberDeep: "#b45309",
-  amberSoftText: "#fbbf24",
-  amberIcon: "#ffa42b",
-  expertDegraded: ["#422006", "#b45309", "#f59e0b"] as const,
+  amberSoftText: "#d97706",
+  amberIcon: "#f59e0b",
+  expertDegraded: ["#92400E", "#b45309", "#f59e0b"] as const,
   slate: "#64748b",
   slateDeep: "#334155",
   slateDeep2: "#475569",
   slateMuted: "#94a3b8",
-  expertOffline: ["#0f172a", "#334155", "#64748b"] as const,
-  expertOfflineNoModel: ["#1e293b", "#475569", "#94a3b8"] as const,
-  surfaceOnline: "#1f1f1f",
-  surfaceDegraded: "#292524",
-  surfaceOffline: "#1e293b",
-  syncAlert: "#f3727f",
+  expertOffline: ["#1e3a5f", "#334155", "#64748b"] as const,
+  expertOfflineNoModel: ["#2d3748", "#475569", "#94a3b8"] as const,
+  surfaceOnline: "#F0FFF7",
+  surfaceDegraded: "#FFFBEB",
+  surfaceOffline: "#F1F5F9",
+  syncAlert: "#DB3030",
 } as const;
 
 type VisualRow = {

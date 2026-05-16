@@ -10,8 +10,8 @@ import { useConnectivityUi } from "@/shared/network";
 import { hexToRgba } from "@/shared/utils";
 
 const CHOICES: { key: Language; title: string; subtitle: string; icon: string; iconBg: string }[] = [
-  { key: "hi", title: "हिंदी", subtitle: "Hindi", icon: "translate-variant", iconBg: "#252525" },
-  { key: "en", title: "English", subtitle: "English", icon: "alphabetical-variant", iconBg: "#272727" },
+  { key: "hi", title: "हिंदी", subtitle: "Hindi", icon: "translate-variant", iconBg: "#F3F6F4" },
+  { key: "en", title: "English", subtitle: "English", icon: "alphabetical-variant", iconBg: "#F9FBFA" },
 ];
 
 export default function LanguageScreen() {
@@ -36,7 +36,7 @@ export default function LanguageScreen() {
           <Text className="font-display text-base uppercase tracking-button text-on-brand">
             {t("onboarding.continue")}
           </Text>
-          <MaterialCommunityIcons name="arrow-right" size={18} color="#000000" style={{ marginLeft: 8 }} />
+          <MaterialCommunityIcons name="arrow-right" size={18} color="#001E2B" style={{ marginLeft: 8 }} />
         </Pressable>
       }
     >
@@ -69,7 +69,7 @@ export default function LanguageScreen() {
                   void i18n.changeLanguage(item.key);
                 }}
                 className={`min-h-[68px] flex-row items-center justify-between rounded-xl border px-4 py-3 ${
-                  selected ? "border-brand bg-card-mid" : "border-white/[0.06] bg-muted"
+                  selected ? "border-brand bg-card-mid" : "border-border bg-muted"
                 }`}
               >
                 <View className="flex-row items-center gap-3">
@@ -97,10 +97,10 @@ export default function LanguageScreen() {
         </View>
 
         <LinearGradient
-          colors={[hexToRgba(ui.headerAccentHex, 0.12), "rgba(18,18,18,0.95)"]}
+          colors={[hexToRgba(ui.headerAccentHex, 0.12), "rgba(249,251,250,0.98)"]}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
-          className="mt-4 min-h-[96px] justify-end overflow-hidden rounded-xl border border-white/[0.06] px-4 py-3"
+          className="mt-4 min-h-[96px] justify-end overflow-hidden rounded-xl border border-border px-4 py-3"
         >
           <MaterialCommunityIcons name="sprout-outline" size={36} color={ui.headerAccentHex} style={{ opacity: 0.35 }} />
           <Text className="mt-2 font-body-semibold text-[10px] uppercase tracking-[1.6px] text-brand">
