@@ -1,3 +1,5 @@
+import { useModelDownloadStore } from "./modelDownloadStore";
+
 jest.mock("@react-native-async-storage/async-storage", () => ({
   getItem: jest.fn().mockResolvedValue(null),
   setItem: jest.fn().mockResolvedValue(undefined),
@@ -9,8 +11,6 @@ jest.mock("@react-native-async-storage/async-storage", () => ({
   multiSet: jest.fn().mockResolvedValue(undefined),
   multiRemove: jest.fn().mockResolvedValue(undefined),
 }));
-
-import { useModelDownloadStore } from "./modelDownloadStore";
 
 describe("modelDownloadStore", () => {
   beforeEach(() => {

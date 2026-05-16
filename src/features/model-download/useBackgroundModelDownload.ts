@@ -51,7 +51,7 @@ export function useBackgroundModelDownload() {
       useModelDownloadStore.getState().setProgress(100);
       useModelDownloadStore.getState().setStatus("completed");
       await showCompletionNotification();
-    } catch (err) {
+    } catch {
       if (ctrl.signal.aborted) {
         useModelDownloadStore.getState().resetToIdle();
         await dismissProgressNotification();

@@ -3,6 +3,7 @@ import {
   setPreferOffline as syncPreferOfflineToRouting,
   getPreferOffline,
 } from "@/shared/ondevice/modelState";
+import { downloadGemmaModel } from "@/shared/ondevice/gemmaDownload";
 
 // Mock native modules
 jest.mock("expo-file-system/legacy", () => ({}));
@@ -19,12 +20,14 @@ jest.mock("@/shared/ondevice/gemmaDownload", () => ({
   downloadGemmaModel: jest.fn().mockResolvedValue({ variant: "e4b", path: "/model.task" }),
   detectModelVariant: jest.fn().mockResolvedValue("e4b"),
 }));
-jest.mock("@react-native-async-storage/async-storage", () =>
-  require("@react-native-async-storage/async-storage/jest/async-storage-mock"),
-);
-
-// Import after mocks
-import { downloadGemmaModel } from "@/shared/ondevice/gemmaDownload";
+jest.mock("@react-native-async-storage/async-storage", () => ({
+  getItem: jest.fn().mockResolvedValue(null),
+  setItem: jest.fn().mockResolvedValue(undefined),
+  removeItem: jest.fn().mockResolvedValue(undefined),
+  multiGet: jest.fn().mockResolvedValue([]),
+  multiSet: jest.fn().mockResolvedValue(undefined),
+  getAllKeys: jest.fn().mockResolvedValue([]),
+}));
 
 // Test store actions directly (without React hooks to avoid RN test environment issues)
 describe("useBackgroundModelDownload store integration", () => {
