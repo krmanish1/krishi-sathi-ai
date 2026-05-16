@@ -408,6 +408,11 @@
     "settingsSection": "ऑफलाइन मॉडल",
     "settingsDownloadBtn": "ऑफलाइन मॉडल डाउनलोड करें",
     "settingsStatus": "✓ ऑफलाइन मॉडल तैयार",
-    "preferOfflineLabel": "उपलब्ध होने पर ऑफलाइन मोड प्राथमिकता दें"
+    "preferOfflineLabel": "उपलब्ध होने पर ऑफलाइन मोड प्राथमिकता दें",
+    "consentTitle": "AI मॉडल डाउनलोड करें?",
+    "consentBody": "KrishiSaathi AI आपके डिवाइस पर एक ऑफलाइन मॉडल सेव करेगा। यह बिना इंटरनेट के AI सुविधाएँ देता है — एक बार डाउनलोड के बाद कोई डेटा खर्च नहीं।",
+    "consentStorage": "आवश्यक स्थान: लगभग 1–2 GB",
+    "consentConfirm": "डाउनलोड करें",
+    "consentDecline": "अभी नहीं"
   }
 }

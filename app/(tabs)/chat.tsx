@@ -649,6 +649,7 @@ export default function ChatScreen() {
   const abortControllerRef = useRef<AbortController | null>(null);
   const prevListeningRef = useRef(false);
   const lastMsgRef = useRef<string | null>(null);
+  const voiceModeStartTimeRef = useRef<number | null>(null);
   const listRef = useRef<FlatList<ChatMessageRow>>(null);
   const userScrolledUpRef = useRef(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -894,12 +895,26 @@ export default function ChatScreen() {
     prevListeningRef.current = voice.listening;
   }, [voice.listening, voiceMode, draft, sendPayload]);
 
+  // Track when voice mode starts so we don't TTS historical messages on tab-return
+  useEffect(() => {
+    if (voiceMode) {
+      voiceModeStartTimeRef.current = Date.now();
+    } else {
+      voiceModeStartTimeRef.current = null;
+    }
+  }, [voiceMode]);
+
   // Auto-TTS on new assistant messages when in voice mode
   useEffect(() => {
-    if (!voiceMode || voice.speaking) return;
+    if (!voiceMode || voice.speaking || voiceModeStartTimeRef.current === null) return;
     const last = messages[messages.length - 1];
     const text = typeof last?.text === "string" ? last.text.trim() : "";
-    if (last?.role === "assistant" && text.length > 0 && last.id !== lastMsgRef.current) {
+    if (
+      last?.role === "assistant" &&
+      text.length > 0 &&
+      last.id !== lastMsgRef.current &&
+      last.created_at >= (voiceModeStartTimeRef.current ?? Infinity)
+    ) {
       lastMsgRef.current = last.id;
       void voice.speak(text, i18n.language === "hi" ? "hi" : "en");
     }

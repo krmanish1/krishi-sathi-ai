@@ -79,10 +79,12 @@ export function useBackgroundModelDownload() {
     progress: store.progress,
     variant: store.variant,
     bannerDismissed: store.bannerDismissed,
+    consentDeclined: store.consentDeclined,
     preferOffline: store.preferOffline,
     startDownload,
     cancelDownload,
     dismissBanner: store.dismissBanner,
+    declineConsent: store.declineConsent,
     setPreferOffline,
   };
 }

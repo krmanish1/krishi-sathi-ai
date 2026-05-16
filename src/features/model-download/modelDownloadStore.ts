@@ -9,6 +9,7 @@ export type State = {
   progress: number;
   variant: "e2b" | "e4b" | null;
   bannerDismissed: boolean;
+  consentDeclined: boolean;
   preferOffline: boolean;
 };
 
@@ -17,6 +18,7 @@ type Actions = {
   setProgress: (progress: number) => void;
   setVariant: (variant: "e2b" | "e4b") => void;
   dismissBanner: () => void;
+  declineConsent: () => void;
   setPreferOffline: (prefer: boolean) => void;
   resetToIdle: () => void;
 };
@@ -28,11 +30,13 @@ export const useModelDownloadStore = create<State & Actions>()(
       progress: 0,
       variant: null,
       bannerDismissed: false,
+      consentDeclined: false,
       preferOffline: false,
       setStatus: (status) => set({ status }),
       setProgress: (progress) => set({ progress }),
       setVariant: (variant) => set({ variant }),
       dismissBanner: () => set({ bannerDismissed: true }),
+      declineConsent: () => set({ consentDeclined: true, bannerDismissed: true }),
       setPreferOffline: (preferOffline) => set({ preferOffline }),
       resetToIdle: () => set({ status: "idle", progress: 0, variant: null }),
     }),
@@ -44,6 +48,7 @@ export const useModelDownloadStore = create<State & Actions>()(
         progress: s.progress,
         variant: s.variant,
         bannerDismissed: s.bannerDismissed,
+        consentDeclined: s.consentDeclined,
         preferOffline: s.preferOffline,
       }),
     },

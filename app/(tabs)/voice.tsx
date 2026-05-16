@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { VoiceScreen } from "@/features/voice/components/VoiceScreen";
@@ -23,7 +23,7 @@ export default function VoiceTab() {
 
   const [sessionLanguage] = useState<Language>(defaultLang);
 
-  const { phase, agentJoined, muted, speakerOn, audioTracks, start, stop, toggleMute, toggleSpeaker } =
+  const { phase, agentJoined, muted, speakerOn, audioTracks, start, stop, toggleMute, toggleSpeaker, stopping } =
     useVoiceSession({
       farmerId,
       language: sessionLanguage,
@@ -31,14 +31,19 @@ export default function VoiceTab() {
       district: district ?? "",
     });
 
-  // Re-run on every tab focus so returning after end-session restarts the session.
+  // Start/stop only on tab focus/blur — not when start/stop callback identity changes.
+  const startRef = useRef(start);
+  const stopRef = useRef(stop);
+  startRef.current = start;
+  stopRef.current = stop;
+
   useFocusEffect(
     useCallback(() => {
-      void start();
+      void startRef.current();
       return () => {
-        void stop();
+        void stopRef.current();
       };
-    }, [start, stop]),
+    }, []),
   );
 
   const handleEndSession = useCallback(async () => {
@@ -58,6 +63,7 @@ export default function VoiceTab() {
       onToggleMute={toggleMute}
       speakerOn={speakerOn}
       onToggleSpeaker={toggleSpeaker}
+      stopping={stopping}
     />
   );
 }

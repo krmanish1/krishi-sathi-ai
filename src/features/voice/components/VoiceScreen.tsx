@@ -155,6 +155,7 @@ function CtrlBtn({
   labelColor = INK_MUTED,
   onPress,
   active = false,
+  disabled = false,
 }: {
   icon: string;
   label: string;
@@ -164,11 +165,12 @@ function CtrlBtn({
   labelColor?: string;
   onPress?: () => void;
   active?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={onPress}
+      onPress={disabled ? undefined : onPress}
       style={[
         ctrlStyles.btn,
         {
@@ -178,6 +180,7 @@ function CtrlBtn({
           backgroundColor: bg,
         },
         active ? ctrlStyles.btnActive : null,
+        disabled ? { opacity: 0.45 } : null,
       ]}
     >
       <MaterialCommunityIcons
@@ -230,6 +233,7 @@ export type VoiceScreenProps = {
   onStop: () => void;
   onToggleMute: () => void;
   onToggleSpeaker: () => void;
+  stopping?: boolean;
 };
 
 export function VoiceScreen({
@@ -240,6 +244,7 @@ export function VoiceScreen({
   onStop,
   onToggleMute,
   onToggleSpeaker,
+  stopping = false,
 }: VoiceScreenProps) {
   const { t } = useTranslation();
   const { transcript } = useVoiceSessionStore();
@@ -317,7 +322,7 @@ export function VoiceScreen({
         {/* Mute */}
         <View style={styles.ctrlWrap}>
           <CtrlBtn
-            icon={muted ? "microphone-off" : "microphone-off"}
+            icon={muted ? "microphone-off" : "microphone"}
             label="Mute"
             onPress={onToggleMute}
             active={isMuted}
@@ -330,10 +335,11 @@ export function VoiceScreen({
             icon="phone-hangup"
             label="End Session"
             size={72}
-            bg={END_BG}
+            bg={stopping ? "#9CA3AF" : END_BG}
             iconColor="#FFFFFF"
-            labelColor={END_BG}
+            labelColor={stopping ? "#9CA3AF" : END_BG}
             onPress={onStop}
+            disabled={stopping}
           />
         </View>
 

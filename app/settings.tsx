@@ -7,7 +7,9 @@ import {
   Linking,
   Switch,
 } from "react-native";
+import { useState } from "react";
 import { useBackgroundModelDownload } from "@/features/model-download";
+import { ModelDownloadConsentModal } from "@/features/model-download";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -61,6 +63,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const setLanguageStore = useOnboarding((s) => s.setLanguage);
+  const [consentVisible, setConsentVisible] = useState(false);
 
   const {
     status: dlStatus,
@@ -73,6 +76,14 @@ export default function SettingsScreen() {
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
+      <ModelDownloadConsentModal
+        visible={consentVisible}
+        onConfirm={() => {
+          setConsentVisible(false);
+          void startDownload();
+        }}
+        onDecline={() => setConsentVisible(false)}
+      />
       {/* Header */}
       <View style={styles.header}>
         <Pressable
@@ -163,7 +174,7 @@ export default function SettingsScreen() {
               ) : null}
               <Pressable
                 accessibilityRole="button"
-                onPress={() => void startDownload()}
+                onPress={() => setConsentVisible(true)}
                 style={{ opacity: 1 }}
               >
                 <View style={styles.row}>

@@ -59,6 +59,8 @@ export function useVoiceSession(input: VoiceSessionInput) {
   const [audioTracks, setAudioTracks] = useState<VoiceSessionAudioTracks>({});
   // True while stop() is executing — prevents Disconnected handler from double-resetting
   const stoppedByUser = useRef(false);
+  const stopGenRef = useRef(0);
+  const [stopping, setStopping] = useState(false);
   const [speakerOn, setSpeakerOn] = useState(true);
 
   const syncAudioFromRoom = useCallback(() => {
@@ -170,6 +172,14 @@ export function useVoiceSession(input: VoiceSessionInput) {
       const { Room: LKRoom, RoomEvent } = livekitClient;
       const { AudioSession, AndroidAudioTypePresets } = livekitRN;
 
+      // Fire audio config and token fetch in parallel — saves ~300ms on first connect.
+      const tokenPromise = postVoiceToken({
+        farmer_id: input.farmerId,
+        ...(input.conversationId ? { conversation_id: input.conversationId } : {}),
+        participant_identity: input.farmerId,
+        language: input.language,
+      });
+
       // Route audio to speaker by default (headset/bluetooth override automatically)
       await AudioSession.configureAudio({
         android: {
@@ -190,12 +200,7 @@ export function useVoiceSession(input: VoiceSessionInput) {
         try { stale.disconnect(); } catch { /* ignore */ }
       }
 
-      const { server_url, participant_token } = await postVoiceToken({
-        farmer_id: input.farmerId,
-        ...(input.conversationId ? { conversation_id: input.conversationId } : {}),
-        participant_identity: input.farmerId,
-        language: input.language,
-      });
+      const { server_url, participant_token } = await tokenPromise;
 
       const room = new LKRoom();
       roomRef.current = room;
@@ -276,7 +281,11 @@ export function useVoiceSession(input: VoiceSessionInput) {
   }, [input.farmerId, input.language, input.conversationId, store, startOffline, syncAudioFromRoom]);
 
   const start = useCallback(async () => {
+    // Allow restart from error state
+    if (store.phase === "error") store.reset();
     if (store.phase !== "idle") return;
+    // Invalidate any in-flight stop() so it won't reset this new session
+    stopGenRef.current += 1;
     if (Platform.OS === "web") {
       store.setError("voice.error.webUnsupported");
       return;
@@ -289,22 +298,20 @@ export function useVoiceSession(input: VoiceSessionInput) {
   }, [connectivity, store, startOnline, startOffline]);
 
   const stop = useCallback(async () => {
+    const myGen = ++stopGenRef.current;
+    setStopping(true);
     stoppedByUser.current = true;
     setAudioTracks({});
     const room = roomRef.current;
     if (room) {
       const { transcript } = useVoiceSessionStore.getState();
       if (transcript) {
-        await appendMessage({
-          role: "user",
-          text: transcript.user,
-          threadId: MAIN_THREAD_ID,
-        });
-        await appendMessage({
-          role: "assistant",
-          text: transcript.agent,
-          threadId: MAIN_THREAD_ID,
-        });
+        try {
+          await appendMessage({ role: "user", text: transcript.user, threadId: MAIN_THREAD_ID });
+          await appendMessage({ role: "assistant", text: transcript.agent, threadId: MAIN_THREAD_ID });
+        } catch {
+          // best-effort save
+        }
       }
       room.disconnect();
       try {
@@ -318,9 +325,13 @@ export function useVoiceSession(input: VoiceSessionInput) {
       await voice.stopListening();
       voice.cancelSpeech();
     }
-    store.reset();
-    stoppedByUser.current = false;
-  }, [store, voice]);
+    // Only reset if no newer session was started while we were awaiting
+    if (stopGenRef.current === myGen) {
+      store.reset();
+      stoppedByUser.current = false;
+    }
+    setStopping(false);
+  }, [store, voice.stopListening, voice.cancelSpeech]);
 
   const toggleSpeaker = useCallback(async () => {
     const next = !speakerOn;
@@ -366,5 +377,6 @@ export function useVoiceSession(input: VoiceSessionInput) {
     stop,
     toggleMute,
     toggleSpeaker,
+    stopping,
   };
 }
