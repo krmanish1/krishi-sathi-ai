@@ -84,7 +84,7 @@ export default function LocationScreen() {
       lat: capturedLat,
       lng: capturedLng,
     });
-    router.push("/(onboarding)/model-download");
+    router.push("/(onboarding)/done");
   };
 
   const canContinue = state.trim().length >= 2 && district.trim().length >= 2;
