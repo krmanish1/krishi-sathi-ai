@@ -1,9 +1,6 @@
 import { useCallback, useRef } from "react";
 import { useModelDownloadStore } from "./modelDownloadStore";
-import {
-  downloadGemmaModel,
-  detectModelVariant,
-} from "@/features/onboarding/useModelDownload";
+import { downloadGemmaModel, detectModelVariant } from "@/shared/ondevice";
 import { setPreferOffline as syncPreferOfflineToRouting } from "@/shared/ondevice/modelState";
 import {
   requestNotificationPermission,
@@ -28,9 +25,10 @@ export function useBackgroundModelDownload() {
     await requestNotificationPermission();
 
     const v = await detectModelVariant();
-    store.setVariant(v);
-    store.setStatus("downloading");
-    store.setProgress(0);
+    const s = useModelDownloadStore.getState();
+    s.setVariant(v);
+    s.setStatus("downloading");
+    s.setProgress(0);
 
     await showProgressNotification(0);
 
@@ -39,7 +37,7 @@ export function useBackgroundModelDownload() {
         ({ received, total }) => {
           if (ctrl.signal.aborted) return;
           const pct = total > 0 ? Math.floor((received / total) * 100) : 0;
-          store.setProgress(pct);
+          useModelDownloadStore.getState().setProgress(pct);
           if (pct - lastNotifiedPct.current >= 5) {
             lastNotifiedPct.current = pct;
             void showProgressNotification(pct);
@@ -50,19 +48,19 @@ export function useBackgroundModelDownload() {
       );
 
       if (ctrl.signal.aborted) return;
-      store.setProgress(100);
-      store.setStatus("completed");
+      useModelDownloadStore.getState().setProgress(100);
+      useModelDownloadStore.getState().setStatus("completed");
       await showCompletionNotification();
     } catch (err) {
       if (ctrl.signal.aborted) {
-        store.resetToIdle();
+        useModelDownloadStore.getState().resetToIdle();
         await dismissProgressNotification();
         return;
       }
-      store.setStatus("failed");
+      useModelDownloadStore.getState().setStatus("failed");
       await showFailureNotification();
     }
-  }, [store]);
+  }, [store.status]);
 
   const cancelDownload = useCallback(() => {
     abortRef.current?.abort();
@@ -70,10 +68,10 @@ export function useBackgroundModelDownload() {
 
   const setPreferOffline = useCallback(
     (prefer: boolean) => {
-      store.setPreferOffline(prefer);
+      useModelDownloadStore.getState().setPreferOffline(prefer);
       syncPreferOfflineToRouting(prefer);
     },
-    [store],
+    [],
   );
 
   return {

@@ -12,3 +12,5 @@ export { createNativeBackend } from "./native-backend";
 export { onDeviceAgent } from "./onDeviceAgent";
 export { offlineFallback } from "./offlineFallback";
 export { isModelReady, setModelReady, getModelPath, resetModelState, setPreferOffline, getPreferOffline } from "./modelState";
+export { downloadGemmaModel, checkIsOnWifi, checkModelExists, downloadGemmaE4B, detectModelVariant as detectGemmaVariant, modelFilePath as gemmaModelFilePath } from "./gemmaDownload";
+export type { DownloadProgress } from "./gemmaDownload";
