@@ -1,14 +1,17 @@
 import * as Notifications from "expo-notifications";
+import { Platform } from "react-native";
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-});
+if (Platform.OS !== "web") {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: false,
+      shouldSetBadge: false,
+    }),
+  });
+}
 
 let _progressNotifId: string | null = null;
 
@@ -25,6 +28,7 @@ export async function showProgressNotification(progress: number): Promise<void> 
   try {
     if (_progressNotifId) {
       await Notifications.dismissNotificationAsync(_progressNotifId).catch(() => undefined);
+      _progressNotifId = null;
     }
     _progressNotifId = await Notifications.scheduleNotificationAsync({
       content: {
