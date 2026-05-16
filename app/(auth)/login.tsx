@@ -48,7 +48,7 @@ export default function LoginScreen() {
   const footer = (
     <View style={authFormStyles.footerRow}>
       <Text style={authFormStyles.footerMuted}>{t("auth.footerNoAccount")}</Text>
-      <Pressable onPress={() => router.push("/signup")} hitSlop={8}>
+      <Pressable onPress={() => router.push("/(auth)/signup")} hitSlop={8}>
         <Text style={authFormStyles.footerLink}>{t("auth.footerSignUpLink")}</Text>
       </Pressable>
     </View>

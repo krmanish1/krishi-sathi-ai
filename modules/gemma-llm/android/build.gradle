@@ -1,0 +1,16 @@
+apply plugin: 'com.android.library'
+
+def expoModulesCorePlugin = new File(project(":expo-modules-core").projectDir.absolutePath, "ExpoModulesCorePlugin.gradle")
+apply from: expoModulesCorePlugin
+applyKotlinExpoModulesCorePlugin()
+useDefaultAndroidSdkVersions()
+useCoreDependencies()
+
+android {
+    namespace "com.gemmamodule"
+}
+
+dependencies {
+    // TODO: Pin version before production release — verify against Google AI Edge Gallery
+    implementation 'com.google.mediapipe:tasks-genai:0.10.14'
+}

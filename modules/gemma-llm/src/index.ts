@@ -3,6 +3,8 @@ import { requireNativeModule } from "expo-modules-core";
 type NativeGemma = {
   load: (modelPath: string) => Promise<boolean>;
   generate: (prompt: string) => Promise<string>;
+  generateWithImage: (prompt: string, imageBase64: string, mimeType: string) => Promise<string>;
+  cancel: () => void;
 };
 
 let native: NativeGemma | null = null;
@@ -12,9 +14,6 @@ try {
   native = null;
 }
 
-/**
- * @returns false when the Kotlin `GemmaLlmModule` is not in the build (e.g. dev without prebuild).
- */
 export function isNativeGemmaModuleLinked(): boolean {
   return native != null;
 }
@@ -22,7 +21,7 @@ export function isNativeGemmaModuleLinked(): boolean {
 export const loadModel = (modelPath: string): Promise<boolean> => {
   if (!native) {
     return Promise.reject(
-      new Error("GemmaLlm native module not linked; run prebuild and add Task 6.1 module."),
+      new Error("GemmaLlm native module not linked; run prebuild."),
     );
   }
   return native.load(modelPath);
@@ -33,4 +32,19 @@ export const generateText = (prompt: string): Promise<string> => {
     return Promise.reject(new Error("GemmaLlm native module not linked."));
   }
   return native.generate(prompt);
+};
+
+export const generateTextWithImage = (
+  prompt: string,
+  imageBase64: string,
+  mimeType: string,
+): Promise<string> => {
+  if (!native) {
+    return Promise.reject(new Error("GemmaLlm native module not linked."));
+  }
+  return native.generateWithImage(prompt, imageBase64, mimeType);
+};
+
+export const cancelGeneration = (): void => {
+  native?.cancel();
 };

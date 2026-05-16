@@ -10,7 +10,7 @@ import { postQueryImage } from "@/shared/api/endpoints";
 import { appendMessage, useSendChatMessage } from "@/features/chat";
 import { useFarmerId } from "@/shared/auth/AuthProvider";
 import { useOnboarding } from "@/features/onboarding/store";
-import { useConnectivity } from "@/shared/network";
+import { useConnectivityUi } from "@/shared/network";
 import { ApiError } from "@/shared/api/errors";
 import type { Language } from "@/shared/config/constants";
 
@@ -25,7 +25,8 @@ export default function ScanScreen() {
   const lngRaw = useOnboarding((s) => s.lng);
   const lat = latRaw != null && Number.isFinite(latRaw) ? latRaw : undefined;
   const lng = lngRaw != null && Number.isFinite(lngRaw) ? lngRaw : undefined;
-  const connectivity = useConnectivity();
+  const ui = useConnectivityUi();
+  const connectivity = ui.connectivity;
   const send = useSendChatMessage();
   const [localUri, setLocalUri] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -95,18 +96,34 @@ export default function ScanScreen() {
       className="flex-1 bg-page"
       style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}
     >
-      <View className="flex-row items-center border-b border-border/60 bg-card px-4 py-3">
+      <View
+        className="flex-row items-center border-b border-border/60 px-4 py-3"
+        style={{ backgroundColor: ui.chatsHeaderSurfaceHex }}
+      >
         <Pressable
           accessibilityRole="button"
           hitSlop={12}
           onPress={() => router.back()}
           className="mr-2 rounded-full p-1"
         >
-          <MaterialCommunityIcons name="arrow-left" size={24} color="#1ed760" />
+          <MaterialCommunityIcons name="arrow-left" size={24} color={ui.headerAccentHex} />
         </Pressable>
         <Text className="font-display text-lg text-title-green">{t("scan.title")}</Text>
       </View>
       <ScrollView className="flex-1" contentContainerStyle={{ padding: 16 }}>
+        {!ui.backendReachable ? (
+          <View
+            className="mb-4 rounded-xl border px-3 py-3"
+            style={{
+              backgroundColor: ui.offlinePillBackgroundRgba,
+              borderColor: ui.offlinePillBorderRgba,
+            }}
+          >
+            <Text className="text-center font-body text-sm" style={{ color: ui.offlinePillTextHex }}>
+              {t("chat.imageRequiresInternet")}
+            </Text>
+          </View>
+        ) : null}
         <Text className="mb-4 font-body text-ink-muted">{t("scan.body")}</Text>
         {localUri ? (
           <Image
@@ -134,7 +151,7 @@ export default function ScanScreen() {
           </Pressable>
           <Pressable
             className="mt-2 min-h-[48px] items-center justify-center rounded-full bg-brand px-6 shadow-dialog"
-            disabled={!localUri || !farmerId || busy}
+            disabled={!localUri || !farmerId || busy || !ui.backendReachable}
             onPress={() => { void upload(); }}
           >
             {busy ? (

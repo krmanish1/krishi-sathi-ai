@@ -27,19 +27,19 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     useEmbeddedUpdate: true,
   },
   orientation: "portrait",
-  userInterfaceStyle: "dark",
+  userInterfaceStyle: "light",
   icon: "./assets/images/icon.png",
   splash: {
     image: "./assets/images/splash.png",
     resizeMode: "contain",
-    backgroundColor: "#121212",
+    backgroundColor: "#FFFFFF",
   },
   android: {
     package: "ai.krishisaathi.app",
     softwareKeyboardLayoutMode: "resize",
     adaptiveIcon: {
       foregroundImage: "./assets/images/adaptive-icon.png",
-      backgroundColor: "#121212",
+      backgroundColor: "#FFFFFF",
     },
     permissions: [
       "CAMERA",
@@ -58,6 +58,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   },
   plugins: [
     "expo-router",
+    "expo-image",
+    "expo-web-browser",
     "expo-localization",
     "expo-secure-store",
     ["expo-image-picker", { photosPermission: "We use photos to diagnose crop issues." }],
@@ -69,6 +71,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
     ...(googleSignInPlugin ? [googleSignInPlugin] : []),
+    ["expo-notifications", {}],
+    "@livekit/react-native-expo-plugin",
+    ["@config-plugins/react-native-webrtc", {}],
   ],
   experiments: { typedRoutes: true },
   extra: {

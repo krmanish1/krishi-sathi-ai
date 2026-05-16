@@ -11,3 +11,12 @@ export const getApiBaseUrl = (): string => {
   }
   return url;
 };
+
+export const getDataGovApiKey = (): string | null => {
+  const key = process.env.EXPO_PUBLIC_DATA_GOV_API_KEY;
+  if (typeof key !== "string" || key.length === 0) {
+    if (__DEV__) console.warn("[env] EXPO_PUBLIC_DATA_GOV_API_KEY is not configured — mandi live prices disabled");
+    return null;
+  }
+  return key;
+};

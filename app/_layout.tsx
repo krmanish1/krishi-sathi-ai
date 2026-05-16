@@ -1,3 +1,4 @@
+import "reflect-metadata";
 import "../polyfills";
 import "../global.css";
 import { Stack } from "expo-router";
@@ -13,7 +14,7 @@ export default function RootLayout() {
         <NetworkBanner />
         <ServerWakingBanner />
         <Stack
-          screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#121212" } }}
+          screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "transparent" } }}
         />
       </View>
     </RootProviders>

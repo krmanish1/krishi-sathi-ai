@@ -1,4 +1,12 @@
+import { Platform } from "react-native";
 import { ApiError, parseErrorResponse } from "./errors";
+import { withFetchLane } from "./fetchLane";
+import {
+  bodySummaryForLog,
+  logApiEndErr,
+  logApiEndOk,
+  logApiStart,
+} from "./requestLog";
 
 export type ApiFetchOptions = {
   baseUrl: string;
@@ -32,6 +40,8 @@ export const apiFetch = async <T>(path: string, opts: ApiFetchOptions): Promise<
     headers: {
       Accept: "application/json",
       ...(jsonBody ? { "Content-Type": "application/json" } : {}),
+      // Avoid stale keep-alive pools with some CDNs / Space proxies (reduces "Network request failed").
+      ...(Platform.OS !== "web" ? { Connection: "close" } : {}),
       ...headers,
     },
     signal: linked,
@@ -41,8 +51,14 @@ export const apiFetch = async <T>(path: string, opts: ApiFetchOptions): Promise<
   } else if (rawBody !== undefined) {
     requestInit.body = rawBody;
   }
+
+  const url = `${baseUrl}${path}`;
+  const bodyHint = bodySummaryForLog(method, jsonBody ?? rawBody);
+  logApiStart(method, url, bodyHint);
+  const started = Date.now();
+
   try {
-    const res = await fetch(`${baseUrl}${path}`, requestInit);
+    const res = await withFetchLane(() => fetch(url, requestInit));
 
     const text = await res.text();
     let json: unknown = null;
@@ -71,11 +87,13 @@ export const apiFetch = async <T>(path: string, opts: ApiFetchOptions): Promise<
       }
     }
 
-    if (!res.ok) {
+    if (!res.ok && res.status !== 304) {
       throw parseErrorResponse(res.status, json);
     }
+    logApiEndOk(method, url, res.status, Date.now() - started);
     return json as T;
   } catch (e) {
+    logApiEndErr(method, url, Date.now() - started, e);
     if (e instanceof ApiError) {
       throw e;
     }

@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { deleteFarmerConversation } from "@/shared/api";
-import type { Connectivity } from "@/shared/api/types";
+import type { Connectivity, Conversation } from "@/shared/api/types";
 import { clearThread } from "./chatMessagesRepo";
 import { useChatStore } from "./chatStore";
 import { hydrateLocalThreadFromServerHistory } from "./hydrateConversationHistory";
@@ -33,11 +33,13 @@ export function useChatSessionActions(opts: {
     [farmerId, connectivity, resumeConversation, qc],
   );
 
-  const startNewSession = useCallback(async () => {
+  const startNewSession = useCallback(async (signal?: AbortSignal) => {
     if (!farmerId || connectivity === "offline") return;
-    const ctrl = new AbortController();
-    await startConversation(farmerId, connectivity, ctrl.signal);
-    await qc.invalidateQueries({
+    if (signal?.aborted) return;
+    const local = new AbortController();
+    await startConversation(farmerId, connectivity, signal ?? local.signal);
+    // Do not await — a wedged refetch should never block leaving the new-chat screen.
+    void qc.invalidateQueries({
       queryKey: FARMER_CONVERSATIONS_QUERY_KEY(farmerId, connectivity),
     });
   }, [farmerId, connectivity, startConversation, qc]);
@@ -49,7 +51,22 @@ export function useChatSessionActions(opts: {
   const deleteSession = useCallback(
     async (conversationIdToDelete: string) => {
       if (!farmerId || connectivity === "offline") return;
-      await deleteFarmerConversation(farmerId, conversationIdToDelete, connectivity);
+
+      // Optimistic: remove from list immediately
+      const listKey = FARMER_CONVERSATIONS_QUERY_KEY(farmerId, connectivity);
+      const previous = qc.getQueryData<Conversation[]>(listKey);
+      qc.setQueryData<Conversation[]>(listKey, (old) =>
+        old ? old.filter((c) => c.conversation_id !== conversationIdToDelete) : old,
+      );
+
+      try {
+        await deleteFarmerConversation(farmerId, conversationIdToDelete, connectivity);
+      } catch (err) {
+        // Revert on failure
+        qc.setQueryData(listKey, previous);
+        throw err;
+      }
+
       await clearThread(conversationIdToDelete);
       qc.removeQueries({ queryKey: CHAT_THREAD_QUERY_KEY(conversationIdToDelete) });
       await qc.invalidateQueries({

@@ -39,8 +39,10 @@
     "passwordTooShort": "पासवर्ड कम से कम 6 अक्षर का होना चाहिए।"
   },
   "network": {
-    "offline": "आप ऑफ़लाइन हैं। जहाँ तक मुमकिन हो, योजनाएँ, मंडी और डिवाइस जवाब काम करेंगे।",
-    "degraded": "नेटवर्क धीमा है। दिक्कत हो तो थोड़ी देर बाद कोशिश करें।"
+    "offlineTitle": "ऑफ़लाइन मोड",
+    "offlineBody": "आप इंटरनेट से जुड़े नहीं हैं। ऑनलाइन मोड के लिए मोबाइल डेटा चालू करें या Wi‑Fi से जोड़ें — तब चैट सिंक, ताज़ा मंडी भाव और फोटो विश्लेषण उपलब्ध होंगे।",
+    "degradedTitle": "कनेक्शन सीमित",
+    "degradedBody": "नेटवर्क कमज़ोर या अस्थिर है। पूर्ण ऑनलाइन मोड और तेज़ सिंक के लिए Wi‑Fi लें या बेहतर सिग्नल वाली जगह पर जाएँ।"
   },
   "server": {
     "waking": "सर्वर से जुड़ रहे हैं…",
@@ -93,14 +95,16 @@
     "assistant": "सहायक",
     "chats": "चैट",
     "newChat": "नया",
+    "voice": "आवाज़",
     "markets": "मंडी",
-    "profile": "प्रोफ़ाइल"
+    "profile": "अकाउंट"
   },
   "home": {
     "headerTitle": "कृषि एआई साथी",
     "greetingName": "राम राम, {{name}} जी!",
     "cacheLine": "आज, {{time}} तक कैश्ड डाटा दिख रहा है।",
     "offlinePill": "ऑफ़लाइन मोड चालू",
+    "offlineGoOnlineHint": "ऑनलाइन मोड के लिए Wi‑Fi या मोबाइल डेटा से जुड़ें।",
     "syncTitle": "सिंक लंबित",
     "syncBody": "2 अपडेट (मिट्टी, कीट) इंटरनेट के इंतज़ार में।",
     "retrySync": "सिंक दोहराएँ",
@@ -141,7 +145,40 @@
     "actionGovtSchemes": "सरकारी\nयोजना",
     "expertBadge": "विशेषज्ञ टिप",
     "expertTitle": "पीला रतुआ—गेहूँ की सुरक्षा",
-    "expertSub": "आपके क्षेत्र में नमी ज़्यादा बताई गई। बचाव के उपाय जानें।"
+    "expertSub": "आपके क्षेत्र में नमी ज़्यादा बताई गई। बचाव के उपाय जानें।",
+    "welcomeMessage": "स्वागत है, {{name}}",
+    "farmStatus": "{{place}} में आपके खेत में आज अच्छी वृद्धि हो रही है।",
+    "weatherUpdate": "मौसम अपडेट",
+    "windSpeed": "{{speed}} किमी/घंटा",
+    "soilHealth": "मिट्टी स्वास्थ्य",
+    "soilHealthDesc": "नाइट्रोजन स्तर सामान्य। नमी 68% पर।",
+    "aiInsights": "AI अंतर्दृष्टि",
+    "aiInsightsDesc": "कल से गेहूं की सिंचाई शुरू करने का सही समय।",
+    "marketPulse": "मंडी पल्स",
+    "marketPulseDesc": "स्थानीय मंडी में गेहूं के दाम 4% बढ़े",
+    "viewPrices": "दाम देखें",
+    "sustainableFarming": "टिकाऊ खेती",
+    "guideTitle": "ग्रीष्म फसलों के लिए नई जैव-उर्वरक गाइड"
+  },
+  "sidebar": {
+    "premiumMember": "प्रीमियम सदस्य",
+    "profile": "प्रोफ़ाइल",
+    "settings": "सेटिंग्स",
+    "farmSettings": "खेत सेटिंग्स",
+    "soilHistory": "मिट्टी इतिहास",
+    "expertSupport": "विशेषज्ञ सहायता"
+  },
+  "settings": {
+    "title": "सेटिंग्स"
+  },
+  "farmSettings": {
+    "title": "खेत सेटिंग्स"
+  },
+  "soilHistory": {
+    "title": "मिट्टी इतिहास"
+  },
+  "expertSupport": {
+    "title": "विशेषज्ञ सहायता"
   },
   "chat": {
     "placeholder": "फसल, मौसम या योजनाएँ पूछें",
@@ -154,6 +191,15 @@
     "headerSubtitleDefault": "फसल, मौसम और योजनाओं के बारे में पूछें।",
     "emptyTitle": "बातचीत शुरू करें",
     "emptyHint": "नीचे सवाल लिखें या फोटो जोड़ें। ऑनलाइन रहने पर चैट आपके खाते में सिंक होती हैं।",
+    "placeholderOffline": "इस डिवाइस पर सहेजी जानकारी से पूछें",
+    "placeholderOfflineNoModel": "चैट के लिए इंटरनेट से जुड़ें",
+    "placeholderDegraded": "कुछ भी पूछें — कनेक्शन धीमा हो सकता है",
+    "emptyHintOffline": "आप ऑफ़लाइन हैं। जवाब इस डिवाइस के सहायक से आते हैं। ऑनलाइन होने पर चैट सिंक होगी।",
+    "emptyHintOfflineNoModel": "आप ऑफ़लाइन हैं और डिवाइस सहायक तैयार नहीं है। चैट के लिए इंटरनेट से जुड़ें।",
+    "sessionStartingOffline": "शुरू हो रहा है… ऑफ़लाइन — ऑनलाइन होने पर इतिहास सिंक होगा",
+    "modeBannerDegraded": "कनेक्शन सीमित — ऑनलाइन सुविधाएँ धीमी हो सकती हैं।",
+    "modeBannerOffline": "ऑफ़लाइन — इस डिवाइस के सहायक का उपयोग।",
+    "modeBannerOfflineNoModel": "ऑफ़लाइन — सहायक के लिए इंटरनेट से जुड़ें।",
     "modeOnline": "ऑनलाइन मोड",
     "modeOffline": "सिर्फ ऑफ़लाइन",
     "modeAuto": "ऑटो",
@@ -192,7 +238,12 @@
     "sessionError": "सत्र सिंक विफल — उत्तर इतिहास में सहेजे नहीं जाएंगे",
     "sessionsTitle": "आपकी बातचीत",
     "sessionsEmpty": "अभी कोई पुरानी बातचीत नहीं। नीचे नया सवाल पूछें।",
+    "deleteSession": "यह चैट हटाएं",
     "sessionsOffline": "सहेजी चैट देखने और खोलने के लिए इंटरनेट से जुड़ें।",
+    "sessionsOfflineWithModel": "आप ऑफ़लाइन हैं। इस डिवाइस पर सहेजे सहायक से अभी भी चैट कर सकते हैं।",
+    "openOfflineChat": "पिछली चैट जारी रखें",
+    "startNewOfflineChat": "नई ऑफ़लाइन चैट शुरू करें",
+    "offlineSessionsFootnote": "ऑफ़लाइन में एक ही ऑन-डिवाइस थ्रेड उपयोग होता है। नया शुरू करने पर वह साफ़ हो जाता है। नेटवर्क पर लौटने पर आपकी ऑनलाइन सूची सिंक होगी।",
     "sessionsListA11y": "चैट इतिहास सूची खोलें",
     "sessionsClose": "बंद करें",
     "sessionUntitled": "चैट",
@@ -202,13 +253,52 @@
     "deleteSessionConfirm": "हटाएँ",
     "deleteSessionA11y": "चैट हटाएँ",
     "deleteSessionFailedTitle": "हटाया नहीं जा सका",
-    "deleteSessionFailedBody": "कनेक्शन जाँचें और फिर कोशिश करें।"
+    "deleteSessionFailedBody": "कनेक्शन जाँचें और फिर कोशिश करें।",
+    "voiceMode": "वॉइस मोड",
+    "speakingResponse": "बोल रहा है…",
+    "escalateOnline": "विशेषज्ञ विश्लेषण (इंटरनेट चाहिए)",
+    "offlineBadge": "ऑफलाइन · {{model}}",
+    "onlineBadge": "लाइव · {{model}}",
+    "fallbackBadge": "ऑफलाइन · बेसिक",
+    "toolTrace": "मैंने कैसे जवाब दिया",
+    "safetyBlock": "मैं इसका सुरक्षित उत्तर नहीं दे सकता। कृपया किसी विशेषज्ञ से सलाह लें।"
   },
   "mandi": {
     "title": "मंडी भाव",
     "region": "{{district}}, {{state}} (आपके क्षेत्र के लिए सहेजा)",
     "empty": "अभी मंडी भाव नहीं आए। नीचे खींचकर ताज़ा करें (राज्य/ज़िला के हिसाब से), या ऑनबोर्डिंग पूरी करें।",
-    "mandiPlace": "मंडी: {{place}}"
+    "mandiPlace": "मंडी: {{place}}",
+    "liveBadge": "लाइव",
+    "cachedBadge": "कैश",
+    "filterTitle": "क्षेत्र फ़िल्टर करें",
+    "filterStateLabel": "राज्य",
+    "filterStatePlaceholder": "जैसे: महाराष्ट्र",
+    "filterDistrictLabel": "ज़िला",
+    "filterDistrictPlaceholder": "जैसे: नासिक",
+    "filterApply": "लागू करें",
+    "filterCancel": "रद्द करें",
+    "filterReset": "मेरे क्षेत्र पर लौटें",
+    "filterBtn": "फ़िल्टर",
+    "arrivalDate": "{{date}} तक",
+    "totalRecords": "{{count}} परिणाम",
+    "priceRange": "दायरा: {{range}}",
+    "regionStateOnly": "{{state}} (राज्य स्तरीय — आपके ज़िले में आज डेटा नहीं)",
+    "emptyNoReport": "आज इस क्षेत्र के लिए कोई भाव नहीं आया। मंडियाँ रोज़ रिपोर्ट करती हैं — कोई पास का राज्य चुनें या कल देखें।",
+    "selectState": "राज्य चुनने के लिए टैप करें",
+    "selectDistrictOptional": "वैकल्पिक — ज़िला चुनने के लिए टैप करें",
+    "districtRequiresState": "पहले राज्य चुनें",
+    "pickStateTitle": "राज्य चुनें",
+    "pickDistrictTitle": "ज़िला चुनें",
+    "searchStatesPlaceholder": "राज्य खोजें…",
+    "searchDistrictsPlaceholder": "ज़िला खोजें…",
+    "listsLoading": "सूची लोड हो रही है…",
+    "listsEmpty": "कोई मेल नहीं",
+    "sourceAgmarknetShort": "AGMARKNET",
+    "sourceEnamShort": "eNAM",
+    "listsOffline": "राज्य/ज़िला सूची के लिए इंटरनेट चालू करें।",
+    "listsNoApiKey": ".env में EXPO_PUBLIC_DATA_GOV_API_KEY जोड़कर डेव सर्वर रीस्टार्ट करें।",
+    "listsError": "सूची नहीं मिली। कनेक्शन जाँचकर फिर कोशिश करें।",
+    "listsRetry": "फिर कोशिश करें"
   },
   "profile": {
     "displayNameFallback": "किसान",
@@ -247,6 +337,55 @@
     "retryUpload": "पुनः प्रयास करें",
     "error": "विश्लेषण के लिए छवि नहीं भेजी जा सकी"
   },
+  "offline": {
+    "modelDownloadingGeneral": "AI मॉडल डाउनलोड हो रहा है। संचित डेटा से मिली जानकारी:",
+    "modelDownloadingWeather": "AI मॉडल डाउनलोड हो रहा है। मौसम के लिए इंटरनेट कनेक्शन ज़रूरी है — ताज़ा जानकारी के लिए कनेक्ट करें।",
+    "visionUnavailable": "ऑफ़लाइन मोड में इस डिवाइस पर फोटो विश्लेषण उपलब्ध नहीं है।",
+    "inferenceTimeout": "प्रतिक्रिया समय समाप्त। कृपया पुनः प्रयास करें।",
+    "download_error_title": "डाउनलोड त्रुटि",
+    "wifiWarningTitle": "बड़ा डाउनलोड (~{{size}} GB)",
+    "wifiWarningBody": "आप Wi-Fi पर नहीं हैं। मोबाइल डेटा पर डाउनलोड करने से आपका डेटा प्लान बहुत अधिक खर्च हो सकता है। क्या आप जारी रखना चाहते हैं?",
+    "wifiWarningCancel": "Wi-Fi का इंतज़ार करें",
+    "wifiWarningProceed": "फिर भी डाउनलोड करें",
+    "wifiRequiredToContinue": "डाउनलोड रोक दिया गया है। जारी रखने के लिए Wi‑Fi से जुड़ें, या वापस जाकर फिर कोशिश करें।",
+    "variantLabel": {
+      "e4b": "Gemma 4 E4B (~2 GB)",
+      "e2b": "Gemma 4 E2B (~1 GB)"
+    }
+  },
+  "voice": {
+    "start": "आवाज़ सत्र शुरू करें",
+    "stop": "रोकें",
+    "listening": "सुन रहा हूँ…",
+    "speaking": "बोल रहा हूँ…",
+    "connecting": "जोड़ रहा हूँ…",
+    "endSession": "सत्र समाप्त करें",
+    "mute": "म्यूट",
+    "unmute": "अनम्यूट",
+    "muted": "म्यूट है",
+    "tapToStart": "शुरू करने के लिए टैप करें",
+    "agentSpeaking": "AI बोल रहा है…",
+    "agentListening": "AI आपकी बात सुन रहा है",
+    "agentReady": "AI जुड़ गया",
+    "waitingForAgent": "AI का इंतज़ार है…",
+    "connectingAgent": "जोड़ रहा हूँ…",
+    "transcriptHint": "आपकी बातचीत यहाँ दिखेगी",
+    "transcriptTitle": "लाइव ट्रांसक्रिप्ट",
+    "visualizerTitle": "लाइव ऑडियो",
+    "visualizerYou": "आपका माइक",
+    "visualizerAgent": "AI",
+    "permissionDenied": "माइक्रोफ़ोन की अनुमति नहीं मिली",
+    "unavailable": "वॉइस इनपुट उपलब्ध नहीं है",
+    "silenceTimeout": "चुप्पी के कारण सुनना बंद",
+    "currentTopic": "वर्तमान विषय",
+    "topicWaiting": "अपने खेत के बारे में कुछ भी पूछें…",
+    "error": {
+      "noInternet": "आवाज़ के लिए इंटरनेट चाहिए",
+      "noMic": "माइक्रोफ़ोन अनुमति चाहिए",
+      "unavailable": "आवाज़ उपलब्ध नहीं, बाद में आज़माएँ",
+      "webUnsupported": "आवाज़ Android या iOS पर काम करती है"
+    }
+  },
   "errors": {
     "generic": "कुछ गड़बड़ हो गई।",
     "networkBusy": "नेटवर्क व्यस्त है। आपके फ़ोन से जवाब दे रहे हैं।",
@@ -256,5 +395,19 @@
     "imageUnsupported": "छवि प्रारूप समर्थित नहीं है।",
     "imageExpired": "छवि समाप्त, फिर अपलोड कर रहे हैं।",
     "farmerMissing": "सत्र ताज़ा हुआ। कृपया पुनः प्रयास करें।"
+  },
+  "modelDownload": {
+    "bannerText": "बिना इंटरनेट के Krishisaath AI उपयोग करें — ऑफलाइन मॉडल डाउनलोड करें (~1.5 GB)",
+    "download": "डाउनलोड",
+    "dismiss": "बंद करें",
+    "cancel": "रद्द करें",
+    "retry": "फिर से प्रयास करें",
+    "downloading": "डाउनलोड हो रहा है… {{pct}}%",
+    "completed": "✓ ऑफलाइन मॉडल तैयार",
+    "failed": "डाउनलोड विफल। फिर से प्रयास करें।",
+    "settingsSection": "ऑफलाइन मॉडल",
+    "settingsDownloadBtn": "ऑफलाइन मॉडल डाउनलोड करें",
+    "settingsStatus": "✓ ऑफलाइन मॉडल तैयार",
+    "preferOfflineLabel": "उपलब्ध होने पर ऑफलाइन मोड प्राथमिकता दें"
   }
 }

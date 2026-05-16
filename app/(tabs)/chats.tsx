@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useAuthReady, useFarmerId } from "@/shared/auth/AuthProvider";
-import { useConnectivity } from "@/shared/network";
+import { useConnectivityUi } from "@/shared/network";
 import {
   useChatStore,
   useFarmerConversations,
@@ -27,8 +27,8 @@ export default function ChatsListScreen() {
   const router = useRouter();
   const farmerId = useFarmerId();
   const ready = useAuthReady();
-  const connectivity = useConnectivity();
-  const isOnline = connectivity === "online" || connectivity === "degraded";
+  const ui = useConnectivityUi();
+  const connectivity = ui.connectivity;
   const conversationId = useChatStore((s) => s.conversationId);
 
   const { openSession, deleteSession } = useChatSessionActions({
@@ -66,10 +66,8 @@ export default function ChatsListScreen() {
 
   const onPickSession = useCallback(
     (c: Conversation) => {
-      void (async () => {
-        await openSession(c.conversation_id);
-        router.push("/(tabs)/chat" as never);
-      })();
+      void openSession(c.conversation_id);
+      router.push("/(tabs)/chat" as never);
     },
     [openSession, router],
   );
@@ -109,7 +107,7 @@ export default function ChatsListScreen() {
         className="flex-1 items-center justify-center bg-page"
         style={{ paddingTop: insets.top }}
       >
-        <ActivityIndicator color="#1ed760" />
+        <ActivityIndicator color={ui.accentHex} />
       </View>
     );
   }
@@ -127,18 +125,47 @@ export default function ChatsListScreen() {
 
   return (
     <View className="flex-1 bg-page" style={{ paddingTop: insets.top }}>
-      <View className="border-b border-border/60 bg-card px-4 py-3">
+      <View
+        className="border-b border-border/60 px-4 py-3"
+        style={{ backgroundColor: ui.chatsHeaderSurfaceHex }}
+      >
         <Text className="font-display text-lg text-title-green">{t("chat.sessionsTitle")}</Text>
         <Text className="mt-1 font-body text-xs text-ink-muted">{t("chat.listTabSubtitle")}</Text>
       </View>
 
-      {!isOnline ? (
-        <Text className="px-4 py-6 text-center font-body text-ink-muted">
-          {t("chat.sessionsOffline")}
-        </Text>
+      {!ui.backendReachable ? (
+        ui.onDeviceModelReady ? (
+          <View className="flex-1 justify-center px-6 py-10">
+            <MaterialCommunityIcons name="wifi-off" size={36} color="#6b7280" style={{ alignSelf: "center" }} />
+            <Text className="mt-4 text-center font-body text-sm leading-5 text-ink-muted">
+              {t("chat.sessionsOfflineWithModel")}
+            </Text>
+            <Text className="mt-3 text-center font-body text-xs leading-5 text-ink-muted/90">
+              {t("chat.offlineSessionsFootnote")}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              className="mt-6 min-h-[48px] items-center justify-center rounded-xl bg-brand px-6 py-3 active:opacity-90"
+              onPress={() => router.push("/(tabs)/chat" as never)}
+            >
+              <Text className="font-body-semibold text-base text-black">{t("chat.openOfflineChat")}</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              className="mt-3 min-h-[48px] items-center justify-center rounded-xl border border-border-light bg-muted px-6 py-3 active:opacity-90"
+              onPress={() => router.push("/(tabs)/new-chat" as never)}
+            >
+              <Text className="font-body-semibold text-base text-ink">{t("chat.startNewOfflineChat")}</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <Text className="px-4 py-6 text-center font-body text-ink-muted">
+            {t("chat.sessionsOffline")}
+          </Text>
+        )
       ) : sessionsLoading && sessions.length === 0 ? (
         <View className="items-center py-16">
-          <ActivityIndicator color="#1ed760" />
+          <ActivityIndicator color={ui.accentHex} />
         </View>
       ) : sessions.length === 0 ? (
         <View className="items-center px-6 py-12">
@@ -154,7 +181,7 @@ export default function ChatsListScreen() {
             <RefreshControl
               refreshing={sessionsRefetching}
               onRefresh={() => void refetchSessions()}
-              tintColor="#1ed760"
+              tintColor={ui.accentHex}
             />
           }
           renderItem={({ item }) => {
@@ -167,9 +194,9 @@ export default function ChatsListScreen() {
                   flexDirection: "row",
                   alignItems: "center",
                   borderRadius: 12,
-                  backgroundColor: active ? "#1a3d24" : "#1f1f1f",
+                  backgroundColor: active ? "#E3FCF7" : "#FFFFFF",
                   borderWidth: 1,
-                  borderColor: active ? "#1ed760" : "#333",
+                  borderColor: active ? ui.headerAccentHex : "#E8EDEB",
                   overflow: "hidden",
                 }}
               >

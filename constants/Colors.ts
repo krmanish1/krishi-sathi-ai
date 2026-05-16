@@ -1,0 +1,17 @@
+export const colors = {
+  pageBg: "#FFFFFF",
+  surface: "#F9FBFA",
+  surfaceMid: "#F3F6F4",
+  cardElevated: "#FFFFFF",
+  ink: "#001E2B",
+  inkMuted: "#5C6C75",
+  brand: "#00ED64",
+  brandMid: "#00A35C",
+  brandDeep: "#00684A",
+  onBrand: "#001E2B",
+  border: "#E8EDEB",
+  borderLight: "#C8D5D1",
+  danger: "#DB3030",
+  warning: "#F59E0B",
+  announcement: "#3B82F6",
+} as const;

@@ -39,8 +39,10 @@
     "passwordTooShort": "Password must be at least 6 characters."
   },
   "network": {
-    "offline": "You are offline. Schemes, mandi, and on-device answers still work where available.",
-    "degraded": "Connection is slow. If something fails, try again in a moment."
+    "offlineTitle": "Offline mode",
+    "offlineBody": "You are not on the internet. Turn on mobile data or connect to Wi‑Fi to enter online mode — then you can sync chats, get fresh mandi prices, and use photo analysis.",
+    "degradedTitle": "Limited connection",
+    "degradedBody": "Your network is weak or unstable. Use Wi‑Fi or move to a stronger signal to enter full online mode and faster sync."
   },
   "server": {
     "waking": "Connecting to server…",
@@ -91,16 +93,18 @@
   "tabs": {
     "home": "Home",
     "assistant": "Assistant",
-    "chats": "Chats",
+    "chats": "Chat",
     "newChat": "New",
-    "markets": "Markets",
-    "profile": "Profile"
+    "voice": "Voice",
+    "markets": "Market",
+    "profile": "Account"
   },
   "home": {
     "headerTitle": "Krishi AI Saathi",
     "greetingName": "Ram Ram, {{name}} Ji!",
     "cacheLine": "Viewing cached data from today, {{time}}.",
     "offlinePill": "Offline Mode Active",
+    "offlineGoOnlineHint": "Connect to Wi‑Fi or mobile data to switch to online mode.",
     "syncTitle": "Sync Pending",
     "syncBody": "2 updates (Soil Health, Pest Alert) are waiting for internet to sync.",
     "retrySync": "Retry Sync",
@@ -141,7 +145,40 @@
     "actionGovtSchemes": "Govt\nschemes",
     "expertBadge": "Expert tip",
     "expertTitle": "Protect your wheat from yellow rust",
-    "expertSub": "AI detected high humidity in your region. Learn prevention steps."
+    "expertSub": "AI detected high humidity in your region. Learn prevention steps.",
+    "welcomeMessage": "Welcome, {{name}}",
+    "farmStatus": "Your farm in {{place}} is showing optimal growth today.",
+    "weatherUpdate": "WEATHER UPDATE",
+    "windSpeed": "{{speed}} km/h",
+    "soilHealth": "Soil Health",
+    "soilHealthDesc": "Nitrogen levels optimal. Moisture at 68%.",
+    "aiInsights": "AI Insights",
+    "aiInsightsDesc": "Ideal time for wheat irrigation starts tomorrow.",
+    "marketPulse": "Market Pulse",
+    "marketPulseDesc": "Wheat prices up by 4% in local Mandi",
+    "viewPrices": "View Prices",
+    "sustainableFarming": "Sustainable Farming",
+    "guideTitle": "New Bio-Fertilizer Guide for Summer Crops"
+  },
+  "sidebar": {
+    "premiumMember": "PREMIUM MEMBER",
+    "profile": "Profile",
+    "settings": "Settings",
+    "farmSettings": "Farm Settings",
+    "soilHistory": "Soil History",
+    "expertSupport": "Expert Support"
+  },
+  "settings": {
+    "title": "Settings"
+  },
+  "farmSettings": {
+    "title": "Farm Settings"
+  },
+  "soilHistory": {
+    "title": "Soil History"
+  },
+  "expertSupport": {
+    "title": "Expert Support"
   },
   "chat": {
     "placeholder": "Ask about crops, weather, or schemes",
@@ -154,6 +191,15 @@
     "headerSubtitleDefault": "Ask about crops, weather, and schemes.",
     "emptyTitle": "Start a conversation",
     "emptyHint": "Ask a question below or attach a photo. Chats sync to your account when you are online.",
+    "placeholderOffline": "Ask using knowledge saved on this device",
+    "placeholderOfflineNoModel": "Connect to the internet to chat",
+    "placeholderDegraded": "Ask anything — connection may be slow",
+    "emptyHintOffline": "You are offline. Replies use the assistant on this device. Chats sync when you are back online.",
+    "emptyHintOfflineNoModel": "You are offline and the on-device assistant is not ready. Connect to the internet to chat.",
+    "sessionStartingOffline": "Starting… offline — history syncs when you are online",
+    "modeBannerDegraded": "Limited connection — online features may be slower.",
+    "modeBannerOffline": "Offline — using the assistant on this device.",
+    "modeBannerOfflineNoModel": "Offline — connect to the internet to use the assistant.",
     "modeOnline": "Online mode",
     "modeOffline": "Offline only",
     "modeAuto": "Auto",
@@ -192,7 +238,12 @@
     "sessionError": "Session sync failed — replies won't be saved to history",
     "sessionsTitle": "Your chats",
     "sessionsEmpty": "No past chats yet. Start a new conversation below.",
+    "deleteSession": "Delete this chat",
     "sessionsOffline": "Connect to the internet to see and open your saved chats.",
+    "sessionsOfflineWithModel": "You're offline. You can still chat using the assistant saved on this device.",
+    "openOfflineChat": "Continue last chat",
+    "startNewOfflineChat": "Start new offline chat",
+    "offlineSessionsFootnote": "Offline mode uses one on-device thread. Starting new clears that thread. Your online sessions list will sync when you're back on the network.",
     "sessionsListA11y": "Open chat history list",
     "sessionsClose": "Close",
     "sessionUntitled": "Chat",
@@ -202,13 +253,52 @@
     "deleteSessionConfirm": "Delete",
     "deleteSessionA11y": "Delete chat",
     "deleteSessionFailedTitle": "Could not delete",
-    "deleteSessionFailedBody": "Check your connection and try again."
+    "deleteSessionFailedBody": "Check your connection and try again.",
+    "voiceMode": "Voice mode",
+    "speakingResponse": "Speaking\u2026",
+    "escalateOnline": "Get expert analysis (needs internet)",
+    "offlineBadge": "Offline \u00b7 {{model}}",
+    "onlineBadge": "Live \u00b7 {{model}}",
+    "fallbackBadge": "Offline \u00b7 Basic",
+    "toolTrace": "How I answered",
+    "safetyBlock": "I cannot answer this safely. Please consult an expert."
   },
   "mandi": {
     "title": "Mandi prices",
     "region": "{{district}}, {{state}} (saved for your area)",
     "empty": "No mandi prices loaded yet. Pull down to sync the latest for your state and district, or finish onboarding if you have not completed it.",
-    "mandiPlace": "Mandi: {{place}}"
+    "mandiPlace": "Mandi: {{place}}",
+    "liveBadge": "Live",
+    "cachedBadge": "Cached",
+    "filterTitle": "Filter by area",
+    "filterStateLabel": "State",
+    "filterStatePlaceholder": "e.g. Maharashtra",
+    "filterDistrictLabel": "District",
+    "filterDistrictPlaceholder": "e.g. Nashik",
+    "filterApply": "Apply",
+    "filterCancel": "Cancel",
+    "filterReset": "Reset to my area",
+    "filterBtn": "Filter",
+    "arrivalDate": "As of {{date}}",
+    "totalRecords": "{{count}} results",
+    "priceRange": "Range: {{range}}",
+    "regionStateOnly": "{{state}} (showing state-level — your district has no data today)",
+    "emptyNoReport": "No prices reported today for this area. Markets report daily — try a nearby state or check back tomorrow.",
+    "selectState": "Tap to choose state",
+    "selectDistrictOptional": "Optional — tap to choose district",
+    "districtRequiresState": "Choose a state first",
+    "pickStateTitle": "Select state",
+    "pickDistrictTitle": "Select district",
+    "searchStatesPlaceholder": "Search states…",
+    "searchDistrictsPlaceholder": "Search districts…",
+    "listsLoading": "Loading list…",
+    "listsEmpty": "No matches",
+    "sourceAgmarknetShort": "AGMARKNET",
+    "sourceEnamShort": "eNAM",
+    "listsOffline": "Connect to the internet to load the state and district lists.",
+    "listsNoApiKey": "Add EXPO_PUBLIC_DATA_GOV_API_KEY to your .env and restart the dev server.",
+    "listsError": "Could not load the list. Check your connection and try again.",
+    "listsRetry": "Try again"
   },
   "profile": {
     "displayNameFallback": "Farmer",
@@ -247,6 +337,55 @@
     "retryUpload": "Retry",
     "error": "Could not send image for analysis"
   },
+  "offline": {
+    "modelDownloadingGeneral": "AI model is downloading. Here is what I found from cached data:",
+    "modelDownloadingWeather": "AI model is downloading. Weather data requires a live connection — please connect to the internet for the latest forecast.",
+    "visionUnavailable": "Image analysis is not available on this device in offline mode.",
+    "inferenceTimeout": "Response timed out. Please try again.",
+    "download_error_title": "Download error",
+    "wifiWarningTitle": "Large download (~{{size}} GB)",
+    "wifiWarningBody": "You are not on Wi-Fi. Downloading on mobile data may use a large amount of your data plan. Do you want to continue?",
+    "wifiWarningCancel": "Wait for Wi-Fi",
+    "wifiWarningProceed": "Download anyway",
+    "wifiRequiredToContinue": "Download paused. Connect to Wi‑Fi to continue, or go back and try again.",
+    "variantLabel": {
+      "e4b": "Gemma 4 E4B (~2 GB)",
+      "e2b": "Gemma 4 E2B (~1 GB)"
+    }
+  },
+  "voice": {
+    "start": "Start voice session",
+    "stop": "Stop",
+    "listening": "Listening…",
+    "speaking": "Speaking…",
+    "connecting": "Connecting…",
+    "endSession": "End session",
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "muted": "Muted",
+    "tapToStart": "Tap to start",
+    "agentSpeaking": "Agent speaking…",
+    "agentListening": "Agent is listening to you",
+    "agentReady": "Agent connected",
+    "waitingForAgent": "Waiting for agent…",
+    "connectingAgent": "Connecting…",
+    "transcriptHint": "Your conversation will appear here",
+    "transcriptTitle": "Live transcript",
+    "visualizerTitle": "Live audio",
+    "visualizerYou": "Your mic",
+    "visualizerAgent": "Agent",
+    "permissionDenied": "Microphone permission denied",
+    "unavailable": "Voice input unavailable",
+    "silenceTimeout": "Stopped listening (silence)",
+    "currentTopic": "Current Topic",
+    "topicWaiting": "Ask me anything about your farm…",
+    "error": {
+      "noInternet": "Voice requires internet connection",
+      "noMic": "Microphone permission needed",
+      "unavailable": "Voice unavailable, try later",
+      "webUnsupported": "Voice requires Android or iOS"
+    }
+  },
   "errors": {
     "generic": "Something went wrong.",
     "networkBusy": "Network is busy. Answering from your device.",
@@ -256,5 +395,19 @@
     "imageUnsupported": "Image format not supported.",
     "imageExpired": "Image expired. Uploading again.",
     "farmerMissing": "Session refreshed. Please try again."
+  },
+  "modelDownload": {
+    "bannerText": "Use Krishisaath AI without internet — download the offline model (~1.5 GB)",
+    "download": "Download",
+    "dismiss": "Dismiss",
+    "cancel": "Cancel",
+    "retry": "Retry",
+    "downloading": "Downloading… {{pct}}%",
+    "completed": "✓ Offline model ready",
+    "failed": "Download failed. Tap to retry.",
+    "settingsSection": "Offline Model",
+    "settingsDownloadBtn": "Download Offline Model",
+    "settingsStatus": "✓ Offline model ready",
+    "preferOfflineLabel": "Prefer offline mode when available"
   }
 }

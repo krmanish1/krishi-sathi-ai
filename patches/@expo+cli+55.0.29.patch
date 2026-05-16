@@ -1,0 +1,20 @@
+diff --git a/node_modules/@expo/cli/build/src/start/platforms/android/gradle.js b/node_modules/@expo/cli/build/src/start/platforms/android/gradle.js
+index fb459dd..9f30e08 100644
+--- a/node_modules/@expo/cli/build/src/start/platforms/android/gradle.js
++++ b/node_modules/@expo/cli/build/src/start/platforms/android/gradle.js
+@@ -73,10 +73,12 @@ async function assembleAsync(androidProjectPath, { variant, port, appName, build
+         'lint',
+         // ignore tests
+         '-x',
+-        'test',
+-        '--configure-on-demand'
++        'test'
++        // NOTE: --configure-on-demand removed — triggers Gradle 9 fileHashes
++        // "already been locked by this process" (gradle/gradle#28599).
+     ];
+-    if (buildCache) args.push('--build-cache');
++    // NOTE: --build-cache intentionally omitted — triggers Gradle 9 fileHashes
++    // "already been locked by this process" when combined with parallel mode.
+     // Generate a profile under `/android/app/build/reports/profile`
+     if (_env.env.EXPO_PROFILE) args.push('--profile');
+     return await spawnGradleAsync(androidProjectPath, {

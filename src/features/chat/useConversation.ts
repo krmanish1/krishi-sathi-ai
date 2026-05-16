@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
-import { useFocusEffect } from "@react-navigation/native";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { Connectivity } from "@/shared/api/types";
 import { useChatStore } from "./chatStore";
@@ -54,55 +53,53 @@ export function useConversation(opts: {
     return () => removeEventListener.call(window, "pagehide", onHide);
   }, [farmerId]);
 
-  useFocusEffect(
-    useCallback(() => {
-      let cancelled = false;
-      const ctrl = new AbortController();
+  useEffect(() => {
+    let cancelled = false;
+    const ctrl = new AbortController();
 
-      const run = async () => {
-        if (!farmerId) {
-          resetConversation();
-          return;
+    const run = async () => {
+      if (!farmerId) {
+        resetConversation();
+        return;
+      }
+
+      if (lane === "offline") {
+        return;
+      }
+
+      const resumedId = consumeUnloadSnapshot(farmerId);
+      if (resumedId) {
+        resumeConversation(resumedId);
+        await hydrateLocalThreadFromServerHistory(
+          farmerId,
+          resumedId,
+          connectivityRef.current,
+          ctrl.signal,
+        );
+        if (!cancelled) {
+          await qc.invalidateQueries({ queryKey: CHAT_THREAD_QUERY_KEY(resumedId) });
         }
+        return;
+      }
 
-        if (lane === "offline") {
-          return;
-        }
+      const currentId = useChatStore.getState().conversationId;
+      if (currentId !== MAIN_THREAD_ID) {
+        return;
+      }
 
-        const resumedId = consumeUnloadSnapshot(farmerId);
-        if (resumedId) {
-          resumeConversation(resumedId);
-          await hydrateLocalThreadFromServerHistory(
-            farmerId,
-            resumedId,
-            connectivityRef.current,
-            ctrl.signal,
-          );
-          if (!cancelled) {
-            await qc.invalidateQueries({ queryKey: CHAT_THREAD_QUERY_KEY(resumedId) });
-          }
-          return;
-        }
+      await startConversation(farmerId, connectivityRef.current, ctrl.signal);
+      if (!cancelled && !ctrl.signal.aborted) {
+        await qc.invalidateQueries({
+          queryKey: FARMER_CONVERSATIONS_QUERY_KEY(farmerId, connectivityRef.current),
+        });
+      }
+    };
 
-        const currentId = useChatStore.getState().conversationId;
-        if (currentId !== MAIN_THREAD_ID) {
-          return;
-        }
+    void run();
 
-        await startConversation(farmerId, connectivityRef.current, ctrl.signal);
-        if (!cancelled && !ctrl.signal.aborted) {
-          await qc.invalidateQueries({
-            queryKey: FARMER_CONVERSATIONS_QUERY_KEY(farmerId, connectivityRef.current),
-          });
-        }
-      };
-
-      void run();
-
-      return () => {
-        cancelled = true;
-        ctrl.abort();
-      };
-    }, [farmerId, lane, startConversation, resumeConversation, resetConversation, qc]),
-  );
+    return () => {
+      cancelled = true;
+      ctrl.abort();
+    };
+  }, [farmerId, lane, startConversation, resumeConversation, resetConversation, qc]);
 }

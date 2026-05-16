@@ -1,4 +1,5 @@
 import { Platform } from "react-native";
+import * as Speech from "expo-speech";
 
 /**
  * Voice adapter used by chat screen. We keep a small compatibility layer
@@ -152,3 +153,18 @@ const webVoiceCompat: VoiceCompat = {
 
 export const voiceStt: VoiceCompat | null =
   Platform.OS === "web" ? webVoiceCompat : nativeSpeechModule ? voiceCompat : null;
+
+export async function speak(text: string, locale = "hi"): Promise<void> {
+  return new Promise((resolve) => {
+    Speech.speak(text, {
+      language: locale,
+      rate: 0.85,
+      onDone: () => resolve(),
+      onError: () => resolve(),
+    });
+  });
+}
+
+export function cancelSpeech(): void {
+  Speech.stop();
+}

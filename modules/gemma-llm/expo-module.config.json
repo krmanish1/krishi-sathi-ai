@@ -1,4 +1,6 @@
 {
   "platforms": ["android", "ios"],
-  "name": "gemma-llm"
+  "android": {
+    "modules": ["expo.modules.gemma.GemmaLlmModule"]
+  }
 }

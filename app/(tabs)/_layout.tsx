@@ -3,17 +3,20 @@ import { useTranslation } from "react-i18next";
 import { Platform } from "react-native";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { KrishiTabBar } from "@/shared/ui/primitives/KrishiTabBar";
+import { useConnectivityUi } from "@/shared/network";
 
 export default function TabsLayout() {
   const { t } = useTranslation();
+  const ui = useConnectivityUi();
+
   return (
     <Tabs
       safeAreaInsets={{ left: 0, right: 0 }}
       tabBar={(props) => <KrishiTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: "#1ed760",
-        tabBarInactiveTintColor: "#8e8e8e",
+        tabBarActiveTintColor: ui.headerAccentHex,
+        tabBarInactiveTintColor: "#8997A0",
         tabBarShowLabel: true,
         tabBarStyle: {
           position: "absolute",
@@ -23,49 +26,39 @@ export default function TabsLayout() {
           backgroundColor: "transparent",
           borderTopWidth: 0,
           elevation: 0,
+          shadowOpacity: 0,
+          shadowRadius: 0,
+          shadowOffset: { width: 0, height: 0 },
           paddingTop: 0,
           paddingBottom: 0,
-          ...Platform.select({
-            ios: {
-              shadowOpacity: 0,
-              shadowRadius: 0,
-              shadowOffset: { width: 0, height: 0 },
-            },
-            default: {},
-          }),
-        },
-        tabBarLabelStyle: {
-          fontSize: 12,
-          fontFamily: "PlusJakartaSans_600SemiBold",
-          letterSpacing: 0.85,
-          textTransform: "uppercase" as const,
         },
       }}
     >
+      {/* ── Visible tabs ── */}
       <Tabs.Screen
         name="home"
         options={{
           title: t("tabs.home"),
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="home-outline" size={size} color={color} />
+          tabBarIcon: ({ focused, color, size }) => (
+            <MaterialCommunityIcons name={focused ? "home" : "home-outline"} size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="chats"
+        name="chat"
         options={{
           title: t("tabs.chats"),
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="format-list-bulleted" size={size} color={color} />
+          tabBarIcon: ({ focused, color, size }) => (
+            <MaterialCommunityIcons name={focused ? "message" : "message-outline"} size={size} color={color} />
           ),
         }}
       />
       <Tabs.Screen
-        name="new-chat"
+        name="voice"
         options={{
-          title: t("tabs.newChat"),
+          title: t("tabs.voice"),
           tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="plus-circle-outline" size={size} color={color} />
+            <MaterialCommunityIcons name="microphone" size={size} color={color} />
           ),
         }}
       />
@@ -73,8 +66,8 @@ export default function TabsLayout() {
         name="mandi"
         options={{
           title: t("tabs.markets"),
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="storefront-outline" size={size} color={color} />
+          tabBarIcon: ({ focused, color, size }) => (
+            <MaterialCommunityIcons name={focused ? "storefront" : "storefront-outline"} size={size} color={color} />
           ),
         }}
       />
@@ -82,17 +75,15 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: t("tabs.profile"),
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="account-circle-outline" size={size} color={color} />
+          tabBarIcon: ({ focused, color, size }) => (
+            <MaterialCommunityIcons name={focused ? "account" : "account-outline"} size={size} color={color} />
           ),
         }}
       />
-      <Tabs.Screen
-        name="chat"
-        options={{
-          href: null,
-        }}
-      />
+
+      {/* ── Hidden routes (no tab button rendered) ── */}
+      <Tabs.Screen name="chats" options={{ href: null }} />
+      <Tabs.Screen name="new-chat" options={{ href: null }} />
     </Tabs>
   );
 }

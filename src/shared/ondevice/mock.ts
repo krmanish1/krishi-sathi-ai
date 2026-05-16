@@ -6,4 +6,5 @@ export const mockGemmaBackend: GemmaBackend = {
     confidence: 0.65,
     modelUsed: "gemma-4-e4b-it",
   }),
+  supportsVision: false,
 };

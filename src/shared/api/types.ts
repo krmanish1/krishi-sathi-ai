@@ -2,7 +2,11 @@ import type { Language } from "@/shared/config/constants";
 
 export type Connectivity = "online" | "offline" | "degraded";
 
-/** Backend `/api/v1/query` and `/query/stream` expect `online` | `offline` in JSON. */
+/**
+ * Backend query params and `ContextPayload.connectivity` are documented as `online` | `offline`
+ * (see [API docs](https://nikesh2290-krishisaathi-backend.hf.space/docs#/)).
+ * Map app `degraded` → `online` so the wire value is always one of those two.
+ */
 export function queryConnectivityWire(c: Connectivity): "online" | "offline" {
   return c === "offline" ? "offline" : "online";
 }
@@ -172,4 +176,48 @@ export type ErrorEnvelope = {
     retry_after_seconds?: number;
     fallback_hint?: "USE_ONDEVICE" | "RETRY_ONLINE_LATER" | null;
   };
+};
+
+/** Single commodity row from the data.gov.in AGMARKNET mandi prices API. */
+export type DataGovMandiRecord = {
+  state: string;
+  district: string;
+  market: string;
+  commodity: string;
+  variety: string;
+  grade: string;
+  /** Format: DD/MM/YYYY */
+  arrival_date: string;
+  min_price: number;
+  max_price: number;
+  modal_price: number;
+};
+
+/** Top-level response from `GET https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070`. */
+export type DataGovMandiResponse = {
+  total: number;
+  count: number;
+  records: DataGovMandiRecord[];
+};
+
+/** Generic data.gov.in list response (district directory, eNAM trade, etc.). */
+export type DataGovRecordsEnvelope = {
+  total: number;
+  count: number;
+  records: unknown[];
+};
+
+export type VoiceTokenRequest = {
+  farmer_id: string;
+  conversation_id?: string;
+  room_name?: string;
+  participant_identity?: string;
+  language?: Language;
+};
+
+export type VoiceTokenResponse = {
+  server_url: string;
+  room_name: string;
+  participant_token: string;
+  participant_identity: string;
 };

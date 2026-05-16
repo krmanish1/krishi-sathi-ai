@@ -22,7 +22,7 @@ export function OnboardingShell({ children, footer, step, totalSteps = 5 }: Prop
   return (
     <View style={styles.root}>
       <LinearGradient
-        colors={["#0f1a12", "#141914", "#121212"]}
+        colors={["#F0FFF9", "#FAFFFE", "#FFFFFF"]}
         locations={[0, 0.28, 1]}
         start={{ x: 0.5, y: 0 }}
         end={{ x: 0.5, y: 1 }}
@@ -54,18 +54,18 @@ export function OnboardingShell({ children, footer, step, totalSteps = 5 }: Prop
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: "#121212",
+    backgroundColor: "#FFFFFF",
   },
   blob: {
     position: "absolute",
     width: 200,
     height: 200,
     borderRadius: 100,
-    backgroundColor: "#1ed760",
-    opacity: 0.065,
+    backgroundColor: "#00ED64",
+    opacity: 0.1,
   },
   blobMuted: {
-    opacity: 0.04,
+    opacity: 0.06,
     width: 160,
     height: 160,
     borderRadius: 80,
@@ -93,19 +93,19 @@ const styles = StyleSheet.create({
     borderRadius: 2,
   },
   progressSegOn: {
-    backgroundColor: "#1ed760",
+    backgroundColor: "#00ED64",
   },
   progressSegOff: {
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(0,30,43,0.1)",
   },
   body: {
     flex: 1,
   },
   footer: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "rgba(255,255,255,0.08)",
+    borderTopColor: "rgba(0,30,43,0.08)",
     paddingHorizontal: 22,
     paddingTop: 14,
-    backgroundColor: "rgba(18,18,18,0.94)",
+    backgroundColor: "rgba(255,255,255,0.96)",
   },
 });

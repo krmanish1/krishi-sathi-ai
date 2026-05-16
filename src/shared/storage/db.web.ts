@@ -15,6 +15,7 @@ type ChatRow = {
   created_at: number;
   /** Local file URI for user-attached crop images (scan / chat attachment). */
   image_local_uri?: string | null;
+  meta_json?: string | null;
 };
 
 type TwinRow = { payload: string; updated_at: number };
@@ -114,8 +115,11 @@ class WebAppDatabase {
   }
 
   async execAsync(_source: string): Promise<void> {
-    // Native runs CREATE TABLE; web store is in-memory/JSON and needs no schema step.
-    if (norm(_source) === norm(MIGRATION_0001)) {
+    const n = norm(_source);
+    if (n === norm(MIGRATION_0001)) {
+      return;
+    }
+    if (n.includes("CREATE TABLE IF NOT EXISTS schemes")) {
       return;
     }
   }
@@ -143,7 +147,7 @@ class WebAppDatabase {
 
     if (
       s ===
-      "INSERT INTO chat_messages (id, thread_id, role, text, source, confidence, created_at, image_local_uri) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+      "INSERT INTO chat_messages (id, thread_id, role, text, source, confidence, created_at, image_local_uri, meta_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
     ) {
       this.data.chatMessages.push({
         id: String(a[0] ?? ""),
@@ -154,10 +158,12 @@ class WebAppDatabase {
         confidence: a[5] == null ? null : Number(a[5]),
         created_at: Number(a[6] ?? 0),
         image_local_uri: a[7] == null || a[7] === "" ? null : String(a[7]),
+        meta_json: a[8] == null || a[8] === "" ? null : String(a[8]),
       });
       this.schedulePersist();
       return { changes: 1, lastInsertRowId: 0 };
     }
+
 
     if (
       s === "INSERT OR REPLACE INTO twin_cache (farmer_id, payload, updated_at) VALUES (?, ?, ?)"
@@ -234,7 +240,7 @@ class WebAppDatabase {
     const a = p == null ? [] : asArray(p);
 
     const listPrefix =
-      "SELECT id, thread_id, role, text, source, confidence, created_at, image_local_uri AS imageLocalUri FROM chat_messages WHERE thread_id = ? ORDER BY created_at ASC";
+      "SELECT id, thread_id, role, text, source, confidence, created_at, image_local_uri AS imageLocalUri, meta_json AS metaJson FROM chat_messages WHERE thread_id = ? ORDER BY created_at ASC";
     if (s === norm(listPrefix)) {
       const tid = String(a[0] ?? "");
       const rows = this.data.chatMessages
@@ -249,6 +255,7 @@ class WebAppDatabase {
           confidence: m.confidence,
           created_at: m.created_at,
           imageLocalUri: m.image_local_uri ?? undefined,
+          metaJson: m.meta_json ?? undefined,
         }));
       return rows as T[];
     }

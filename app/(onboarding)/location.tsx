@@ -16,12 +16,15 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useOnboarding } from "@/features/onboarding/store";
 import { detectLocation } from "@/features/onboarding/useLocation";
 import { OnboardingShell } from "@/features/onboarding";
+import { useConnectivityUi } from "@/shared/network";
+import { hexToRgba } from "@/shared/utils";
 
 /** Values match twin API `land.soil_type`. */
 const SOIL_WIRE_OPTIONS = ["loamy", "clay", "sandy", "silt", "black", "red"] as const;
 
 export default function LocationScreen() {
   const { t } = useTranslation();
+  const ui = useConnectivityUi();
   const setLocation = useOnboarding((s) => s.setLocation);
   const [farmerName, setFarmerName] = useState("");
   const [state, setState] = useState("");
@@ -81,7 +84,7 @@ export default function LocationScreen() {
       lat: capturedLat,
       lng: capturedLng,
     });
-    router.push("/(onboarding)/model-download");
+    router.push("/(onboarding)/done");
   };
 
   const canContinue = state.trim().length >= 2 && district.trim().length >= 2;
@@ -116,10 +119,10 @@ export default function LocationScreen() {
         <View className="mb-6 mt-1 flex-row items-center justify-between">
           <View className="flex-row items-center gap-3">
             <LinearGradient
-              colors={["#1ed76033", "#168d4022"]}
+              colors={[hexToRgba(ui.headerAccentHex, 0.2), hexToRgba(ui.gradientPartnerHex, 0.13)]}
               className="h-11 w-11 items-center justify-center rounded-full"
             >
-              <MaterialCommunityIcons name="map-marker-radius" size={22} color="#1ed760" />
+              <MaterialCommunityIcons name="map-marker-radius" size={22} color={ui.headerAccentHex} />
             </LinearGradient>
             <Text className="font-display text-xl text-ink">{t("app.name")}</Text>
           </View>
@@ -254,7 +257,7 @@ export default function LocationScreen() {
 
           <View className="mt-5 flex-row gap-3 rounded-2xl border border-white/[0.08] bg-card/60 p-4">
             <View className="h-10 w-10 items-center justify-center rounded-full bg-brand/20">
-              <MaterialCommunityIcons name="crosshairs-gps" size={22} color="#1ed760" />
+              <MaterialCommunityIcons name="crosshairs-gps" size={22} color={ui.headerAccentHex} />
             </View>
             <View className="flex-1">
               <Text className="font-body-semibold text-xs uppercase tracking-wide text-ink-muted">
@@ -267,7 +270,7 @@ export default function LocationScreen() {
 
         {locating ? (
           <View className="mt-4 flex-row items-center gap-2">
-            <ActivityIndicator color="#1ed760" />
+            <ActivityIndicator color={ui.accentHex} />
             <Text className="font-body text-sm text-ink-muted">{t("onboarding.detectingLocation")}</Text>
           </View>
         ) : null}

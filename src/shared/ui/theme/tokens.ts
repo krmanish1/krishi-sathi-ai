@@ -1,23 +1,23 @@
 /**
- * Spotify-inspired dark theme tokens (see tailwind.config.js).
- * Proprietary Spotify fonts are not bundled — Inter / Plus Jakarta approximate UI density.
+ * MongoDB-inspired white theme tokens (see tailwind.config.js).
+ * Deep navy-teal (#001E2B) ink on white canvas, bright #00ED64 brand green.
  */
 export const theme = {
-  pageBg: "#121212",
-  surface: "#181818",
-  surfaceMid: "#1f1f1f",
-  cardElevated: "#252525",
-  ink: "#ffffff",
-  inkMuted: "#b3b3b3",
-  brand: "#1ed760",
-  brandMid: "#1db954",
-  brandDeep: "#168d40",
-  onBrand: "#000000",
-  border: "#4d4d4d",
-  borderLight: "#7c7c7c",
-  danger: "#f3727f",
-  warning: "#ffa42b",
-  announcement: "#539df5",
+  pageBg: "#FFFFFF",
+  surface: "#F9FBFA",
+  surfaceMid: "#F3F6F4",
+  cardElevated: "#FFFFFF",
+  ink: "#001E2B",
+  inkMuted: "#5C6C75",
+  brand: "#00ED64",
+  brandMid: "#00A35C",
+  brandDeep: "#00684A",
+  onBrand: "#001E2B",
+  border: "#E8EDEB",
+  borderLight: "#C8D5D1",
+  danger: "#DB3030",
+  warning: "#F59E0B",
+  announcement: "#3B82F6",
 } as const;
 
 /** @deprecated Use `theme` — kept for gradual migration */
@@ -25,14 +25,14 @@ export const figma = {
   pageBg: theme.pageBg,
   ink: theme.ink,
   inkMuted: theme.inkMuted,
-  titleGreen: "#ffffff",
+  titleGreen: "#001E2B",
   brand: theme.brand,
   brandEnd: theme.brandMid,
   earth: "#a67c52",
   amber: theme.warning,
   border: theme.border,
   cardMuted: theme.surfaceMid,
-  coral: "#3d2a28",
-  mintOnGreen: "#86efac",
-  stone: "#a3a3a3",
+  coral: "#FEF2F2",
+  mintOnGreen: "#BBFDE8",
+  stone: "#8997A0",
 } as const;

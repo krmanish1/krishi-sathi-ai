@@ -4,12 +4,23 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
+    "experimentalDecorators": true,
     "baseUrl": ".",
     "paths": {
       "@/app/*": ["app/*"],
       "@/features/*": ["src/features/*"],
       "@/shared/*": ["src/shared/*"],
-      "@/modules/*": ["modules/*"]
+      "@/modules/*": ["modules/*"],
+      "@/components/*": ["components/*"],
+      "@/screen/*": ["screen/*"],
+      "@/services/*": ["services/*"],
+      "@/config/*": ["config/*"],
+      "@/constants/*": ["constants/*"],
+      "@/context/*": ["context/*"],
+      "@/dtos/*": ["dtos/*"],
+      "@/models/*": ["models/*"],
+      "@/hooks/*": ["hooks/*"],
+      "@/types/*": ["types/*"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts", "nativewind-env.d.ts"]

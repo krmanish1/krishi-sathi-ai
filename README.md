@@ -202,8 +202,8 @@ This keeps screens thin and makes features testable in isolation.
 ├── metro.config.js
 ├── babel.config.js
 ├── jest.config.js                # unit-ts + app (jest-expo) projects
-└── docs/                         # Specs and plans (product/eng)
 ```
+
 
 ---
 
@@ -319,12 +319,9 @@ GitHub Actions (`.github/workflows/ci.yml`) runs: `npm ci` → `lint` → `typec
 
 ---
 
-## Further reading
-
-- Design spec: [`docs/superpowers/specs/2026-04-21-krishisaathi-mobile-design.md`](./docs/superpowers/specs/2026-04-21-krishisaathi-mobile-design.md)
-- Implementation plan: [`docs/superpowers/plans/2026-04-21-krishisaathi-mobile.md`](./docs/superpowers/plans/2026-04-21-krishisaathi-mobile.md)
-
 ---
+
+
 
 ## Contributing (short checklist)
 
