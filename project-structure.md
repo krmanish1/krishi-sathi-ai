@@ -19,7 +19,6 @@ krishi-sathi-ai/
 ├── assets/                                 ← Static assets (unchanged)
 ├── modules/                                ← Native modules (unchanged)
 ├── scripts/                                ← Utility scripts (unchanged)
-├── docs/                                   ← Documentation (unchanged)
 ├── maestro/                                ← E2E tests (unchanged)
 │
 ├── components/                             ← Feature components + shared UI

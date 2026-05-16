@@ -6,7 +6,7 @@ module.exports = {
   projects: [
     {
       displayName: "unit-ts",
-      testMatch: ["<rootDir>/src/**/*.test.ts"],
+      testMatch: ["<rootDir>/tests/**/*.test.ts"],
       testEnvironment: "node",
       setupFiles: ["<rootDir>/jest.setup.node.js"],
       testPathIgnorePatterns: ["/node_modules/"],
@@ -33,7 +33,7 @@ module.exports = {
     {
       displayName: "app",
       preset: "jest-expo",
-      testMatch: ["<rootDir>/**/*.test.tsx", "<rootDir>/**/*.test.jsx"],
+      testMatch: ["<rootDir>/tests/**/*.test.tsx", "<rootDir>/tests/**/*.test.jsx"],
       testPathIgnorePatterns: ["/node_modules/", "maestro/"],
       setupFiles: ["<rootDir>/jest.setup.js"],
       moduleNameMapper: {
