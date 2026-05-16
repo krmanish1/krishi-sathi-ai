@@ -4,7 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export type DownloadStatus = "idle" | "downloading" | "completed" | "failed";
 
-type State = {
+export type State = {
   status: DownloadStatus;
   progress: number;
   variant: "e2b" | "e4b" | null;
@@ -34,7 +34,7 @@ export const useModelDownloadStore = create<State & Actions>()(
       setVariant: (variant) => set({ variant }),
       dismissBanner: () => set({ bannerDismissed: true }),
       setPreferOffline: (preferOffline) => set({ preferOffline }),
-      resetToIdle: () => set({ status: "idle", progress: 0 }),
+      resetToIdle: () => set({ status: "idle", progress: 0, variant: null }),
     }),
     {
       name: "krishi-model-download",

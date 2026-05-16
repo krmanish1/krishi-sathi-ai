@@ -47,11 +47,18 @@ describe("modelDownloadStore", () => {
     expect(useModelDownloadStore.getState().preferOffline).toBe(true);
   });
 
-  it("resetToIdle resets status and progress", () => {
+  it("setVariant updates variant", () => {
+    useModelDownloadStore.getState().setVariant("e2b");
+    expect(useModelDownloadStore.getState().variant).toBe("e2b");
+  });
+
+  it("resetToIdle resets status, progress, and variant", () => {
     useModelDownloadStore.getState().setStatus("downloading");
     useModelDownloadStore.getState().setProgress(55);
+    useModelDownloadStore.getState().setVariant("e4b");
     useModelDownloadStore.getState().resetToIdle();
     expect(useModelDownloadStore.getState().status).toBe("idle");
     expect(useModelDownloadStore.getState().progress).toBe(0);
+    expect(useModelDownloadStore.getState().variant).toBeNull();
   });
 });
