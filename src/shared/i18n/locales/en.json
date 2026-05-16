@@ -93,11 +93,11 @@
   "tabs": {
     "home": "Home",
     "assistant": "Assistant",
-    "chats": "Chats",
+    "chats": "Chat",
     "newChat": "New",
     "voice": "Voice",
-    "markets": "Markets",
-    "profile": "Profile"
+    "markets": "Market",
+    "profile": "Account"
   },
   "home": {
     "headerTitle": "Krishi AI Saathi",
@@ -145,7 +145,40 @@
     "actionGovtSchemes": "Govt\nschemes",
     "expertBadge": "Expert tip",
     "expertTitle": "Protect your wheat from yellow rust",
-    "expertSub": "AI detected high humidity in your region. Learn prevention steps."
+    "expertSub": "AI detected high humidity in your region. Learn prevention steps.",
+    "welcomeMessage": "Welcome, {{name}}",
+    "farmStatus": "Your farm in {{place}} is showing optimal growth today.",
+    "weatherUpdate": "WEATHER UPDATE",
+    "windSpeed": "{{speed}} km/h",
+    "soilHealth": "Soil Health",
+    "soilHealthDesc": "Nitrogen levels optimal. Moisture at 68%.",
+    "aiInsights": "AI Insights",
+    "aiInsightsDesc": "Ideal time for wheat irrigation starts tomorrow.",
+    "marketPulse": "Market Pulse",
+    "marketPulseDesc": "Wheat prices up by 4% in local Mandi",
+    "viewPrices": "View Prices",
+    "sustainableFarming": "Sustainable Farming",
+    "guideTitle": "New Bio-Fertilizer Guide for Summer Crops"
+  },
+  "sidebar": {
+    "premiumMember": "PREMIUM MEMBER",
+    "profile": "Profile",
+    "settings": "Settings",
+    "farmSettings": "Farm Settings",
+    "soilHistory": "Soil History",
+    "expertSupport": "Expert Support"
+  },
+  "settings": {
+    "title": "Settings"
+  },
+  "farmSettings": {
+    "title": "Farm Settings"
+  },
+  "soilHistory": {
+    "title": "Soil History"
+  },
+  "expertSupport": {
+    "title": "Expert Support"
   },
   "chat": {
     "placeholder": "Ask about crops, weather, or schemes",
@@ -205,6 +238,7 @@
     "sessionError": "Session sync failed — replies won't be saved to history",
     "sessionsTitle": "Your chats",
     "sessionsEmpty": "No past chats yet. Start a new conversation below.",
+    "deleteSession": "Delete this chat",
     "sessionsOffline": "Connect to the internet to see and open your saved chats.",
     "sessionsOfflineWithModel": "You're offline. You can still chat using the assistant saved on this device.",
     "openOfflineChat": "Continue last chat",
@@ -359,5 +393,19 @@
     "imageUnsupported": "Image format not supported.",
     "imageExpired": "Image expired. Uploading again.",
     "farmerMissing": "Session refreshed. Please try again."
+  },
+  "modelDownload": {
+    "bannerText": "Use Krishisaath AI without internet — download the offline model (~1.5 GB)",
+    "download": "Download",
+    "dismiss": "Dismiss",
+    "cancel": "Cancel",
+    "retry": "Retry",
+    "downloading": "Downloading… {{pct}}%",
+    "completed": "✓ Offline model ready",
+    "failed": "Download failed. Tap to retry.",
+    "settingsSection": "Offline Model",
+    "settingsDownloadBtn": "Download Offline Model",
+    "settingsStatus": "✓ Offline model ready",
+    "preferOfflineLabel": "Prefer offline mode when available"
   }
 }

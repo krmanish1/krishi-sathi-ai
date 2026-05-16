@@ -97,7 +97,7 @@
     "newChat": "नया",
     "voice": "आवाज़",
     "markets": "मंडी",
-    "profile": "प्रोफ़ाइल"
+    "profile": "अकाउंट"
   },
   "home": {
     "headerTitle": "कृषि एआई साथी",
@@ -145,7 +145,40 @@
     "actionGovtSchemes": "सरकारी\nयोजना",
     "expertBadge": "विशेषज्ञ टिप",
     "expertTitle": "पीला रतुआ—गेहूँ की सुरक्षा",
-    "expertSub": "आपके क्षेत्र में नमी ज़्यादा बताई गई। बचाव के उपाय जानें।"
+    "expertSub": "आपके क्षेत्र में नमी ज़्यादा बताई गई। बचाव के उपाय जानें।",
+    "welcomeMessage": "स्वागत है, {{name}}",
+    "farmStatus": "{{place}} में आपके खेत में आज अच्छी वृद्धि हो रही है।",
+    "weatherUpdate": "मौसम अपडेट",
+    "windSpeed": "{{speed}} किमी/घंटा",
+    "soilHealth": "मिट्टी स्वास्थ्य",
+    "soilHealthDesc": "नाइट्रोजन स्तर सामान्य। नमी 68% पर।",
+    "aiInsights": "AI अंतर्दृष्टि",
+    "aiInsightsDesc": "कल से गेहूं की सिंचाई शुरू करने का सही समय।",
+    "marketPulse": "मंडी पल्स",
+    "marketPulseDesc": "स्थानीय मंडी में गेहूं के दाम 4% बढ़े",
+    "viewPrices": "दाम देखें",
+    "sustainableFarming": "टिकाऊ खेती",
+    "guideTitle": "ग्रीष्म फसलों के लिए नई जैव-उर्वरक गाइड"
+  },
+  "sidebar": {
+    "premiumMember": "प्रीमियम सदस्य",
+    "profile": "प्रोफ़ाइल",
+    "settings": "सेटिंग्स",
+    "farmSettings": "खेत सेटिंग्स",
+    "soilHistory": "मिट्टी इतिहास",
+    "expertSupport": "विशेषज्ञ सहायता"
+  },
+  "settings": {
+    "title": "सेटिंग्स"
+  },
+  "farmSettings": {
+    "title": "खेत सेटिंग्स"
+  },
+  "soilHistory": {
+    "title": "मिट्टी इतिहास"
+  },
+  "expertSupport": {
+    "title": "विशेषज्ञ सहायता"
   },
   "chat": {
     "placeholder": "फसल, मौसम या योजनाएँ पूछें",
@@ -205,6 +238,7 @@
     "sessionError": "सत्र सिंक विफल — उत्तर इतिहास में सहेजे नहीं जाएंगे",
     "sessionsTitle": "आपकी बातचीत",
     "sessionsEmpty": "अभी कोई पुरानी बातचीत नहीं। नीचे नया सवाल पूछें।",
+    "deleteSession": "यह चैट हटाएं",
     "sessionsOffline": "सहेजी चैट देखने और खोलने के लिए इंटरनेट से जुड़ें।",
     "sessionsOfflineWithModel": "आप ऑफ़लाइन हैं। इस डिवाइस पर सहेजे सहायक से अभी भी चैट कर सकते हैं।",
     "openOfflineChat": "पिछली चैट जारी रखें",
@@ -359,5 +393,19 @@
     "imageUnsupported": "छवि प्रारूप समर्थित नहीं है।",
     "imageExpired": "छवि समाप्त, फिर अपलोड कर रहे हैं।",
     "farmerMissing": "सत्र ताज़ा हुआ। कृपया पुनः प्रयास करें।"
+  },
+  "modelDownload": {
+    "bannerText": "बिना इंटरनेट के Krishisaath AI उपयोग करें — ऑफलाइन मॉडल डाउनलोड करें (~1.5 GB)",
+    "download": "डाउनलोड",
+    "dismiss": "बंद करें",
+    "cancel": "रद्द करें",
+    "retry": "फिर से प्रयास करें",
+    "downloading": "डाउनलोड हो रहा है… {{pct}}%",
+    "completed": "✓ ऑफलाइन मॉडल तैयार",
+    "failed": "डाउनलोड विफल। फिर से प्रयास करें।",
+    "settingsSection": "ऑफलाइन मॉडल",
+    "settingsDownloadBtn": "ऑफलाइन मॉडल डाउनलोड करें",
+    "settingsStatus": "✓ ऑफलाइन मॉडल तैयार",
+    "preferOfflineLabel": "उपलब्ध होने पर ऑफलाइन मोड प्राथमिकता दें"
   }
 }
