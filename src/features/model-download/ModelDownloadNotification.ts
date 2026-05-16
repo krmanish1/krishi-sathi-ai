@@ -1,5 +1,6 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
+import i18n from "@/shared/i18n";
 
 if (Platform.OS !== "web") {
   Notifications.setNotificationHandler({
@@ -32,8 +33,7 @@ export async function showProgressNotification(progress: number): Promise<void> 
     }
     _progressNotifId = await Notifications.scheduleNotificationAsync({
       content: {
-        title: `Downloading offline model… ${progress}%`,
-        body: "You can continue using the app.",
+        title: i18n.t("modelDownload.downloading", { pct: progress }),
       },
       trigger: null,
     });
@@ -57,8 +57,7 @@ export async function showCompletionNotification(): Promise<void> {
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: "Offline model ready!",
-        body: "Open app to enable offline mode.",
+        title: i18n.t("modelDownload.completed"),
       },
       trigger: null,
     });
@@ -72,8 +71,7 @@ export async function showFailureNotification(): Promise<void> {
   try {
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: "Download failed.",
-        body: "Open app to retry.",
+        title: i18n.t("modelDownload.failed"),
       },
       trigger: null,
     });
