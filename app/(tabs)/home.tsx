@@ -1,32 +1,49 @@
-import { useEffect, useMemo } from "react";
-import { LinearGradient } from "expo-linear-gradient";
-import { format } from "date-fns";
-import { useRouter } from "expo-router";
-import { useTranslation } from "react-i18next";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
   ScrollView,
   Pressable,
-  useWindowDimensions,
   StyleSheet,
   ActivityIndicator,
+  Animated,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useOnboarding } from "@/features/onboarding/store";
 import { greetingFirstName, useDisplayName } from "@/features/twin";
+import { SidebarDrawer } from "@/shared/ui/primitives";
 import { useFarmerWeather } from "@/features/weather";
-import { useFarmerId } from "@/shared/auth/AuthProvider";
+import { useFarmerId } from "@/shared/auth";
 import { useConnectivityUi } from "@/shared/network";
 import { runInitialSync } from "@/features/onboarding/useInitialSync";
 import { useMandiFromBundle } from "@/features/mandi/mandiFromBundle";
+import { ModelDownloadBanner } from "@/features/model-download";
+
+// ─── Design tokens ───────────────────────────────────────────────────────────
+
+const PAGE_BG = "#F2EDE4";
+const CARD_BG = "#FFFFFF";
+const SOIL_CARD_BG = "#1B3A28";
+const AI_CARD_BG = "#FCDDB5";
+const GUIDE_GRAD_START = "#1B3A28";
+const GUIDE_GRAD_END = "#2D5A3D";
+const VIEW_PRICES_BG = "#1B3A28";
+const AMBER_LABEL = "#D97706";
+const INK = "#001E2B";
+const INK_MUTED = "#5C6C75";
+
+// ─── Home screen ─────────────────────────────────────────────────────────────
 
 export default function HomeScreen() {
-  const router = useRouter();
   const { t } = useTranslation();
+  const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   const district = useOnboarding((s) => s.district);
   const state = useOnboarding((s) => s.state);
   const farmerId = useFarmerId();
@@ -34,492 +51,573 @@ export default function HomeScreen() {
   const greetingName = greetingFirstName(displayName);
   const ui = useConnectivityUi();
   const connectivity = ui.connectivity;
-  const isOffline = ui.isFullyOffline;
   const isOnlineMode = ui.backendReachable;
-  const timeLabel = format(new Date(), "hh:mm a");
-  const farmPlaceLabel = district && state ? `${district}, ${state}` : "—";
+
   const {
     display: weatherDisplay,
     refreshWeather,
     isRefreshingWeather,
-    weatherError,
     isPending: weatherPending,
     data: weatherData,
   } = useFarmerWeather({
     farmerId,
     connectivity,
-    fallbackPlace: farmPlaceLabel,
+    fallbackPlace: district && state ? `${district}, ${state}` : "—",
   });
 
-  const weatherBadgeLabel = (() => {
-    if (!isOnlineMode) return t("home.weatherOfflinePill");
-    if (weatherPending && !weatherData) return t("home.weatherLoading");
-    if (weatherDisplay.source === "live") return t("home.weatherLive");
-    if (weatherDisplay.source === "cached") return t("home.cachedWeather");
-    return t("home.cachedWeather");
-  })();
+  const spinAnim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (isRefreshingWeather) {
+      Animated.loop(
+        Animated.timing(spinAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+      ).start();
+    } else {
+      spinAnim.stopAnimation();
+      spinAnim.setValue(0);
+    }
+  }, [isRefreshingWeather, spinAnim]);
+
   const { data: mandiData, refetch: refetchMandi } = useMandiFromBundle();
   const mandiRows = mandiData?.rows ?? [];
   const primaryMandi = mandiRows[0];
-  const secondaryMandi = mandiRows[1];
 
-  const quickActions = useMemo(
-    () =>
-      [
-        { icon: "microphone-outline" as const, label: t("home.actionAskAi"), href: "/(tabs)/chat" },
-        { icon: "calendar-month-outline" as const, label: t("home.actionCropPlan"), href: "/(tabs)/chat" },
-        { icon: "camera-outline" as const, label: t("home.actionUploadPhoto"), href: "/scan" },
-        { icon: "gavel" as const, label: t("home.actionGovtSchemes"), href: "/(tabs)/chat" },
-      ] as const,
-    [t],
-  );
+  const avatarLetter = useMemo(() => {
+    const first = greetingFirstName(displayName);
+    return first ? first.charAt(0).toUpperCase() : "K";
+  }, [displayName]);
 
   useEffect(() => {
-    if (!state || !district || !isOnlineMode) {
-      return;
-    }
+    if (!state || !district || !isOnlineMode) return;
     void runInitialSync({ state, district })
       .then(() => refetchMandi())
       .catch(() => undefined);
   }, [state, district, isOnlineMode, refetchMandi]);
 
+  const tempLabel = weatherDisplay.tempLabel;
+  const conditionLabel = weatherDisplay.conditionLabel ?? "—";
+  const humidityLabel = weatherDisplay.humidityLabel;
+  const placeLabel = district ?? weatherDisplay.placeLabel;
+
   return (
-    <View className="flex-1 bg-page">
-      <ScrollView
-        testID="home-scroll"
-        className="flex-1"
-        contentContainerStyle={{
-          paddingHorizontal: 16,
-          paddingTop: insets.top + 20,
-          paddingBottom: 180,
-          maxWidth: 1024,
-          width,
-          alignSelf: "center",
-        }}
-        showsVerticalScrollIndicator={false}
-      >
-        {isOffline ? (
-          <View className="mb-6 items-center">
-            <View
-              className="flex-row items-center gap-2 rounded-full border px-4 py-2.5"
-              style={{
-                backgroundColor: ui.offlinePillBackgroundRgba,
-                borderColor: ui.offlinePillBorderRgba,
-              }}
-            >
-              <MaterialCommunityIcons name="cloud-off-outline" size={16} color={ui.offlinePillIconHex} />
-              <Text
-                className="font-body-semibold text-xs uppercase tracking-[1.2px]"
-                style={{ color: ui.offlinePillTextHex }}
-              >
-                {t("home.offlinePill")}
-              </Text>
-            </View>
-            <Text
-              className="mt-3 max-w-[320px] text-center font-body text-[13px] leading-5 text-ink-muted"
-              accessibilityRole="text"
-            >
-              {t("home.offlineGoOnlineHint")}
-            </Text>
-          </View>
-        ) : null}
-
-        <View className="mb-7">
-          <Text className="font-xb text-[28px] leading-9 tracking-tight text-ink">
-            {t("home.greetingName", { name: greetingName })}
-          </Text>
-          <Text className="mt-2 font-body text-[15px] leading-6 text-ink-muted">
-            {t("home.cacheLine", { time: timeLabel })}
-          </Text>
-          <View className="mt-4 flex-row gap-3">
-            <Pressable
-              onPress={() => router.push("/(tabs)/chat")}
-              className="min-h-[48px] flex-1 items-center justify-center rounded-full border border-border-light bg-muted shadow-card active:opacity-90"
-              accessibilityRole="button"
-              accessibilityLabel={t("tabs.assistant")}
-            >
-              <Text className="font-body-semibold text-[11px] uppercase tracking-button text-ink">
-                {t("tabs.assistant")}
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => router.push("/scan")}
-              className="min-h-[48px] flex-1 items-center justify-center rounded-full border border-border-light bg-muted shadow-card active:opacity-90"
-              accessibilityRole="button"
-              accessibilityLabel={t("scan.title")}
-            >
-              <Text className="font-body-semibold text-[11px] uppercase tracking-button text-ink">
-                {t("scan.title")}
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Weather card — GET /api/v1/weather/{farmer_id} */}
-        <View testID="home-weather-card" className="mb-7 overflow-hidden rounded-bento bg-card p-5 shadow-dialog">
-          <View className="flex-row items-start justify-between">
-            <View className="flex-1 pr-2">
-              <View className="self-start rounded-full px-3 py-1" style={{ backgroundColor: ui.weatherBadgeBackgroundRgba }}>
-                <Text
-                  className="font-body-semibold text-[10px] uppercase tracking-[1.4px]"
-                  style={{ color: ui.weatherBadgeTextHex }}
-                >
-                  {weatherBadgeLabel}
-                </Text>
-              </View>
-              <Text className="mt-3 font-display text-[40px] leading-none text-ink">
-                {weatherDisplay.tempLabel}
-              </Text>
-              {weatherDisplay.conditionLabel ? (
-                <Text className="mt-2 font-body text-[15px] leading-5 text-ink">
-                  {weatherDisplay.conditionLabel}
-                </Text>
-              ) : null}
-              <Text
-                className={`font-body text-[15px] text-ink-muted ${weatherDisplay.conditionLabel ? "mt-1" : "mt-2"}`}
-              >
-                {t("home.weatherAtPlace", { place: weatherDisplay.placeLabel })}
-              </Text>
-              {weatherError && isOnlineMode ? (
-                <Text className="mt-2 font-body text-xs text-danger">{t("home.weatherError")}</Text>
-              ) : null}
-            </View>
-            <View className="items-end gap-2">
-              {isOnlineMode && farmerId ? (
-                <Pressable
-                  testID="home-weather-refresh"
-                  onPress={refreshWeather}
-                  disabled={isRefreshingWeather}
-                  accessibilityRole="button"
-                  accessibilityLabel={t("home.weatherRefreshA11y")}
-                  className="rounded-full bg-muted/90 p-2.5 active:opacity-80"
-                  hitSlop={6}
-                >
-                  {isRefreshingWeather ? (
-                    <ActivityIndicator size="small" color={ui.accentHex} />
-                  ) : (
-                    <MaterialCommunityIcons name="refresh" size={22} color={ui.headerAccentHex} />
-                  )}
-                </Pressable>
-              ) : null}
-              <View className="rounded-full p-3" style={{ backgroundColor: ui.weatherHeroWellBackgroundRgba }}>
-                <MaterialCommunityIcons name="weather-partly-cloudy" size={36} color={ui.weatherHeroIconHex} />
-              </View>
-            </View>
-          </View>
-          <View className="mt-5 flex-row gap-3">
-            <View className="flex-1 rounded-xl bg-muted p-3.5" style={styles.statInset}>
-              <Text className="font-body-semibold text-[10px] uppercase tracking-[1.2px] text-ink-muted">
-                {t("home.humidity")}
-              </Text>
-              <Text className="mt-1 font-display text-xl text-ink">{weatherDisplay.humidityLabel}</Text>
-            </View>
-            <View className="flex-1 rounded-xl bg-muted p-3.5" style={styles.statInset}>
-              <Text className="font-body-semibold text-[10px] uppercase tracking-[1.2px] text-ink-muted">
-                {t("home.rainChance")}
-              </Text>
-              <Text className="mt-1 font-display text-xl text-ink">{weatherDisplay.rainLabel}</Text>
-            </View>
-          </View>
-        </View>
-
-        {!isOnlineMode ? (
-          <View className="mb-7 rounded-bento border border-dashed border-border-light bg-muted/60 p-5">
-            <View className="size-11 items-center justify-center rounded-full bg-danger/15">
-              <MaterialCommunityIcons name="sync-alert" size={20} color={ui.offlineSyncAlertIconHex} />
-            </View>
-            <Text className="mt-3 font-display text-lg text-ink">{t("home.syncTitle")}</Text>
-            <Text className="mt-2 font-body text-sm leading-relaxed text-ink-muted">{t("home.syncBody")}</Text>
-            <Pressable className="mt-4 flex-row items-center gap-1 self-start active:opacity-80" onPress={() => undefined}>
-              <Text className="font-body-semibold text-sm" style={{ color: ui.headerAccentHex }}>
-                {t("home.retrySync")}
-              </Text>
-              <MaterialCommunityIcons name="chevron-right" size={18} color={ui.headerAccentHex} />
-            </Pressable>
-          </View>
-        ) : null}
-
-        {/* Market / bento — online */}
-        {isOnlineMode ? (
-          <View className="mb-7">
-            <View className="mb-5 flex-row gap-3">
-              <LinearGradient
-                colors={[ui.headerAccentHex, ui.gradientPartnerHex]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={[styles.bentoGreen, styles.shadowHeavy]}
-              >
-                <View className="absolute -right-8 -top-8 size-28 rounded-full bg-black/10" />
-                <MaterialCommunityIcons name="sprout" size={20} color="#000000" />
-                <Text className="mt-2 font-body-medium text-[11px] uppercase tracking-wide text-on-brand/90">
-                  {t("home.recommended")}
-                </Text>
-                <Text className="font-display text-3xl text-on-brand">{t("home.recommendedCrop")}</Text>
-                <View className="mt-auto rounded-2xl bg-black/20 px-3 py-2">
-                  <Text className="font-body-semibold text-[9px] uppercase tracking-[1.2px] text-on-brand/85">
-                    {t("home.profitPotential")}
-                  </Text>
-                  <Text className="font-display text-xl text-on-brand">{t("home.profitHigh")}</Text>
-                </View>
-              </LinearGradient>
-
-              <View className="flex-1 justify-between rounded-bento border border-white/[0.06] bg-muted p-4 shadow-card">
-                <View>
-                  <View className="mb-2 self-start rounded-full bg-brand/12 p-2">
-                    <MaterialCommunityIcons name="cash-multiple" size={20} color={ui.headerAccentHex} />
-                  </View>
-                  <Text className="font-body-medium text-[11px] text-ink-muted">{t("home.mandiPriceShort")}</Text>
-                  <Text className="mt-0.5 font-display text-3xl text-ink">{primaryMandi?.price ?? "—"}</Text>
-                </View>
-                <View className="flex-row items-center justify-between border-t border-white/[0.06] pt-3">
-                  <Text
-                    className={`font-body-semibold text-sm ${
-                      primaryMandi?.up === false
-                        ? "text-danger"
-                        : primaryMandi?.up === true
-                          ? "text-success"
-                          : "text-ink-muted"
-                    }`}
-                  >
-                    {primaryMandi?.changeLabel ?? "—"}
-                  </Text>
-                  <MaterialCommunityIcons
-                    name={
-                      primaryMandi?.up === false
-                        ? "arrow-down"
-                        : primaryMandi?.up === true
-                          ? "arrow-up"
-                          : "minus"
-                    }
-                    size={16}
-                    color={
-                      primaryMandi?.up === false
-                        ? "#f3727f"
-                        : primaryMandi?.up === true
-                          ? ui.headerAccentHex
-                          : "#b3b3b3"
-                    }
-                  />
-                </View>
-              </View>
-            </View>
-
-            <View className="mb-4 flex-row items-end justify-between gap-3">
-              <Text className="flex-1 font-display text-xl text-ink">{t("home.quickActions")}</Text>
-              <Pressable onPress={() => router.push("/(tabs)/mandi")} hitSlop={8} className="active:opacity-70">
-                <Text className="font-body-semibold text-sm text-brand">{t("home.viewAll")}</Text>
-              </Pressable>
-            </View>
-
-            <View className="mb-2 flex-row justify-between gap-2">
-              {quickActions.map((item) => (
-                <Pressable
-                  key={item.href + item.label}
-                  accessibilityRole="button"
-                  accessibilityLabel={item.label.replace(/\n/g, " ")}
-                  onPress={() => router.push(item.href as never)}
-                  className="min-w-0 flex-1 items-center active:opacity-85"
-                >
-                  <View className="w-full items-center rounded-2xl border border-white/[0.07] bg-muted py-4 shadow-card">
-                    <MaterialCommunityIcons name={item.icon} size={22} color={ui.headerAccentHex} />
-                  </View>
-                  <Text className="mt-2 text-center font-body-semibold text-[9px] uppercase leading-tight tracking-wide text-ink-muted">
-                    {item.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        ) : (
-          <View className="mb-7 rounded-bento border border-white/[0.06] bg-card p-5 shadow-dialog">
-            <View className="flex-row items-start justify-between">
-              <Text className="font-display text-lg text-ink">{t("home.marketTitle")}</Text>
-              <View
-                className="flex-row items-center gap-1.5 rounded-full px-2 py-1"
-                style={{ backgroundColor: ui.marketPendingChipBackgroundRgba }}
-              >
-                <View className="size-1.5 rounded-full" style={{ backgroundColor: ui.marketPendingDotHex }} />
-                <Text
-                  className="font-body-semibold text-[9px] uppercase tracking-wide"
-                  style={{ color: ui.marketPendingLabelHex }}
-                >
-                  {t("home.pending")}
-                </Text>
-              </View>
-            </View>
-            <View className="mt-4 gap-4">
-              <View className="flex-row items-center justify-between">
-                <View className="flex-row items-center gap-3">
-                  <View className="rounded-full bg-muted p-2">
-                    <MaterialCommunityIcons name="barley" size={20} color={ui.headerAccentHex} />
-                  </View>
-                  <View>
-                    <Text className="font-body-semibold text-sm text-ink">{primaryMandi?.label ?? "Wheat"}</Text>
-                    <Text className="font-body-medium text-[10px] uppercase tracking-tight text-ink-muted">
-                      {t("home.mandiLabel", { place: primaryMandi?.place ?? "—" })}
-                    </Text>
-                  </View>
-                </View>
-                <View className="items-end">
-                  <Text className="font-body-semibold text-sm text-ink">{primaryMandi?.price ?? "—"}</Text>
-                  <Text
-                    className={`font-body-semibold text-[10px] ${
-                      primaryMandi?.up === false
-                        ? "text-danger"
-                        : primaryMandi?.up === true
-                          ? "text-success"
-                          : "text-ink-muted"
-                    }`}
-                  >
-                    {primaryMandi?.changeLabel ?? "—"}
-                  </Text>
-                </View>
-              </View>
-              <View className="flex-row items-center justify-between">
-                <View className="flex-row items-center gap-3">
-                  <View className="rounded-full bg-muted p-2">
-                    <MaterialCommunityIcons name="leaf" size={20} color={ui.headerAccentHex} />
-                  </View>
-                  <View>
-                    <Text className="font-body-semibold text-sm text-ink">{secondaryMandi?.label ?? "Mustard"}</Text>
-                    <Text className="font-body-medium text-[10px] uppercase tracking-tight text-ink-muted">
-                      {t("home.mandiLabel", { place: secondaryMandi?.place ?? "—" })}
-                    </Text>
-                  </View>
-                </View>
-                <View className="items-end">
-                  <Text className="font-body-semibold text-sm text-ink">{secondaryMandi?.price ?? "—"}</Text>
-                  <Text
-                    className={`font-body-semibold text-[10px] ${
-                      secondaryMandi?.up === false
-                        ? "text-danger"
-                        : secondaryMandi?.up === true
-                          ? "text-success"
-                          : "text-ink-muted"
-                    }`}
-                  >
-                    {secondaryMandi?.changeLabel ?? "—"}
-                  </Text>
-                </View>
-              </View>
-            </View>
-            <View className="mt-4 border-t border-border pt-4">
-              <Text className="font-body text-[11px] italic leading-snug text-ink-muted">{t("home.priceFootnote")}</Text>
-            </View>
-          </View>
-        )}
-
-        {/* Sowing CTA */}
-        <LinearGradient
-          colors={[ui.headerAccentHex, ui.gradientPartnerHex]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={[styles.sowingCard, styles.shadowHeavy]}
-        >
-          <View className="absolute -bottom-12 -right-12 size-56 rounded-full bg-black/12" />
-          <Text className="text-center font-display text-xl leading-7 text-on-brand">{t("home.sowingTitle")}</Text>
-          <Text className="mt-3 text-center font-body text-[15px] leading-6 text-black/85">{t("home.sowingSub")}</Text>
-          <Pressable className="mt-6 items-center self-center rounded-full bg-wheat px-8 py-3.5 shadow-dialog active:opacity-90">
-            <Text className="font-body-semibold text-[13px] uppercase tracking-button text-[#181818]">
-              {t("home.viewGuide")}
-            </Text>
-          </Pressable>
-        </LinearGradient>
-
-        {!isOnlineMode ? (
-          <View className="mb-8 rounded-bento border border-white/[0.06] bg-muted p-5 shadow-card">
-            <Text className="font-display text-lg text-ink">{t("home.docsTitle")}</Text>
-            <View className="mt-4 gap-3">
-              {[t("home.doc1"), t("home.doc2"), t("home.doc3")].map((label) => (
-                <View key={label} className="flex-row items-center gap-3">
-                  <MaterialCommunityIcons name="file-document-outline" size={16} color="#b3b3b3" />
-                  <Text className="font-body-medium text-sm text-ink-muted">{label}</Text>
-                </View>
-              ))}
-            </View>
-            <View className="mt-4 border-t border-border pt-4">
-              <Text className="font-body-semibold text-[10px] uppercase tracking-[1.4px] text-ink-muted">{t("home.storage")}</Text>
-            </View>
-          </View>
-        ) : (
-          <View className="mb-8 overflow-hidden rounded-bento shadow-dialog">
-            <LinearGradient
-              colors={[...ui.homeExpertGradientHex]}
-              start={{ x: 0, y: 1 }}
-              end={{ x: 1, y: 0 }}
-              style={{ padding: 22, minHeight: 168, justifyContent: "flex-end" }}
-            >
-              <View className="self-start rounded-full bg-black/25 px-3 py-1">
-                <Text className="font-body-semibold text-[10px] uppercase tracking-[1.6px] text-white/95">
-                  {t("home.expertBadge")}
-                </Text>
-              </View>
-              <Text className="mt-3 font-display text-2xl leading-8 text-white">{t("home.expertTitle")}</Text>
-              <Text className="mt-2 font-body text-[15px] leading-[22px] text-white/88">{t("home.expertSub")}</Text>
-            </LinearGradient>
-          </View>
-        )}
-      </ScrollView>
-
-      <View className="pointer-events-box-none absolute z-10" style={{ bottom: insets.bottom + 100, right: 20 }}>
+    <View style={[styles.root, { paddingTop: insets.top }]}>
+      {/* ── Header ─────────────────────────────────────────────────── */}
+      <View style={styles.header}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t("home.fabLabel")}
-          onPress={() => router.push("/(tabs)/chat")}
-          style={styles.fabShadow}
+          hitSlop={8}
+          onPress={() => setSidebarOpen(true)}
+          style={styles.headerIconBtn}
         >
-          <LinearGradient
-            colors={[ui.headerAccentHex, ui.gradientPartnerHex]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              width: 60,
-              height: 60,
-              borderRadius: 9999,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <MaterialCommunityIcons name="microphone" size={26} color="#000000" />
-          </LinearGradient>
+          <MaterialCommunityIcons name="menu" size={24} color={INK} />
+        </Pressable>
+
+        <Text style={styles.appTitle}>Krishisath AI</Text>
+
+        <Pressable
+          accessibilityRole="button"
+          hitSlop={8}
+          onPress={() => setSidebarOpen(true)}
+          style={styles.avatarBtn}
+        >
+          <Text style={styles.avatarLetter}>{avatarLetter}</Text>
         </Pressable>
       </View>
+
+      {/* ── Scroll content ─────────────────────────────────────────── */}
+      <ModelDownloadBanner />
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: insets.bottom + 120 },
+        ]}
+      >
+        {/* Greeting */}
+        <View style={styles.greetingSection}>
+          <Text style={styles.greetingText}>
+            {t("home.welcomeMessage", { name: greetingName })}
+          </Text>
+          {placeLabel ? (
+            <Text style={styles.greetingSub}>
+              {t("home.farmStatus", { place: placeLabel })}
+            </Text>
+          ) : null}
+        </View>
+
+        {/* ── Weather card ─────────────────────────────────────────── */}
+        <View style={styles.card}>
+          <View style={styles.weatherTop}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.weatherLabel}>{t("home.weatherUpdate")}</Text>
+              <View style={styles.weatherTempRow}>
+                <Text style={styles.weatherTemp}>{tempLabel}</Text>
+                <Text style={styles.weatherCondition}>{conditionLabel}</Text>
+              </View>
+            </View>
+            <View style={styles.weatherIconWrap}>
+              <MaterialCommunityIcons
+                name="weather-partly-cloudy"
+                size={42}
+                color={AMBER_LABEL}
+              />
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Refresh weather"
+                onPress={refreshWeather}
+                disabled={isRefreshingWeather || (weatherPending && !weatherData)}
+                hitSlop={8}
+                style={styles.weatherRefreshBtn}
+              >
+                <Animated.View
+                  style={{
+                    transform: [{
+                      rotate: spinAnim.interpolate({
+                        inputRange: [0, 1],
+                        outputRange: ["0deg", "360deg"],
+                      }),
+                    }],
+                  }}
+                >
+                  <MaterialCommunityIcons
+                    name="refresh"
+                    size={16}
+                    color={isRefreshingWeather ? AMBER_LABEL : INK_MUTED}
+                  />
+                </Animated.View>
+              </Pressable>
+            </View>
+          </View>
+          <View style={styles.weatherStats}>
+            <View style={styles.weatherStat}>
+              <MaterialCommunityIcons
+                name="water-outline"
+                size={15}
+                color={INK_MUTED}
+              />
+              <Text style={styles.weatherStatText}>{humidityLabel}</Text>
+            </View>
+            <View style={styles.weatherStat}>
+              <MaterialCommunityIcons
+                name="weather-windy"
+                size={15}
+                color={INK_MUTED}
+              />
+              <Text style={styles.weatherStatText}>
+                {t("home.windSpeed", { speed: "12" })}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* ── Bento row: Soil Health + AI Insights ─────────────────── */}
+        <View style={styles.bentoRow}>
+          {/* Soil Health — dark green */}
+          <View style={[styles.bentoCard, { backgroundColor: SOIL_CARD_BG }]}>
+            <MaterialCommunityIcons
+              name="flask-outline"
+              size={28}
+              color="rgba(255,255,255,0.7)"
+            />
+            <Text style={styles.bentoTitleLight}>{t("home.soilHealth")}</Text>
+            <Text style={styles.bentoDescLight}>
+              {t("home.soilHealthDesc")}
+            </Text>
+          </View>
+
+          {/* AI Insights — warm peach */}
+          <View style={[styles.bentoCard, { backgroundColor: AI_CARD_BG }]}>
+            <MaterialCommunityIcons
+              name="head-lightbulb-outline"
+              size={28}
+              color="#A16207"
+            />
+            <Text style={[styles.bentoTitle, { color: "#7C2D12" }]}>
+              {t("home.aiInsights")}
+            </Text>
+            <Text style={[styles.bentoDesc, { color: "#92400E" }]}>
+              {t("home.aiInsightsDesc")}
+            </Text>
+          </View>
+        </View>
+
+        {/* ── Market Pulse card ─────────────────────────────────────── */}
+        <View style={[styles.card, styles.marketCard]}>
+          <View style={styles.marketIcon}>
+            <MaterialCommunityIcons
+              name="trending-up"
+              size={22}
+              color={INK_MUTED}
+            />
+          </View>
+          <View style={{ flex: 1, marginHorizontal: 14 }}>
+            <Text style={styles.marketTitle}>{t("home.marketPulse")}</Text>
+            <Text style={styles.marketDesc} numberOfLines={2}>
+              {primaryMandi
+                ? `${primaryMandi.label ?? ""} ${primaryMandi.changeLabel ?? ""} in local Mandi`
+                : t("home.marketPulseDesc")}
+            </Text>
+          </View>
+          <Pressable
+            accessibilityRole="button"
+            style={styles.viewPricesBtn}
+            onPress={() => router.push("/(tabs)/mandi" as never)}
+          >
+            <Text style={styles.viewPricesText}>{t("home.viewPrices")}</Text>
+          </Pressable>
+        </View>
+
+        {/* ── Guide / article card ──────────────────────────────────── */}
+        <Pressable accessibilityRole="button" style={styles.guideCard}>
+          <LinearGradient
+            colors={[GUIDE_GRAD_START, GUIDE_GRAD_END]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.guideGradient}
+          >
+            {/* Background pattern circles */}
+            <View style={styles.guideCircle1} />
+            <View style={styles.guideCircle2} />
+
+            {/* Badge */}
+            <View style={styles.guideBadge}>
+              <Text style={styles.guideBadgeText}>
+                {t("home.sustainableFarming")}
+              </Text>
+            </View>
+
+            {/* Title row */}
+            <View style={styles.guideTitleRow}>
+              <Text style={styles.guideTitle} numberOfLines={3}>
+                {t("home.guideTitle")}
+              </Text>
+              <View style={styles.guidePlusBtn}>
+                <MaterialCommunityIcons name="plus" size={20} color={INK} />
+              </View>
+            </View>
+          </LinearGradient>
+        </Pressable>
+      </ScrollView>
+
+      {/* ── Sidebar drawer ─────────────────────────────────────────── */}
+      <SidebarDrawer
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
+        displayName={displayName}
+        district={district ?? ""}
+        state={state ?? ""}
+      />
     </View>
   );
 }
 
+// ─── Styles ───────────────────────────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  statInset: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: "rgba(255,255,255,0.06)",
-  },
-  bentoGreen: {
+  root: {
     flex: 1,
-    minHeight: 176,
-    borderRadius: 16,
-    padding: 16,
-    overflow: "hidden",
-    justifyContent: "space-between",
+    backgroundColor: PAGE_BG,
   },
-  sowingCard: {
+
+  // Header
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+  },
+  headerIconBtn: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  appTitle: {
+    flex: 1,
+    textAlign: "center",
+    fontSize: 17,
+    fontWeight: "700",
+    fontFamily: "PlusJakartaSans_700Bold",
+    color: INK,
+    letterSpacing: -0.3,
+  },
+  avatarBtn: {
+    width: 36,
+    height: 36,
     borderRadius: 18,
-    marginBottom: 28,
-    padding: 28,
+    backgroundColor: "#001E2B",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarLetter: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#00ED64",
+    fontFamily: "PlusJakartaSans_700Bold",
+  },
+
+  // Scroll
+  scrollContent: {
+    paddingHorizontal: 18,
+    paddingTop: 8,
+  },
+
+  // Greeting
+  greetingSection: {
+    marginBottom: 22,
+  },
+  greetingText: {
+    fontSize: 28,
+    fontWeight: "800",
+    fontFamily: "PlusJakartaSans_800ExtraBold",
+    color: INK,
+    letterSpacing: -0.5,
+    lineHeight: 34,
+  },
+  greetingSub: {
+    marginTop: 6,
+    fontSize: 14,
+    color: INK_MUTED,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 20,
+  },
+
+  // Generic white card
+  card: {
+    backgroundColor: CARD_BG,
+    borderRadius: 16,
+    padding: 18,
+    marginBottom: 14,
+    shadowColor: "#001E2B",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+
+  // Weather card
+  weatherTop: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+  },
+  weatherLabel: {
+    fontSize: 11,
+    fontWeight: "700",
+    fontFamily: "Inter_600SemiBold",
+    color: AMBER_LABEL,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    marginBottom: 6,
+  },
+  weatherTempRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  weatherTemp: {
+    fontSize: 36,
+    fontWeight: "700",
+    fontFamily: "PlusJakartaSans_700Bold",
+    color: INK,
+    lineHeight: 42,
+  },
+  weatherCondition: {
+    fontSize: 16,
+    color: INK_MUTED,
+    fontFamily: "Inter_400Regular",
+    marginTop: 4,
+  },
+  weatherIconWrap: {
+    marginLeft: 12,
+    marginTop: 4,
+    alignItems: "center",
+    gap: 6,
+  },
+  weatherRefreshBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: "#F2EDE4",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  weatherStats: {
+    flexDirection: "row",
+    marginTop: 16,
+    gap: 20,
+  },
+  weatherStat: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+  weatherStatText: {
+    fontSize: 14,
+    color: INK_MUTED,
+    fontFamily: "Inter_400Regular",
+  },
+
+  // Bento row
+  bentoRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 14,
+  },
+  bentoCard: {
+    flex: 1,
+    borderRadius: 16,
+    padding: 18,
+    minHeight: 160,
+    justifyContent: "space-between",
+    shadowColor: "#001E2B",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  bentoTitleLight: {
+    fontSize: 18,
+    fontWeight: "700",
+    fontFamily: "PlusJakartaSans_700Bold",
+    color: "#FFFFFF",
+    marginTop: 12,
+  },
+  bentoDescLight: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.75)",
+    fontFamily: "Inter_400Regular",
+    lineHeight: 17,
+    marginTop: 4,
+  },
+  bentoTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    fontFamily: "PlusJakartaSans_700Bold",
+    marginTop: 12,
+  },
+  bentoDesc: {
+    fontSize: 12,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 17,
+    marginTop: 4,
+  },
+
+  // Market Pulse
+  marketCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 16,
+  },
+  marketIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: "#F2EDE4",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  marketTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    fontFamily: "PlusJakartaSans_700Bold",
+    color: INK,
+  },
+  marketDesc: {
+    fontSize: 12,
+    color: INK_MUTED,
+    fontFamily: "Inter_400Regular",
+    lineHeight: 17,
+    marginTop: 3,
+  },
+  viewPricesBtn: {
+    backgroundColor: VIEW_PRICES_BG,
+    borderRadius: 24,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 76,
+  },
+  viewPricesText: {
+    fontSize: 12,
+    fontWeight: "600",
+    fontFamily: "Inter_600SemiBold",
+    color: "#FFFFFF",
+    textAlign: "center",
+  },
+
+  // Guide card
+  guideCard: {
+    borderRadius: 16,
+    overflow: "hidden",
+    marginBottom: 14,
+    shadowColor: "#001E2B",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 5,
+  },
+  guideGradient: {
+    minHeight: 180,
+    padding: 20,
+    justifyContent: "space-between",
     overflow: "hidden",
   },
-  shadowHeavy: {
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.45,
-    shadowRadius: 22,
-    elevation: 12,
+  guideCircle1: {
+    position: "absolute",
+    width: 160,
+    height: 160,
+    borderRadius: 80,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    top: -40,
+    right: -30,
   },
-  fabShadow: {
-    shadowColor: "#000",
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 8 },
-    elevation: 16,
-    borderRadius: 9999,
+  guideCircle2: {
+    position: "absolute",
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "rgba(255,255,255,0.05)",
+    bottom: -20,
+    left: -20,
+  },
+  guideBadge: {
+    alignSelf: "flex-start",
+    backgroundColor: "#22C55E",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+  },
+  guideBadgeText: {
+    fontSize: 11,
+    fontWeight: "600",
+    fontFamily: "Inter_600SemiBold",
+    color: "#FFFFFF",
+    letterSpacing: 0.2,
+  },
+  guideTitleRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    marginTop: 40,
+  },
+  guideTitle: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: "800",
+    fontFamily: "PlusJakartaSans_800ExtraBold",
+    color: "#FFFFFF",
+    lineHeight: 26,
+    marginRight: 12,
+  },
+  guidePlusBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
   },
 });
+
