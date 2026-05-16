@@ -3,6 +3,7 @@ import { setGemmaBackend } from "@/shared/ondevice/gemma";
 import type { AgentContext } from "./routing";
 import { postQuery } from "./endpoints";
 import { ApiError } from "./errors";
+import { setModelReady, resetModelState, setPreferOffline } from "@/shared/ondevice/modelState";
 
 const ondevice = jest.fn().mockResolvedValue({
   text: "od",
@@ -119,5 +120,50 @@ describe("askAgent error fallback", () => {
     const r = await askAgent({ text: "x", language: "en", intent: "crop_disease" }, baseCtx);
     expect(r.source).toBe("ondevice");
     expect(r.banner).toBe("network_busy");
+  });
+});
+
+describe("askAgent preferOffline routing", () => {
+  beforeEach(() => {
+    resetModelState();
+    (postQuery as jest.Mock).mockClear();
+    ondevice.mockClear();
+  });
+
+  afterEach(() => {
+    resetModelState();
+  });
+
+  it("uses backend when online and preferOffline is false", async () => {
+    setModelReady("/model/path");
+    setPreferOffline(false);
+    const result = await askAgent({ text: "hello", language: "en", intent: "general" }, baseCtx);
+    expect(result.source).toBe("backend");
+  });
+
+  it("uses ondevice when online and preferOffline is true and model is ready", async () => {
+    setModelReady("/model/path");
+    setPreferOffline(true);
+    const result = await askAgent({ text: "hello", language: "en", intent: "general" }, baseCtx);
+    expect(result.source).toBe("ondevice");
+    expect(ondevice).toHaveBeenCalled();
+  });
+
+  it("uses backend when preferOffline is true but model is NOT ready", async () => {
+    setPreferOffline(true);
+    // model not ready (resetModelState called in beforeEach)
+    const result = await askAgent({ text: "hello", language: "en", intent: "general" }, baseCtx);
+    expect(result.source).toBe("backend");
+  });
+
+  it("uses backend when preferOffline is true but forceBackend is set", async () => {
+    setModelReady("/model/path");
+    setPreferOffline(true);
+    const result = await askAgent(
+      { text: "hello", language: "en", intent: "general" },
+      baseCtx,
+      { forceBackend: true },
+    );
+    expect(result.source).toBe("backend");
   });
 });

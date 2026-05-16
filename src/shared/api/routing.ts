@@ -2,7 +2,7 @@ import type { Language } from "@/shared/config/constants";
 import { queryConnectivityWire, type Connectivity, type DeviceIntent, type OnDeviceModel } from "./types";
 import { ApiError } from "./errors";
 import { postQuery } from "./endpoints";
-import { isModelReady } from "@/shared/ondevice/modelState";
+import { isModelReady, getPreferOffline } from "@/shared/ondevice/modelState";
 import { onDeviceAgent } from "@/shared/ondevice/onDeviceAgent";
 import { offlineFallback } from "@/shared/ondevice/offlineFallback";
 import { loadBundlePayload } from "@/shared/storage/bundle";
@@ -107,6 +107,20 @@ export const askAgent = async (
       const bundle = await loadBundlePayload().catch(() => null);
       return offlineFallback(q, bundle ?? undefined);
     }
+    return onDeviceAgent.run(
+      q,
+      {
+        district: ctx.location.district,
+        state: ctx.location.state,
+        ...(ctx.land !== undefined ? { land: ctx.land } : {}),
+        ...(ctx.hasAadhaar !== undefined ? { hasAadhaar: ctx.hasAadhaar } : {}),
+      },
+      q.signal,
+    );
+  }
+
+  // Route to on-device when user has opted in and model is ready
+  if (!opts?.forceBackend && isModelReady() && getPreferOffline()) {
     return onDeviceAgent.run(
       q,
       {
