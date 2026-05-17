@@ -56,6 +56,7 @@ class GemmaLlmModule : Module() {
 
         AsyncFunction("generate") { prompt: String, promise: Promise ->
             moduleScope.launch {
+                val sb = StringBuilder()
                 try {
                     isCancelled = false
                     val conv = conversation
@@ -63,7 +64,6 @@ class GemmaLlmModule : Module() {
                         promise.reject("NOT_LOADED", "Model not loaded. Call load() first.", null)
                         return@launch
                     }
-                    val sb = StringBuilder()
                     try {
                         withTimeout(60_000L) {
                             conv.sendMessageAsync(Contents.of(Content.Text(prompt)))
@@ -90,6 +90,7 @@ class GemmaLlmModule : Module() {
 
         AsyncFunction("generateWithImage") { prompt: String, imageBase64: String, _mimeType: String, promise: Promise ->
             moduleScope.launch {
+                val sb = StringBuilder()
                 try {
                     isCancelled = false
                     val conv = conversation
@@ -98,7 +99,6 @@ class GemmaLlmModule : Module() {
                         return@launch
                     }
                     val imageBytes = Base64.decode(imageBase64, Base64.DEFAULT)
-                    val sb = StringBuilder()
                     try {
                         withTimeout(60_000L) {
                             conv.sendMessageAsync(

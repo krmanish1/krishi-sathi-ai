@@ -18,13 +18,13 @@ export function useFarmerWeather(opts: {
   const { farmerId, connectivity, fallbackPlace } = opts;
   const qc = useQueryClient();
 
-  const isOnline = connectivity !== "offline";
+  const isOnline = connectivity === "online";
 
   const query = useQuery({
     queryKey: farmerId ? FARMER_WEATHER_QUERY_KEY(farmerId, isOnline) : ["farmer", "weather", "disabled"],
     queryFn: async ({ signal }) => {
       if (!farmerId) throw new Error("no farmer");
-      if (connectivity === "offline") {
+      if (connectivity !== "online") {
         const cached = await getCachedWeather(farmerId);
         // No cache yet: return null so the hook stays in success state with no data
         // rather than error state — UI degrades gracefully to "—" placeholders.
@@ -40,7 +40,7 @@ export function useFarmerWeather(opts: {
 
   const forceRefresh = useMutation({
     mutationFn: () => {
-      if (!farmerId || connectivity === "offline") {
+      if (!farmerId || connectivity !== "online") {
         throw new Error("weather_offline");
       }
       return getFarmerWeather(farmerId, connectivity, { forceRefresh: true });

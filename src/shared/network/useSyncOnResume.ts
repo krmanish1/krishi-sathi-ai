@@ -12,7 +12,7 @@ let lastSyncAt = 0;
 
 export function useSyncOnResume(): void {
   const connectivity = useConnectivity();
-  const isOnline = connectivity !== "offline";
+  const isOnline = connectivity === "online";
 
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {

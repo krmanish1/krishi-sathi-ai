@@ -1,5 +1,6 @@
 import * as FileSystem from "expo-file-system/legacy";
-import type { FileSystemDownloadResult } from "expo-file-system/legacy";
+import type { FileSystemDownloadResult, DownloadResumable } from "expo-file-system/legacy";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
 import { setModelReady } from "./modelState";
 import {
@@ -8,6 +9,8 @@ import {
   detectModelVariant,
   modelFilePath,
 } from "./localGemmaModelFile";
+
+const RESUME_STATE_KEY = (variant: ModelVariant) => `gemma-download-resume-${variant}`;
 
 export type DownloadProgress = { received: number; total: number };
 export { detectModelVariant, modelFilePath };
@@ -49,30 +52,47 @@ export async function downloadGemmaModel(
     return { variant: v, path: destPath };
   }
 
+  // Restore resume data string from a previous interrupted download.
+  const savedResumeData = await AsyncStorage.getItem(RESUME_STATE_KEY(v)).catch(() => null);
+
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
       reject(new Error("cancelled"));
       return;
     }
 
-    const downloadResumable = FileSystem.createDownloadResumable(
+    let downloadResumable: DownloadResumable;
+
+    const progressCallback = (downloadProgress: {
+      totalBytesWritten: number;
+      totalBytesExpectedToWrite: number;
+    }) => {
+      if (signal?.aborted) {
+        void downloadResumable.pauseAsync()
+          .then(() => {
+            const state = downloadResumable.savable();
+            const resumeData = state.resumeData;
+            if (resumeData) {
+              return AsyncStorage.setItem(RESUME_STATE_KEY(v), resumeData);
+            }
+          })
+          .catch(() => undefined);
+        reject(new Error("cancelled"));
+        return;
+      }
+      const { totalBytesWritten, totalBytesExpectedToWrite } = downloadProgress;
+      if (totalBytesExpectedToWrite > 0) {
+        onProgress({ received: totalBytesWritten, total: totalBytesExpectedToWrite });
+      }
+    };
+
+    // 5th arg is resumeData string — pass saved string directly (no JSON.parse needed).
+    downloadResumable = FileSystem.createDownloadResumable(
       url,
       destPath,
       {},
-      (downloadProgress: { totalBytesWritten: number; totalBytesExpectedToWrite: number }) => {
-        if (signal?.aborted) {
-          void downloadResumable.pauseAsync().catch(() => undefined);
-          reject(new Error("cancelled"));
-          return;
-        }
-        const { totalBytesWritten, totalBytesExpectedToWrite } = downloadProgress;
-        if (totalBytesExpectedToWrite > 0) {
-          onProgress({
-            received: totalBytesWritten,
-            total: totalBytesExpectedToWrite,
-          });
-        }
-      },
+      progressCallback,
+      savedResumeData ?? undefined,
     );
 
     void downloadResumable
@@ -86,10 +106,23 @@ export async function downloadGemmaModel(
           reject(new Error(`Download failed with status: ${result?.status ?? "unknown"}`));
           return;
         }
+        // Clear saved resume state — download complete.
+        void AsyncStorage.removeItem(RESUME_STATE_KEY(v)).catch(() => undefined);
         setModelReady(destPath);
         resolve({ variant: v, path: destPath });
       })
-      .catch(reject);
+      .catch(async (err: unknown) => {
+        // Save resume state so next attempt picks up from current byte offset.
+        try {
+          const state = downloadResumable.savable();
+          if (state.resumeData) {
+            await AsyncStorage.setItem(RESUME_STATE_KEY(v), state.resumeData);
+          }
+        } catch {
+          // ignore — next attempt restarts from 0
+        }
+        reject(err);
+      });
   });
 }
 

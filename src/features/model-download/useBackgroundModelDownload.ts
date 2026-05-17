@@ -1,7 +1,9 @@
 import { useCallback, useRef } from "react";
 import { useModelDownloadStore } from "./modelDownloadStore";
-import { downloadGemmaModel, detectModelVariant } from "@/shared/ondevice";
+import { downloadGemmaModel, detectModelVariant, setGemmaBackend, createNativeBackend } from "@/shared/ondevice";
+import { modelFilePath } from "@/shared/ondevice/localGemmaModelFile";
 import { setPreferOffline as syncPreferOfflineToRouting } from "@/shared/ondevice/modelState";
+import { isNativeGemmaModuleLinked } from "@/modules/gemma-llm/src";
 import {
   requestNotificationPermission,
   showProgressNotification,
@@ -50,6 +52,12 @@ export function useBackgroundModelDownload() {
       if (ctrl.signal.aborted) return;
       useModelDownloadStore.getState().setProgress(100);
       useModelDownloadStore.getState().setStatus("completed");
+      // Re-wire backend with the real on-disk path so the current session can use it.
+      // Boot may have created the backend with an empty path before download finished.
+      if (isNativeGemmaModuleLinked()) {
+        const path = modelFilePath(v);
+        setGemmaBackend(createNativeBackend(path));
+      }
       await showCompletionNotification();
     } catch {
       if (ctrl.signal.aborted) {

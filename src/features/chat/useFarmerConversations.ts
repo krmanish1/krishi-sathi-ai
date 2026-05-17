@@ -3,11 +3,11 @@ import { getFarmerConversations } from "@/shared/api";
 import type { Connectivity } from "@/shared/api/types";
 import { listLocalConversations, localConvToConversation } from "./localConversationsRepo";
 
-// Key uses isOnline boolean so "online"↔"degraded" bounce doesn't refetch.
+// Key uses isOnline boolean so cache key is stable while transitioning between online/degraded.
 export const FARMER_CONVERSATIONS_QUERY_KEY = (
   farmerId: string,
   connectivity: Connectivity,
-) => ["chat", "farmerConversations", farmerId, connectivity !== "offline"] as const;
+) => ["chat", "farmerConversations", farmerId, connectivity === "online"] as const;
 
 /**
  * Lists conversations for the farmer. When offline, reads from local SQLite;
@@ -26,7 +26,7 @@ export function useFarmerConversations(opts: {
         : (["chat", "farmerConversations", "disabled"] as const),
     queryFn: async () => {
       if (!farmerId) return [];
-      if (connectivity === "offline") {
+      if (connectivity !== "online") {
         const locals = await listLocalConversations(farmerId);
         return locals.map(localConvToConversation);
       }

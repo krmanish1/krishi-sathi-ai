@@ -11,7 +11,7 @@ export function SyncPushScheduler() {
   const farmerId = useFarmerId();
   const session = useSupabaseSession();
   const connectivity = useConnectivity();
-  const online = connectivity === "online" || connectivity === "degraded";
+  const online = connectivity === "online";
 
   useEffect(() => {
     if (!farmerId || !online) return;

@@ -9,9 +9,9 @@ import { CHAT_THREAD_QUERY_KEY } from "./useChatThread";
 import { MAIN_THREAD_ID } from "./chatMessagesRepo";
 import { getLocalConversation } from "./localConversationsRepo";
 
-/** "reachable" = online or degraded — both can hit the backend; only `offline` skips create. */
+/** "reachable" = confirmed online only — degraded (WiFi up, no internet) behaves like offline. */
 function connectivityLane(c: Connectivity): "offline" | "reachable" {
-  return c === "offline" ? "offline" : "reachable";
+  return c === "online" ? "reachable" : "offline";
 }
 
 /**
@@ -70,7 +70,10 @@ export function useConversation(opts: {
         // Wait briefly: startup fires "offline" before NetInfo resolves (~100ms).
         // If connectivity updates within 300ms the effect re-runs and this run is cancelled.
         await new Promise<void>((r) => setTimeout(r, 300));
-        if (cancelled || connectivityRef.current !== "offline") return;
+        if (cancelled) return;
+        // Re-check via the same lane function so "degraded" (WiFi up, no internet)
+        // is still treated as offline — not the raw connectivity string.
+        if (connectivityLane(connectivityRef.current) !== "offline") return;
         await ensureLocalConversation(farmerId);
         return;
       }

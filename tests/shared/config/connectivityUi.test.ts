@@ -15,24 +15,26 @@ describe("buildConnectivityUiConfig", () => {
     expect(c.newChatLoadingKey).toBe("sessionStarting");
     expect(c.showChatOfflineStrip).toBe(false);
     expect(c.showChatDegradedStrip).toBe(false);
-    expect(c.gradientPartnerHex).toBe("#168d40");
-    expect(c.homeExpertGradientHex[2]).toBe("#1ed760");
-    expect(c.chatInlineBannerTextHex).toBe("#fbbf24");
+    expect(c.gradientPartnerHex).toBe("#00684A");
+    expect(c.homeExpertGradientHex[2]).toBe("#00ED64");
+    expect(c.chatInlineBannerTextHex).toBe("#d97706");
     expect(c.weatherBadgeTextHex).toBe("#f59e0b");
-    expect(c.offlineSyncAlertIconHex).toBe("#f3727f");
+    expect(c.offlineSyncAlertIconHex).toBe("#DB3030");
   });
 
-  it("degraded keeps backend flags and shows degraded banner", () => {
+  it("degraded disables streaming/image/history and shows degraded banner", () => {
     const c = buildConnectivityUiConfig("degraded", { onDeviceModelReady: false });
     expect(c.mode).toBe("degraded");
     expect(c.backendReachable).toBe(true);
-    expect(c.enableImageAttach).toBe(true);
+    expect(c.enableStreamChat).toBe(false);
+    expect(c.enableImageAttach).toBe(false);
+    expect(c.enableChatHistoryRefresh).toBe(false);
     expect(c.showChatDegradedStrip).toBe(true);
     expect(c.chatModeBannerKey).toBe("modeBannerDegraded");
     expect(c.composerPlaceholderKey).toBe("placeholderDegraded");
     expect(c.gradientPartnerHex).toBe("#b45309");
     expect(c.homeExpertGradientHex[2]).toBe("#f59e0b");
-    expect(c.chatInlineBannerTextHex).toBe("#fbbf24");
+    expect(c.chatInlineBannerTextHex).toBe("#d97706");
     expect(c.weatherBadgeTextHex).toBe("#f59e0b");
   });
 
