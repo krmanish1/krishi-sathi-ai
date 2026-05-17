@@ -43,7 +43,7 @@ export function useFarmerTwin() {
 
   return useQuery({
     queryKey: TWIN_QUERY_KEY(farmerId),
-    enabled: !!farmerId && connectivity !== "offline",
+    enabled: !!farmerId,
     queryFn: async (): Promise<FarmerTwin> => {
       if (!farmerId) {
         throw new Error("no farmer");

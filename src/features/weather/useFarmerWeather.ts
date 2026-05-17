@@ -26,8 +26,9 @@ export function useFarmerWeather(opts: {
       if (!farmerId) throw new Error("no farmer");
       if (connectivity === "offline") {
         const cached = await getCachedWeather(farmerId);
-        if (cached) return cached;
-        throw new Error("no_cached_weather");
+        // No cache yet: return null so the hook stays in success state with no data
+        // rather than error state — UI degrades gracefully to "—" placeholders.
+        return cached ?? null;
       }
       const result = await getFarmerWeather(farmerId, connectivity, { forceRefresh: false, signal });
       void setCachedWeather(farmerId, result).catch(() => undefined);
@@ -52,7 +53,7 @@ export function useFarmerWeather(opts: {
   });
 
   const display = useMemo(
-    () => weatherDisplayFromReport(query.data, fallbackPlace),
+    () => weatherDisplayFromReport(query.data ?? undefined, fallbackPlace),
     [query.data, fallbackPlace],
   );
 
