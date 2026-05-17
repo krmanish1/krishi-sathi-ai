@@ -5,6 +5,7 @@ export type GenerateInput = {
   prompt: string;
   language: Language;
   intent: DeviceIntent;
+  onToken?: (token: string) => void;
 };
 
 export type GenerateOutput = { text: string; confidence: number; modelUsed: OnDeviceModel };
@@ -13,7 +14,12 @@ export type GemmaBackend = {
   generate: (i: GenerateInput) => Promise<GenerateOutput>;
   loadModel?: () => Promise<void>;
   cancel?: () => void;
-  generateWithImage?: (prompt: string, imageBase64: string, mimeType: string) => Promise<GenerateOutput>;
+  generateWithImage?: (
+    prompt: string,
+    imageBase64: string,
+    mimeType: string,
+    onToken?: (token: string) => void,
+  ) => Promise<GenerateOutput>;
   supportsVision?: boolean;
 };
 
