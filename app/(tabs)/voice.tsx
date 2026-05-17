@@ -32,9 +32,12 @@ export default function VoiceTab() {
     });
 
   // Start/stop only on tab focus/blur — not when start/stop callback identity changes.
+  // Assigning ref.current during render is the standard stale-closure workaround here.
   const startRef = useRef(start);
   const stopRef = useRef(stop);
+  // eslint-disable-next-line react-hooks/refs
   startRef.current = start;
+  // eslint-disable-next-line react-hooks/refs
   stopRef.current = stop;
 
   useFocusEffect(
