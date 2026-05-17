@@ -11,20 +11,30 @@ import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.Promise
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 
 class GemmaLlmModule : Module() {
     private var engine: Engine? = null
     private var conversation: com.google.ai.edge.litertlm.Conversation? = null
-    private var isCancelled = false
+    @Volatile private var isCancelled = false
+    private val moduleJob = SupervisorJob()
+    private val moduleScope = CoroutineScope(Dispatchers.IO + moduleJob)
 
     override fun definition() = ModuleDefinition {
         Name("GemmaLlm")
         Events("onToken")
 
+        OnDestroy {
+            moduleJob.cancel()
+            conversation?.close()
+            engine?.close()
+        }
+
         AsyncFunction("load") { modelPath: String, promise: Promise ->
-            CoroutineScope(Dispatchers.IO).launch {
+            moduleScope.launch {
                 try {
+                    conversation?.close()
                     engine?.close()
                     val config = EngineConfig(
                         modelPath = modelPath,
@@ -43,7 +53,7 @@ class GemmaLlmModule : Module() {
         }
 
         AsyncFunction("generate") { prompt: String, promise: Promise ->
-            CoroutineScope(Dispatchers.IO).launch {
+            moduleScope.launch {
                 try {
                     isCancelled = false
                     val conv = conversation
@@ -72,7 +82,7 @@ class GemmaLlmModule : Module() {
         }
 
         AsyncFunction("generateWithImage") { prompt: String, imageBase64: String, _mimeType: String, promise: Promise ->
-            CoroutineScope(Dispatchers.IO).launch {
+            moduleScope.launch {
                 try {
                     isCancelled = false
                     val conv = conversation
