@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
 import { getHealth } from "./endpoints";
 import { useConnectivity } from "@/shared/network";
 
@@ -14,46 +14,48 @@ export const useApiStatus = (): ApiStatus => useContext(ApiStatusContext);
 export const ApiStatusProvider = ({ children }: { children: React.ReactNode }) => {
   const [status, setStatus] = useState<ApiStatus>("unknown");
   const connectivity = useConnectivity();
-  const isOnline = connectivity !== "offline";
-  const s = useRef({ attempts: 0, cancelled: false, timer: null as ReturnType<typeof setTimeout> | null });
+  // Only ping when connectivity is confirmed online — degraded means reachability
+  // is unknown (isInternetReachable=null). Pinging then wastes a request that will
+  // almost certainly time out on a device in airplane mode.
+  const confirmed = connectivity === "online";
 
   useEffect(() => {
-    if (!isOnline) {
+    if (!confirmed) {
       setStatus("unknown");
       return;
     }
 
-    const ref = s.current;
-    ref.cancelled = false;
-    ref.attempts = 0;
+    // Local closure vars — not a shared ref — so cleanup of one effect run cannot
+    // accidentally clear the cancelled flag of the next run (shared-ref race).
+    let cancelled = false;
+    let attempts = 0;
+    let timer: ReturnType<typeof setTimeout> | null = null;
 
     const ping = async (): Promise<void> => {
       try {
         await getHealth();
-        if (!ref.cancelled) setStatus("warm");
+        if (!cancelled) setStatus("warm");
       } catch {
-        if (ref.cancelled) return;
-        ref.attempts += 1;
-        if (ref.attempts >= MAX_RETRIES) {
+        if (cancelled) return;
+        attempts += 1;
+        if (attempts >= MAX_RETRIES) {
           setStatus("down");
         } else {
           setStatus("cold");
-          ref.timer = setTimeout(() => { void ping(); }, RETRY_INTERVAL_MS);
+          timer = setTimeout(() => { void ping(); }, RETRY_INTERVAL_MS);
         }
       }
     };
 
-    // Brief delay so the first health check doesn’t race the same CDN slot as sync bundle / twin.
-    const kickoff = setTimeout(() => {
-      void ping();
-    }, 500);
+    // Brief delay so the first health check doesn't race the same CDN slot as sync bundle / twin.
+    const kickoff = setTimeout(() => { void ping(); }, 500);
 
     return () => {
-      ref.cancelled = true;
+      cancelled = true;
       clearTimeout(kickoff);
-      if (ref.timer) clearTimeout(ref.timer);
+      if (timer) clearTimeout(timer);
     };
-  }, [isOnline]);
+  }, [confirmed]);
 
   return (
     <ApiStatusContext.Provider value={status}>
