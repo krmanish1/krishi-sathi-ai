@@ -155,6 +155,29 @@ export const askAgent = async (
       );
       return { ...result, banner: "network_busy" };
     }
+    // Network unreachable (airplane mode / server down) but NetInfo still reports online.
+    // Fall back to on-device if model ready, otherwise bundle fallback.
+    const msg = e instanceof Error ? e.message : "";
+    const isNetworkError =
+      e instanceof TypeError &&
+      (msg.includes("Network request failed") || msg.includes("fetch failed") || msg.includes("UnknownHost"));
+    if (isNetworkError) {
+      if (isModelReady()) {
+        const result = await onDeviceAgent.run(
+          q,
+          {
+            district: ctx.location.district,
+            state: ctx.location.state,
+            ...(ctx.land !== undefined ? { land: ctx.land } : {}),
+            ...(ctx.hasAadhaar !== undefined ? { hasAadhaar: ctx.hasAadhaar } : {}),
+          },
+          q.signal,
+        );
+        return { ...result, banner: "network_busy" };
+      }
+      const bundle = await loadBundlePayload().catch(() => null);
+      return { ...offlineFallback(q, bundle ?? undefined), banner: "network_busy" };
+    }
     throw e;
   }
 };
