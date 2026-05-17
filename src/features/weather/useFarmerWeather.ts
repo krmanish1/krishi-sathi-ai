@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Connectivity } from "@/shared/api/types";
 import { getFarmerWeather } from "@/shared/api";
 import { weatherDisplayFromReport } from "./weatherDisplayFromReport";
+import { getCachedWeather, setCachedWeather } from "./weatherCache";
 
 export const FARMER_WEATHER_QUERY_KEY = (farmerId: string, connectivity: Connectivity) =>
   ["farmer", "weather", farmerId, connectivity] as const;
@@ -14,12 +15,21 @@ export function useFarmerWeather(opts: {
 }) {
   const { farmerId, connectivity, fallbackPlace } = opts;
   const qc = useQueryClient();
-  const enabled = !!farmerId && connectivity !== "offline";
 
   const query = useQuery({
     queryKey: farmerId ? FARMER_WEATHER_QUERY_KEY(farmerId, connectivity) : ["farmer", "weather", "disabled"],
-    queryFn: ({ signal }) => getFarmerWeather(farmerId!, connectivity, { forceRefresh: false, signal }),
-    enabled,
+    queryFn: async ({ signal }) => {
+      if (!farmerId) throw new Error("no farmer");
+      if (connectivity === "offline") {
+        const cached = await getCachedWeather(farmerId);
+        if (cached) return cached;
+        throw new Error("no_cached_weather");
+      }
+      const result = await getFarmerWeather(farmerId, connectivity, { forceRefresh: false, signal });
+      void setCachedWeather(farmerId, result).catch(() => undefined);
+      return result;
+    },
+    enabled: !!farmerId,
     staleTime: 5 * 60 * 1000,
   });
 

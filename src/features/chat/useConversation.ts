@@ -7,6 +7,7 @@ import { hydrateLocalThreadFromServerHistory } from "./hydrateConversationHistor
 import { FARMER_CONVERSATIONS_QUERY_KEY } from "./useFarmerConversations";
 import { CHAT_THREAD_QUERY_KEY } from "./useChatThread";
 import { MAIN_THREAD_ID } from "./chatMessagesRepo";
+import { getLocalConversation } from "./localConversationsRepo";
 
 /** "reachable" = online or degraded — both can hit the backend; only `offline` skips create. */
 function connectivityLane(c: Connectivity): "offline" | "reachable" {
@@ -35,6 +36,8 @@ export function useConversation(opts: {
 
   const qc = useQueryClient();
   const startConversation = useChatStore((s) => s.startConversation);
+  const ensureLocalConversation = useChatStore((s) => s.ensureLocalConversation);
+  const syncLocalConversation = useChatStore((s) => s.syncLocalConversation);
   const resumeConversation = useChatStore((s) => s.resumeConversation);
   const resetConversation = useChatStore((s) => s.resetConversation);
 
@@ -64,6 +67,7 @@ export function useConversation(opts: {
       }
 
       if (lane === "offline") {
+        await ensureLocalConversation(farmerId);
         return;
       }
 
@@ -84,6 +88,16 @@ export function useConversation(opts: {
 
       const currentId = useChatStore.getState().conversationId;
       if (currentId !== MAIN_THREAD_ID) {
+        // If this is a pending local conversation, sync it to the backend now that we're online
+        const pending = await getLocalConversation(currentId).catch(() => null);
+        if (pending && !pending.synced) {
+          await syncLocalConversation(farmerId, currentId, connectivityRef.current, ctrl.signal);
+          if (!cancelled && !ctrl.signal.aborted) {
+            await qc.invalidateQueries({
+              queryKey: FARMER_CONVERSATIONS_QUERY_KEY(farmerId, connectivityRef.current),
+            });
+          }
+        }
         return;
       }
 
@@ -101,5 +115,5 @@ export function useConversation(opts: {
       cancelled = true;
       ctrl.abort();
     };
-  }, [farmerId, lane, startConversation, resumeConversation, resetConversation, qc]);
+  }, [farmerId, lane, startConversation, ensureLocalConversation, syncLocalConversation, resumeConversation, resetConversation, qc]);
 }

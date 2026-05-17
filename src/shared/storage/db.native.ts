@@ -75,6 +75,21 @@ CREATE TRIGGER IF NOT EXISTS schemes_au AFTER UPDATE ON schemes BEGIN
 END;
 `;
 
+const MIGRATION_0003_LOCAL_STORE = `
+CREATE TABLE IF NOT EXISTS local_conversations (
+  id TEXT PRIMARY KEY,
+  farmer_id TEXT NOT NULL,
+  title TEXT NOT NULL DEFAULT 'Chat session',
+  created_at INTEGER NOT NULL,
+  synced INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS weather_cache (
+  farmer_id TEXT PRIMARY KEY,
+  payload TEXT NOT NULL,
+  fetched_at INTEGER NOT NULL
+);
+`;
+
 export const initDb = async (): Promise<AppDatabase> => {
   if (db) {
     return db;
@@ -85,6 +100,7 @@ export const initDb = async (): Promise<AppDatabase> => {
     const d = await SQLite.openDatabaseAsync("krishisaathi.db");
     await d.execAsync(MIGRATION_0001);
     await d.execAsync(MIGRATION_0002_OFFLINE);
+    await d.execAsync(MIGRATION_0003_LOCAL_STORE);
     try {
       await d.execAsync("ALTER TABLE chat_messages ADD COLUMN image_local_uri TEXT;");
     } catch {
