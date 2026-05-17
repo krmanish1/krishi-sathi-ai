@@ -15,6 +15,7 @@ export type AgentQuery = {
   imageMimeType?: string;
   intent: DeviceIntent;
   signal?: AbortSignal;
+  onToken?: (token: string) => void;
 };
 
 export type AgentContext = {
