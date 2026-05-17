@@ -15,17 +15,17 @@ describe("mapNetInfoToConnectivity", () => {
     expect(mapNetInfoToConnectivity({ isConnected: null, isInternetReachable: false })).toBeNull();
   });
 
-  it("returns degraded when connected but internet explicitly unreachable", () => {
+  it("returns degraded when connected but internet unreachable or not yet resolved", () => {
     expect(mapNetInfoToConnectivity({ isConnected: true, isInternetReachable: false })).toBe(
+      "degraded",
+    );
+    expect(mapNetInfoToConnectivity({ isConnected: true, isInternetReachable: null })).toBe(
       "degraded",
     );
   });
 
-  it("returns online when connected and internet reachable or unknown", () => {
+  it("returns online when connected and internet reachable", () => {
     expect(mapNetInfoToConnectivity({ isConnected: true, isInternetReachable: true })).toBe(
-      "online",
-    );
-    expect(mapNetInfoToConnectivity({ isConnected: true, isInternetReachable: null })).toBe(
       "online",
     );
   });

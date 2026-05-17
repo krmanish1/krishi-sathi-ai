@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import { getHealth } from "./endpoints";
+import { useConnectivity } from "@/shared/network";
 
 export type ApiStatus = "unknown" | "cold" | "warm" | "down";
 
@@ -12,9 +13,16 @@ export const useApiStatus = (): ApiStatus => useContext(ApiStatusContext);
 
 export const ApiStatusProvider = ({ children }: { children: React.ReactNode }) => {
   const [status, setStatus] = useState<ApiStatus>("unknown");
+  const connectivity = useConnectivity();
+  const isOnline = connectivity !== "offline";
   const s = useRef({ attempts: 0, cancelled: false, timer: null as ReturnType<typeof setTimeout> | null });
 
   useEffect(() => {
+    if (!isOnline) {
+      setStatus("unknown");
+      return;
+    }
+
     const ref = s.current;
     ref.cancelled = false;
     ref.attempts = 0;
@@ -45,7 +53,7 @@ export const ApiStatusProvider = ({ children }: { children: React.ReactNode }) =
       clearTimeout(kickoff);
       if (ref.timer) clearTimeout(ref.timer);
     };
-  }, []);
+  }, [isOnline]);
 
   return (
     <ApiStatusContext.Provider value={status}>
