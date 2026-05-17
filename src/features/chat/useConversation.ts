@@ -67,6 +67,10 @@ export function useConversation(opts: {
       }
 
       if (lane === "offline") {
+        // Wait briefly: startup fires "offline" before NetInfo resolves (~100ms).
+        // If connectivity updates within 300ms the effect re-runs and this run is cancelled.
+        await new Promise<void>((r) => setTimeout(r, 300));
+        if (cancelled || connectivityRef.current !== "offline") return;
         await ensureLocalConversation(farmerId);
         return;
       }

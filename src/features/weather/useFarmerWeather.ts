@@ -5,8 +5,10 @@ import { getFarmerWeather } from "@/shared/api";
 import { weatherDisplayFromReport } from "./weatherDisplayFromReport";
 import { getCachedWeather, setCachedWeather } from "./weatherCache";
 
-export const FARMER_WEATHER_QUERY_KEY = (farmerId: string, connectivity: Connectivity) =>
-  ["farmer", "weather", farmerId, connectivity] as const;
+// Key uses isOnline boolean — "online" and "degraded" share one key so NetInfo bouncing
+// between them doesn't trigger a new fetch. offline→online transition creates a new key.
+export const FARMER_WEATHER_QUERY_KEY = (farmerId: string, isOnline: boolean) =>
+  ["farmer", "weather", farmerId, isOnline] as const;
 
 export function useFarmerWeather(opts: {
   farmerId: string | null | undefined;
@@ -16,8 +18,10 @@ export function useFarmerWeather(opts: {
   const { farmerId, connectivity, fallbackPlace } = opts;
   const qc = useQueryClient();
 
+  const isOnline = connectivity !== "offline";
+
   const query = useQuery({
-    queryKey: farmerId ? FARMER_WEATHER_QUERY_KEY(farmerId, connectivity) : ["farmer", "weather", "disabled"],
+    queryKey: farmerId ? FARMER_WEATHER_QUERY_KEY(farmerId, isOnline) : ["farmer", "weather", "disabled"],
     queryFn: async ({ signal }) => {
       if (!farmerId) throw new Error("no farmer");
       if (connectivity === "offline") {
@@ -42,7 +46,7 @@ export function useFarmerWeather(opts: {
     },
     onSuccess: (data) => {
       if (farmerId) {
-        qc.setQueryData(FARMER_WEATHER_QUERY_KEY(farmerId, connectivity), data);
+        qc.setQueryData(FARMER_WEATHER_QUERY_KEY(farmerId, true), data);
       }
     },
   });

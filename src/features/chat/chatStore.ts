@@ -82,10 +82,23 @@ export const useChatStore = create<ChatStore>((set) => ({
     } catch (e) {
       if (signal.aborted) return;
       const msg = e instanceof Error ? e.message : "Failed to start chat session";
-      set({
-        conversationId: MAIN_THREAD_ID,
-        conversationError: msg,
-      });
+      // Network unreachable: fall back to local conversation so the effect doesn't retry.
+      // useConversation will sync it to the backend once connectivity returns.
+      const isNetworkError =
+        e instanceof TypeError &&
+        (msg.includes("Network request failed") ||
+          msg.includes("fetch failed") ||
+          msg.includes("UnknownHost"));
+      if (isNetworkError) {
+        try {
+          const conv = await createLocalConversation(farmerId);
+          set({ conversationId: conv.id, conversationError: null });
+          return;
+        } catch {
+          // DB write failed — fall through to MAIN_THREAD_ID
+        }
+      }
+      set({ conversationId: MAIN_THREAD_ID, conversationError: msg });
     } finally {
       pendingConversationCreates -= 1;
       if (pendingConversationCreates <= 0) {
