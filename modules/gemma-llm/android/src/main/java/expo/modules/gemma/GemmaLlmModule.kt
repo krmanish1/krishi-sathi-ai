@@ -12,11 +12,13 @@ import expo.modules.kotlin.Promise
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
 class GemmaLlmModule : Module() {
     private var engine: Engine? = null
-    private var conversation: com.google.ai.edge.litertlm.Conversation? = null
+    @Volatile private var conversation: com.google.ai.edge.litertlm.Conversation? = null
     @Volatile private var isCancelled = false
     private val moduleJob = SupervisorJob()
     private val moduleScope = CoroutineScope(Dispatchers.IO + moduleJob)
@@ -62,18 +64,23 @@ class GemmaLlmModule : Module() {
                         return@launch
                     }
                     val sb = StringBuilder()
-                    conv.sendMessageAsync(Contents.of(Content.Text(prompt)))
-                        .collect { message ->
-                            if (isCancelled) return@collect
-                            val token = message.toString()
-                            sb.append(token)
-                            sendEvent("onToken", mapOf("token" to token, "done" to false))
+                    try {
+                        withTimeout(60_000L) {
+                            conv.sendMessageAsync(Contents.of(Content.Text(prompt)))
+                                .collect { message ->
+                                    if (isCancelled) return@collect
+                                    val token = message.toString()
+                                    sb.append(token)
+                                    sendEvent("onToken", mapOf("token" to token, "done" to false))
+                                }
                         }
-                    sendEvent("onToken", mapOf("token" to "", "done" to true))
+                    } finally {
+                        sendEvent("onToken", mapOf("token" to "", "done" to true))
+                    }
                     promise.resolve(sb.toString())
                 } catch (ex: Exception) {
-                    if (isCancelled) {
-                        promise.resolve("")
+                    if (isCancelled || ex is TimeoutCancellationException) {
+                        promise.resolve(sb.toString())
                     } else {
                         promise.reject("GENERATE_FAILED", ex.message ?: "Generation failed", ex)
                     }
@@ -92,23 +99,28 @@ class GemmaLlmModule : Module() {
                     }
                     val imageBytes = Base64.decode(imageBase64, Base64.DEFAULT)
                     val sb = StringBuilder()
-                    conv.sendMessageAsync(
-                        Contents.of(
-                            Content.ImageBytes(imageBytes),
-                            Content.Text(prompt),
-                        )
-                    )
-                        .collect { message ->
-                            if (isCancelled) return@collect
-                            val token = message.toString()
-                            sb.append(token)
-                            sendEvent("onToken", mapOf("token" to token, "done" to false))
+                    try {
+                        withTimeout(60_000L) {
+                            conv.sendMessageAsync(
+                                Contents.of(
+                                    Content.ImageBytes(imageBytes),
+                                    Content.Text(prompt),
+                                )
+                            )
+                                .collect { message ->
+                                    if (isCancelled) return@collect
+                                    val token = message.toString()
+                                    sb.append(token)
+                                    sendEvent("onToken", mapOf("token" to token, "done" to false))
+                                }
                         }
-                    sendEvent("onToken", mapOf("token" to "", "done" to true))
+                    } finally {
+                        sendEvent("onToken", mapOf("token" to "", "done" to true))
+                    }
                     promise.resolve(sb.toString())
                 } catch (ex: Exception) {
-                    if (isCancelled) {
-                        promise.resolve("")
+                    if (isCancelled || ex is TimeoutCancellationException) {
+                        promise.resolve(sb.toString())
                     } else {
                         promise.reject("GENERATE_FAILED", ex.message ?: "Generation failed", ex)
                     }

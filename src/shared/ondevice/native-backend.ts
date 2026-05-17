@@ -16,7 +16,7 @@ export function createNativeBackend(modelPath: string): GemmaBackend {
   let ready = false;
 
   const backend: GemmaBackend = {
-    supportsVision: false,
+    supportsVision: true,
 
     loadModel: async () => {
       if (!isNativeGemmaModuleLinked()) {
@@ -25,7 +25,6 @@ export function createNativeBackend(modelPath: string): GemmaBackend {
       if (!ready) {
         await loadModel(modelPath);
         ready = true;
-        backend.supportsVision = true;
       }
     },
 
@@ -40,7 +39,6 @@ export function createNativeBackend(modelPath: string): GemmaBackend {
       if (!ready) {
         await loadModel(modelPath);
         ready = true;
-        backend.supportsVision = true;
       }
       const sub = onToken
         ? addTokenListener((token, done) => {
@@ -71,7 +69,6 @@ export function createNativeBackend(modelPath: string): GemmaBackend {
       if (!ready) {
         await loadModel(modelPath);
         ready = true;
-        backend.supportsVision = true;
       }
       const sub = onToken
         ? addTokenListener((token, done) => {
