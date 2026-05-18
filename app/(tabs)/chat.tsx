@@ -648,7 +648,6 @@ export default function ChatScreen() {
   const [voiceMode, setVoiceMode] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const prevListeningRef = useRef(false);
-  const lastMsgRef = useRef<string | null>(null);
   const listRef = useRef<FlatList<ChatMessageRow>>(null);
   const userScrolledUpRef = useRef(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -784,7 +783,7 @@ export default function ChatScreen() {
       userScrolledUpRef.current = false;
       setShowScrollToBottom(false);
       const trimmed = text.trim();
-      if (ui.backendReachable) {
+      if (ui.enableStreamChat) {
         void stream
           .send(
             trimmed,
@@ -811,7 +810,7 @@ export default function ChatScreen() {
       };
       void send.mutateAsync(payload).catch(() => undefined);
     },
-    [farmerId, language, state, district, lat, lng, connectivity, conversationId, send, stream, ui.backendReachable],
+    [farmerId, language, state, district, lat, lng, connectivity, conversationId, send, stream, ui.enableStreamChat],
   );
 
   const onSend = useCallback(async () => {
@@ -839,11 +838,17 @@ export default function ChatScreen() {
       attachment.clearImage();
     }
 
-    if (!hasImage && ui.backendReachable) {
-      void stream.send(text).catch(() => undefined);
+    if (ui.backendReachable) {
+      void stream
+        .send(text, {
+          ...(imageRef ? { imageRef } : {}),
+          ...(localUri ? { imageLocalUri: localUri } : {}),
+        })
+        .catch(() => undefined);
       return;
     }
 
+    // Offline / prefer-offline text-only path (images already blocked above).
     const payload: SendQueryInput = {
       text,
       farmerId,
@@ -854,8 +859,6 @@ export default function ChatScreen() {
       ...(lng !== undefined ? { lng } : {}),
       connectivity,
       conversationId,
-      ...(imageRef ? { imageRef } : {}),
-      ...(localUri ? { imageLocalUri: localUri } : {}),
     };
     void send.mutateAsync(payload).catch(() => undefined);
   }, [attachment, draft, farmerId, language, state, district, lat, lng, connectivity, conversationId, send, stream, ui.backendReachable, t]);
@@ -864,15 +867,10 @@ export default function ChatScreen() {
     if (send.isPending) {
       abortControllerRef.current?.abort();
       abortControllerRef.current = null;
-      if (voice.speaking) voice.cancelSpeech();
       return;
     }
     if (voice.listening) {
       await voice.stopListening();
-      return;
-    }
-    if (voice.speaking) {
-      voice.cancelSpeech();
       return;
     }
     setVoiceMode(true);
@@ -889,17 +887,6 @@ export default function ChatScreen() {
     }
     prevListeningRef.current = voice.listening;
   }, [voice.listening, voiceMode, draft, sendPayload]);
-
-  // Auto-TTS on new assistant messages when in voice mode
-  useEffect(() => {
-    if (!voiceMode || voice.speaking) return;
-    const last = messages[messages.length - 1];
-    const text = typeof last?.text === "string" ? last.text.trim() : "";
-    if (last?.role === "assistant" && text.length > 0 && last.id !== lastMsgRef.current) {
-      lastMsgRef.current = last.id;
-      void voice.speak(text, i18n.language === "hi" ? "hi" : "en");
-    }
-  }, [messages, voiceMode, voice, i18n.language]);
 
   const isBusy = send.isPending || stream.isStreaming || attachment.isUploading || isCreating;
   const canSend = (!!draft.trim() || !!attachment.pickedUri) && !isBusy;
@@ -1300,7 +1287,7 @@ export default function ChatScreen() {
           {/* FAB — mic when idle, send when text/image ready */}
           <Pressable
             accessibilityRole="button"
-            accessibilityState={!canSend ? { selected: voice.listening || voice.speaking } : undefined}
+            accessibilityState={!canSend ? { selected: voice.listening } : undefined}
             onPress={() => {
               if (canSend) { void onSend(); }
               else { void handleMicPress(); }
@@ -1310,7 +1297,7 @@ export default function ChatScreen() {
               width: 52,
               height: 52,
               borderRadius: 26,
-              backgroundColor: voice.listening ? "#ffa42b" : voice.speaking ? "#a78bfa" : "#1B3A28",
+              backgroundColor: voice.listening ? "#ffa42b" : "#1B3A28",
               alignItems: "center",
               justifyContent: "center",
               shadowColor: "#000000",
@@ -1328,7 +1315,7 @@ export default function ChatScreen() {
               <MaterialCommunityIcons name="send" size={22} color="#FFFFFF" style={{ marginLeft: 2 }} />
             ) : (
               <MaterialCommunityIcons
-                name={voice.speaking ? "volume-high" : voice.listening ? "microphone" : "microphone-outline"}
+                name={voice.listening ? "microphone" : "microphone-outline"}
                 size={22}
                 color="#FFFFFF"
               />

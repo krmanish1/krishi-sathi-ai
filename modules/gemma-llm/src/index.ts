@@ -1,10 +1,13 @@
 import { requireNativeModule } from "expo-modules-core";
+import type { EventSubscription } from "expo-modules-core";
 
 type NativeGemma = {
   load: (modelPath: string) => Promise<boolean>;
   generate: (prompt: string) => Promise<string>;
   generateWithImage: (prompt: string, imageBase64: string, mimeType: string) => Promise<string>;
   cancel: () => void;
+  addListener?: (eventName: string, listener: (event: unknown) => void) => EventSubscription;
+  removeListeners?: (count: number) => void;
 };
 
 let native: NativeGemma | null = null;
@@ -20,9 +23,7 @@ export function isNativeGemmaModuleLinked(): boolean {
 
 export const loadModel = (modelPath: string): Promise<boolean> => {
   if (!native) {
-    return Promise.reject(
-      new Error("GemmaLlm native module not linked; run prebuild."),
-    );
+    return Promise.reject(new Error("GemmaLlm native module not linked; run prebuild."));
   }
   return native.load(modelPath);
 };
@@ -48,3 +49,15 @@ export const generateTextWithImage = (
 export const cancelGeneration = (): void => {
   native?.cancel();
 };
+
+export function addTokenListener(
+  cb: (token: string, done: boolean) => void,
+): EventSubscription {
+  if (!native?.addListener) {
+    return { remove: () => {} };
+  }
+  return native.addListener("onToken", (event: unknown) => {
+    const { token, done } = event as { token: string; done: boolean };
+    cb(token, done);
+  });
+}

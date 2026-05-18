@@ -29,15 +29,29 @@ export const postQuery = async (req: QueryRequest, signal?: AbortSignal): Promis
   const bodyStr = JSON.stringify(req);
   const { logApiStart, logApiEndOk, logApiEndErr } = await import("./requestLog");
   logApiStart("POST", url, bodyStr);
+
+  // Merge caller signal with a 5s connection timeout so DNS failures (airplane mode)
+  // surface quickly instead of hanging for the OS default (~10s).
+  const timeoutAc = new AbortController();
+  const timeoutId = setTimeout(() => timeoutAc.abort(), 5_000);
+  const mergedAc = new AbortController();
+  const abortMerged = () => mergedAc.abort();
+  timeoutAc.signal.addEventListener("abort", abortMerged);
+  signal?.addEventListener("abort", abortMerged);
+  if (signal?.aborted) mergedAc.abort();
+  const mergedSignal = mergedAc.signal;
+
   let res: Response;
   try {
     res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: bodyStr,
-      ...(signal ? { signal } : {}),
+      signal: mergedSignal,
     });
+    clearTimeout(timeoutId); // connection established — disable timeout
   } catch (err) {
+    clearTimeout(timeoutId);
     logApiEndErr("POST", url, Date.now() - t0, err);
     throw err;
   }
@@ -324,8 +338,9 @@ export const getMandiPricesFromGov = async (params: {
     limit: String(params.limit ?? 100),
     offset: String(params.offset ?? 0),
   });
-  // API requires lowercase values; state uses `.keyword` suffix, district does not
-  if (params.state) q.set("filters[state.keyword]", params.state.toLowerCase());
+  // state.keyword is case-sensitive — send as-is (Title Case from dataset)
+  // district filter is case-insensitive — lowercase works
+  if (params.state) q.set("filters[state.keyword]", params.state);
   if (params.district) q.set("filters[district]", params.district.toLowerCase());
 
   const url = `${DATA_GOV_MANDI_URL}?${q.toString()}`;

@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useRouter } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { VoiceScreen } from "@/features/voice/components/VoiceScreen";
 import { useVoiceSession } from "@/features/voice";
 import { useFarmerId } from "@/shared/auth";
@@ -22,7 +23,7 @@ export default function VoiceTab() {
 
   const [sessionLanguage] = useState<Language>(defaultLang);
 
-  const { phase, agentJoined, muted, speakerOn, audioTracks, start, stop, toggleMute, toggleSpeaker } =
+  const { phase, agentJoined, muted, speakerOn, audioTracks, start, stop, toggleMute, toggleSpeaker, stopping } =
     useVoiceSession({
       farmerId,
       language: sessionLanguage,
@@ -30,14 +31,23 @@ export default function VoiceTab() {
       district: district ?? "",
     });
 
-  // Auto-start when the voice tab is entered
-  useEffect(() => {
-    void start();
-    return () => {
-      void stop();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Start/stop only on tab focus/blur — not when start/stop callback identity changes.
+  // Assigning ref.current during render is the standard stale-closure workaround here.
+  const startRef = useRef(start);
+  const stopRef = useRef(stop);
+  // eslint-disable-next-line react-hooks/refs
+  startRef.current = start;
+  // eslint-disable-next-line react-hooks/refs
+  stopRef.current = stop;
+
+  useFocusEffect(
+    useCallback(() => {
+      void startRef.current();
+      return () => {
+        void stopRef.current();
+      };
+    }, []),
+  );
 
   const handleEndSession = useCallback(async () => {
     await stop();
@@ -51,10 +61,12 @@ export default function VoiceTab() {
       muted={muted}
       audioTracks={audioTracks}
       language={sessionLanguage}
+      onStart={start}
       onStop={handleEndSession}
       onToggleMute={toggleMute}
       speakerOn={speakerOn}
       onToggleSpeaker={toggleSpeaker}
+      stopping={stopping}
     />
   );
 }

@@ -62,7 +62,7 @@ function SyncOnResumeEffect(): null {
 
 const queryClient = new QueryClient({
   defaultOptions: {
-    queries: { retry: 1, staleTime: 30_000 },
+    queries: { retry: 0, staleTime: 30_000 },
     mutations: { retry: 0 },
   },
 });
@@ -93,10 +93,12 @@ export const RootProviders = ({ children }: { children: ReactNode }) => {
         await checkLocalGemmaModelOnDisk().catch(() => undefined);
 
         const useNative = Constants.expoConfig?.extra?.useNativeGemma === "1";
-        const modelPath = getModelPath() || String(
-          Constants.expoConfig?.extra?.nativeGemmaModelPath ??
-            "/data/local/tmp/gemma-4-e4b-it.task",
-        );
+        // Priority: (1) path detected on disk at boot, (2) explicit env var, (3) adb push default.
+        // Use || not ?? so empty string falls through to the next option.
+        const modelPath =
+          getModelPath() ||
+          (Constants.expoConfig?.extra?.nativeGemmaModelPath as string | undefined) ||
+          "/data/local/tmp/gemma-4-e4b-it.task";
         if (useNative && isNativeGemmaModuleLinked()) {
           setGemmaBackend(createNativeBackend(modelPath));
           try {
@@ -106,6 +108,11 @@ export const RootProviders = ({ children }: { children: ReactNode }) => {
           }
         } else {
           setGemmaBackend(mockGemmaBackend);
+          // In dev builds without native module, mark model ready so offline routing
+          // exercises the full onDeviceAgent path with mock responses.
+          if (__DEV__) {
+            try { setModelReady("mock"); } catch { /* ignore */ }
+          }
         }
       } finally {
         if (!cancelled) {

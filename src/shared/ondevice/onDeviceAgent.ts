@@ -47,6 +47,7 @@ function mergeSignals(outer?: AbortSignal, inner?: AbortSignal): AbortSignal {
 async function callGemmaWithTimeout(
   prompt: string,
   signal?: AbortSignal,
+  onToken?: (token: string) => void,
 ): Promise<string> {
   const backend = getBackend();
   if (!backend) throw new Error("Gemma backend not set");
@@ -61,6 +62,7 @@ async function callGemmaWithTimeout(
       prompt,
       language: "hi",
       intent: "general",
+      ...(onToken !== undefined ? { onToken } : {}),
     });
     if (merged.aborted) throw new DOMException("Aborted", "AbortError");
     return result.text;
@@ -137,6 +139,7 @@ async function dispatchTool(
           "Analyze this crop image for diseases or problems. Describe what you see.",
           query.imageBase64,
           query.imageMimeType ?? "image/jpeg",
+          query.onToken,
         )
         .catch((e: unknown) => ({
           text: String(e),
@@ -208,7 +211,7 @@ Write a helpful response:`;
 
     let finalText: string;
     try {
-      finalText = await callGemmaWithTimeout(synthPrompt, signal);
+      finalText = await callGemmaWithTimeout(synthPrompt, signal, query.onToken);
     } catch (e) {
       if (signal?.aborted) throw e;
       // Timeout — return tool results as fallback

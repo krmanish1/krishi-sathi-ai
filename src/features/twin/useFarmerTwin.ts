@@ -49,7 +49,7 @@ export function useFarmerTwin() {
         throw new Error("no farmer");
       }
 
-      if (connectivity === "offline") {
+      if (connectivity !== "online") {
         const c = await getCachedTwin(farmerId);
         if (c) return c;
         return {

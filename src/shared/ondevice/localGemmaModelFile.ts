@@ -10,6 +10,13 @@ const MODEL_FILENAMES: Record<ModelVariant, string> = {
 };
 const GB4_IN_BYTES = 4 * 1024 * 1024 * 1024;
 
+// Conservative minimums — a valid model file cannot be smaller than this.
+// E4B ~4 GB task file, E2B ~2 GB task file.
+const MINIMUM_VALID_SIZE_BYTES: Record<ModelVariant, number> = {
+  e4b: 1.5 * 1024 * 1024 * 1024, // 1.5 GB
+  e2b: 0.8 * 1024 * 1024 * 1024, // 0.8 GB
+};
+
 function getModelDir(): string {
   return FileSystem.documentDirectory ?? "";
 }
@@ -40,9 +47,14 @@ export async function checkLocalGemmaModelOnDisk(
   const path = modelFilePath(v);
   try {
     const info = await FileSystem.getInfoAsync(path);
-    if (info.exists) {
+    const size = (info as { size?: number }).size ?? 0;
+    if (info.exists && size >= MINIMUM_VALID_SIZE_BYTES[v]) {
       setModelReady(path);
       return { exists: true, variant: v, path };
+    }
+    // Partial file — delete it so next download starts clean (no stale bytes).
+    if (info.exists && size > 0) {
+      await FileSystem.deleteAsync(path, { idempotent: true }).catch(() => undefined);
     }
   } catch {
     // ignore

@@ -2,9 +2,17 @@ import { create } from "zustand";
 import { postConversation } from "@/shared/api";
 import type { Connectivity } from "@/shared/api/types";
 import { MAIN_THREAD_ID } from "./chatMessagesRepo";
+import {
+  createLocalConversation,
+  getLocalConversation,
+  markConversationSynced,
+} from "./localConversationsRepo";
 
 /** Tracks overlapping POST /conversation calls so `finally` only clears the spinner when the last one ends. */
 let pendingConversationCreates = 0;
+
+/** IDs already attempted this session — prevents re-syncing the same local conv on every focus. */
+const syncAttempted = new Set<string>();
 
 type ChatState = {
   /** Backend conversation UUID, or MAIN_THREAD_ID when offline / creation failed. */
@@ -26,6 +34,21 @@ type ChatActions = {
    */
   startConversation: (
     farmerId: string,
+    connectivity: Connectivity,
+    signal: AbortSignal,
+  ) => Promise<void>;
+  /**
+   * Create a local conversation in SQLite when offline.
+   * No-op if a conversation is already active.
+   */
+  ensureLocalConversation: (farmerId: string) => Promise<void>;
+  /**
+   * Sync a pending local conversation to the backend once back online.
+   * Migrates chat_messages to the backend UUID if it differs from the local one.
+   */
+  syncLocalConversation: (
+    farmerId: string,
+    localId: string,
     connectivity: Connectivity,
     signal: AbortSignal,
   ) => Promise<void>;
@@ -62,16 +85,63 @@ export const useChatStore = create<ChatStore>((set) => ({
     } catch (e) {
       if (signal.aborted) return;
       const msg = e instanceof Error ? e.message : "Failed to start chat session";
-      set({
-        conversationId: MAIN_THREAD_ID,
-        conversationError: msg,
-      });
+      // Network unreachable: fall back to local conversation so the effect doesn't retry.
+      // useConversation will sync it to the backend once connectivity returns.
+      const isNetworkError =
+        e instanceof Error &&
+        (msg.includes("Network request failed") ||
+          msg.includes("fetch failed") ||
+          msg.includes("UnknownHost"));
+      if (isNetworkError) {
+        try {
+          const conv = await createLocalConversation(farmerId);
+          set({ conversationId: conv.id, conversationError: null });
+          return;
+        } catch {
+          // DB write failed — fall through to MAIN_THREAD_ID
+        }
+      }
+      set({ conversationId: MAIN_THREAD_ID, conversationError: msg });
     } finally {
       pendingConversationCreates -= 1;
       if (pendingConversationCreates <= 0) {
         pendingConversationCreates = 0;
         set({ isCreatingConversation: false });
       }
+    }
+  },
+
+  ensureLocalConversation: async (farmerId) => {
+    const { conversationId } = useChatStore.getState();
+    if (conversationId !== MAIN_THREAD_ID) return;
+    set({ isCreatingConversation: true, conversationError: null });
+    try {
+      const conv = await createLocalConversation(farmerId);
+      set({ conversationId: conv.id, isCreatingConversation: false });
+    } catch {
+      set({ isCreatingConversation: false });
+    }
+  },
+
+  syncLocalConversation: async (farmerId, localId, connectivity, signal) => {
+    if (syncAttempted.has(localId)) return;
+    syncAttempted.add(localId);
+    const pending = await getLocalConversation(localId).catch(() => null);
+    if (!pending || pending.synced) return;
+    try {
+      const conv = await postConversation(
+        { farmerId, title: pending.title },
+        connectivity,
+        signal,
+      );
+      if (signal.aborted) return;
+      const backendId = conv.conversation_id;
+      await markConversationSynced(localId, backendId);
+      if (backendId !== localId) {
+        set({ conversationId: backendId });
+      }
+    } catch {
+      // Non-fatal: keep using local ID until next reconnect
     }
   },
 
@@ -85,6 +155,7 @@ export const useChatStore = create<ChatStore>((set) => ({
   },
 
   resetConversation: () => {
+    syncAttempted.clear();
     set({
       conversationId: MAIN_THREAD_ID,
       isCreatingConversation: false,

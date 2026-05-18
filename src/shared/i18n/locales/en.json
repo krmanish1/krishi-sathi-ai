@@ -408,6 +408,11 @@
     "settingsSection": "Offline Model",
     "settingsDownloadBtn": "Download Offline Model",
     "settingsStatus": "✓ Offline model ready",
-    "preferOfflineLabel": "Prefer offline mode when available"
+    "preferOfflineLabel": "Prefer offline mode when available",
+    "consentTitle": "Download AI model?",
+    "consentBody": "KrishiSaathi AI will save an offline model to your device. This enables AI features without internet — no data charges once downloaded.",
+    "consentStorage": "Storage required: approximately 1–2 GB",
+    "consentConfirm": "Download",
+    "consentDecline": "Not Now"
   }
 }

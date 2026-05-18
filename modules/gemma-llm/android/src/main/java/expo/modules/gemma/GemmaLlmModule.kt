@@ -1,87 +1,141 @@
 package expo.modules.gemma
 
-import com.google.mediapipe.tasks.genai.llminference.LlmInference
+import android.util.Base64
+import com.google.ai.edge.litertlm.Backend
+import com.google.ai.edge.litertlm.Content
+import com.google.ai.edge.litertlm.Contents
+import com.google.ai.edge.litertlm.Engine
+import com.google.ai.edge.litertlm.EngineConfig
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.Promise
-import java.io.File
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeout
 
 class GemmaLlmModule : Module() {
-  private var llmInference: LlmInference? = null
-  private var cancelled = false
-  private val GENERATE_TIMEOUT_MS = 60_000L
+    private var engine: Engine? = null
+    @Volatile private var conversation: com.google.ai.edge.litertlm.Conversation? = null
+    @Volatile private var isCancelled = false
+    private val moduleJob = SupervisorJob()
+    private val moduleScope = CoroutineScope(Dispatchers.IO + moduleJob)
 
-  override fun definition() = ModuleDefinition {
-    Name("GemmaLlm")
+    override fun definition() = ModuleDefinition {
+        Name("GemmaLlm")
+        Events("onToken")
 
-    AsyncFunction("load") { modelPath: String, promise: Promise ->
-      CoroutineScope(Dispatchers.IO).launch {
-        try {
-          val file = File(modelPath)
-          if (!file.exists()) {
-            promise.reject("FILE_NOT_FOUND", "Model file not found at: $modelPath", null)
-            return@launch
-          }
-          val options = LlmInference.LlmInferenceOptions.builder()
-            .setModelPath(modelPath)
-            .setMaxTokens(1024)
-            .setTopK(40)
-            .setTemperature(0.7f)
-            .setRandomSeed(0)
-            .build()
-          llmInference?.close()
-          llmInference = LlmInference.createFromOptions(appContext.reactContext!!, options)
-          promise.resolve(true)
-        } catch (e: Exception) {
-          promise.reject("LOAD_ERROR", e.message ?: "Failed to load model", e)
+        OnDestroy {
+            moduleJob.cancel()
+            conversation?.close()
+            engine?.close()
         }
-      }
-    }
 
-    AsyncFunction("generate") { prompt: String, promise: Promise ->
-      CoroutineScope(Dispatchers.IO).launch {
-        try {
-          val inference = llmInference
-          if (inference == null) {
-            promise.reject("NOT_LOADED", "Model not loaded. Call load() first.", null)
-            return@launch
-          }
-
-          // NEW MediaPipe API (non-streaming)
-          val result = inference.generateResponse(prompt)
-
-          promise.resolve(result)
-
-        } catch (e: Exception) {
-          promise.reject("GENERATE_ERROR", e.message ?: "Generation failed", e)
+        AsyncFunction("load") { modelPath: String, promise: Promise ->
+            moduleScope.launch {
+                try {
+                    conversation?.close()
+                    engine?.close()
+                    val config = EngineConfig(
+                        modelPath = modelPath,
+                        backend = Backend.CPU(),
+                        visionBackend = Backend.CPU(),
+                    )
+                    val e = Engine(config)
+                    e.initialize()
+                    conversation = e.createConversation()
+                    engine = e
+                    promise.resolve(true)
+                } catch (ex: Exception) {
+                    promise.reject("LOAD_FAILED", ex.message ?: "Failed to load model", ex)
+                }
+            }
         }
-      }
-    }
 
-    AsyncFunction("generateWithImage") { prompt: String, imageBase64: String, mimeType: String, promise: Promise ->
-      CoroutineScope(Dispatchers.IO).launch {
-        try {
-          val inference = llmInference
-          if (inference == null) {
-            promise.reject("NOT_LOADED", "Model not loaded. Call load() first.", null)
-            return@launch
-          }
-          // This module currently supports text-only generation.
-          // Keep this method for API compatibility, but reject so callers can fall back.
-          promise.reject("VISION_UNSUPPORTED", "Vision/multimodal generation is not supported in this build", null)
-        } catch (e: Exception) {
-          promise.reject("GENERATE_IMAGE_ERROR", e.message ?: "Image generation failed", e)
+        AsyncFunction("generate") { prompt: String, promise: Promise ->
+            moduleScope.launch {
+                val sb = StringBuilder()
+                try {
+                    isCancelled = false
+                    val conv = conversation
+                    if (conv == null) {
+                        promise.reject("NOT_LOADED", "Model not loaded. Call load() first.", null)
+                        return@launch
+                    }
+                    try {
+                        withTimeout(60_000L) {
+                            conv.sendMessageAsync(Contents.of(Content.Text(prompt)))
+                                .collect { message ->
+                                    if (isCancelled) return@collect
+                                    val token = message.toString()
+                                    sb.append(token)
+                                    sendEvent("onToken", mapOf("token" to token, "done" to false))
+                                }
+                        }
+                    } finally {
+                        sendEvent("onToken", mapOf("token" to "", "done" to true))
+                    }
+                    promise.resolve(sb.toString())
+                } catch (ex: Exception) {
+                    if (isCancelled || ex is TimeoutCancellationException) {
+                        promise.resolve(sb.toString())
+                    } else {
+                        promise.reject("GENERATE_FAILED", ex.message ?: "Generation failed", ex)
+                    }
+                }
+            }
         }
-      }
-    }
 
-    Function("cancel") {
-      cancelled = true
-    }
+        AsyncFunction("generateWithImage") { prompt: String, imageBase64: String, _mimeType: String, promise: Promise ->
+            moduleScope.launch {
+                val sb = StringBuilder()
+                try {
+                    isCancelled = false
+                    val conv = conversation
+                    if (conv == null) {
+                        promise.reject("NOT_LOADED", "Model not loaded. Call load() first.", null)
+                        return@launch
+                    }
+                    val imageBytes = Base64.decode(imageBase64, Base64.DEFAULT)
+                    try {
+                        withTimeout(60_000L) {
+                            conv.sendMessageAsync(
+                                Contents.of(
+                                    Content.ImageBytes(imageBytes),
+                                    Content.Text(prompt),
+                                )
+                            )
+                                .collect { message ->
+                                    if (isCancelled) return@collect
+                                    val token = message.toString()
+                                    sb.append(token)
+                                    sendEvent("onToken", mapOf("token" to token, "done" to false))
+                                }
+                        }
+                    } finally {
+                        sendEvent("onToken", mapOf("token" to "", "done" to true))
+                    }
+                    promise.resolve(sb.toString())
+                } catch (ex: Exception) {
+                    if (isCancelled || ex is TimeoutCancellationException) {
+                        promise.resolve(sb.toString())
+                    } else {
+                        promise.reject("GENERATE_FAILED", ex.message ?: "Generation failed", ex)
+                    }
+                }
+            }
+        }
 
-    Events("onToken")
-  }
+        Function("cancel") {
+            isCancelled = true
+            try {
+                conversation?.close()
+                engine?.let { e -> conversation = e.createConversation() }
+            } catch (_: Exception) {
+                // ignore — best effort reset
+            }
+        }
+    }
 }

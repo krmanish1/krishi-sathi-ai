@@ -15,6 +15,8 @@ export function mapNetInfoToConnectivity(s: NetInfoLike): Connectivity | null {
   if (s.isConnected === false) return "offline";
   if (s.isConnected === true) {
     if (s.isInternetReachable === false) return "degraded";
+    // null = OS hasn't resolved reachability yet — treat conservatively
+    if (s.isInternetReachable === null) return "degraded";
     return "online";
   }
   return null;

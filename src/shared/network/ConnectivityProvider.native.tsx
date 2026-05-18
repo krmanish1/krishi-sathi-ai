@@ -8,7 +8,9 @@ import { subscribeNetInfoConnectivity } from "./subscribeNetInfoConnectivity";
  * read the same value from context.
  */
 export function ConnectivityProvider({ children }: { children: ReactNode }) {
-  const [c, setC] = useState<Connectivity>("online");
+  // Start "offline" so no queries fire before NetInfo resolves (~50-100ms on Android).
+  // subscribeNetInfoConnectivity calls setC immediately on first NetInfo.fetch().
+  const [c, setC] = useState<Connectivity>("offline");
 
   useEffect(() => subscribeNetInfoConnectivity(setC), []);
 

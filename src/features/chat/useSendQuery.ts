@@ -28,6 +28,8 @@ export type SendQueryInput = {
   conversationId?: string;
   /** AbortSignal to cancel in-flight requests (offline path). */
   signal?: AbortSignal;
+  /** Streaming token callback forwarded to askAgent (offline/ondevice path). */
+  onToken?: (token: string) => void;
 };
 
 const mapErr = (e: unknown): string => {
@@ -86,6 +88,7 @@ export function useSendChatMessage() {
             intent,
             ...(p.imageRef ? { imageRef: p.imageRef } : {}),
             ...(p.signal ? { signal: p.signal } : {}),
+            ...(p.onToken ? { onToken: p.onToken } : {}),
           },
           {
             farmerId: p.farmerId,

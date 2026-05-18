@@ -3,9 +3,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Connectivity } from "@/shared/api/types";
 import { getFarmerWeather } from "@/shared/api";
 import { weatherDisplayFromReport } from "./weatherDisplayFromReport";
+import { getCachedWeather, setCachedWeather } from "./weatherCache";
 
-export const FARMER_WEATHER_QUERY_KEY = (farmerId: string, connectivity: Connectivity) =>
-  ["farmer", "weather", farmerId, connectivity] as const;
+// Key uses isOnline boolean — "online" and "degraded" share one key so NetInfo bouncing
+// between them doesn't trigger a new fetch. offline→online transition creates a new key.
+export const FARMER_WEATHER_QUERY_KEY = (farmerId: string, isOnline: boolean) =>
+  ["farmer", "weather", farmerId, isOnline] as const;
 
 export function useFarmerWeather(opts: {
   farmerId: string | null | undefined;
@@ -14,31 +17,43 @@ export function useFarmerWeather(opts: {
 }) {
   const { farmerId, connectivity, fallbackPlace } = opts;
   const qc = useQueryClient();
-  const enabled = !!farmerId && connectivity !== "offline";
+
+  const isOnline = connectivity === "online";
 
   const query = useQuery({
-    queryKey: farmerId ? FARMER_WEATHER_QUERY_KEY(farmerId, connectivity) : ["farmer", "weather", "disabled"],
-    queryFn: ({ signal }) => getFarmerWeather(farmerId!, connectivity, { forceRefresh: false, signal }),
-    enabled,
+    queryKey: farmerId ? FARMER_WEATHER_QUERY_KEY(farmerId, isOnline) : ["farmer", "weather", "disabled"],
+    queryFn: async ({ signal }) => {
+      if (!farmerId) throw new Error("no farmer");
+      if (connectivity !== "online") {
+        const cached = await getCachedWeather(farmerId);
+        // No cache yet: return null so the hook stays in success state with no data
+        // rather than error state — UI degrades gracefully to "—" placeholders.
+        return cached ?? null;
+      }
+      const result = await getFarmerWeather(farmerId, connectivity, { forceRefresh: false, signal });
+      void setCachedWeather(farmerId, result).catch(() => undefined);
+      return result;
+    },
+    enabled: !!farmerId,
     staleTime: 5 * 60 * 1000,
   });
 
   const forceRefresh = useMutation({
     mutationFn: () => {
-      if (!farmerId || connectivity === "offline") {
+      if (!farmerId || connectivity !== "online") {
         throw new Error("weather_offline");
       }
       return getFarmerWeather(farmerId, connectivity, { forceRefresh: true });
     },
     onSuccess: (data) => {
       if (farmerId) {
-        qc.setQueryData(FARMER_WEATHER_QUERY_KEY(farmerId, connectivity), data);
+        qc.setQueryData(FARMER_WEATHER_QUERY_KEY(farmerId, true), data);
       }
     },
   });
 
   const display = useMemo(
-    () => weatherDisplayFromReport(query.data, fallbackPlace),
+    () => weatherDisplayFromReport(query.data ?? undefined, fallbackPlace),
     [query.data, fallbackPlace],
   );
 

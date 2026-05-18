@@ -20,16 +20,30 @@ type ChatRow = {
 
 type TwinRow = { payload: string; updated_at: number };
 
+type ConvRow = {
+  id: string;
+  farmer_id: string;
+  title: string;
+  created_at: number;
+  synced: number;
+};
+
+type WeatherRow = { payload: string; fetched_at: number };
+
 type Store = {
   syncBundle: SyncRow;
   chatMessages: ChatRow[];
   twinByFarmer: Record<string, TwinRow>;
+  localConversations: ConvRow[];
+  weatherByFarmer: Record<string, WeatherRow>;
 };
 
 const emptyStore = (): Store => ({
   syncBundle: null,
   chatMessages: [],
   twinByFarmer: {},
+  localConversations: [],
+  weatherByFarmer: {},
 });
 
 const MIGRATION_0001 = `
@@ -90,6 +104,8 @@ class WebAppDatabase {
           syncBundle: o.syncBundle ?? null,
           chatMessages: Array.isArray(o.chatMessages) ? o.chatMessages : [],
           twinByFarmer: o.twinByFarmer && typeof o.twinByFarmer === "object" ? o.twinByFarmer : {},
+          localConversations: Array.isArray(o.localConversations) ? o.localConversations : [],
+          weatherByFarmer: o.weatherByFarmer && typeof o.weatherByFarmer === "object" ? o.weatherByFarmer : {},
         };
       }
     } catch {
@@ -202,6 +218,63 @@ class WebAppDatabase {
       return { changes: 0, lastInsertRowId: 0 };
     }
 
+    if (s === "INSERT INTO local_conversations (id, farmer_id, title, created_at, synced) VALUES (?, ?, ?, ?, 0)") {
+      this.data.localConversations.push({
+        id: String(a[0] ?? ""),
+        farmer_id: String(a[1] ?? ""),
+        title: String(a[2] ?? "Chat session"),
+        created_at: Number(a[3] ?? 0),
+        synced: 0,
+      });
+      this.schedulePersist();
+      return { changes: 1, lastInsertRowId: 0 };
+    }
+
+    if (s === "UPDATE local_conversations SET synced = 1 WHERE id = ?") {
+      const id = String(a[0] ?? "");
+      let changes = 0;
+      this.data.localConversations = this.data.localConversations.map((c) => {
+        if (c.id === id) { changes++; return { ...c, synced: 1 }; }
+        return c;
+      });
+      if (changes) this.schedulePersist();
+      return { changes, lastInsertRowId: 0 };
+    }
+
+    if (s === "UPDATE local_conversations SET id = ?, synced = 1 WHERE id = ?") {
+      const newId = String(a[0] ?? "");
+      const oldId = String(a[1] ?? "");
+      let changes = 0;
+      this.data.localConversations = this.data.localConversations.map((c) => {
+        if (c.id === oldId) { changes++; return { ...c, id: newId, synced: 1 }; }
+        return c;
+      });
+      if (changes) this.schedulePersist();
+      return { changes, lastInsertRowId: 0 };
+    }
+
+    if (s === "UPDATE chat_messages SET thread_id = ? WHERE thread_id = ?") {
+      const newTid = String(a[0] ?? "");
+      const oldTid = String(a[1] ?? "");
+      let changes = 0;
+      this.data.chatMessages = this.data.chatMessages.map((m) => {
+        if (m.thread_id === oldTid) { changes++; return { ...m, thread_id: newTid }; }
+        return m;
+      });
+      if (changes) this.schedulePersist();
+      return { changes, lastInsertRowId: 0 };
+    }
+
+    if (s === "INSERT OR REPLACE INTO weather_cache (farmer_id, payload, fetched_at) VALUES (?, ?, ?)") {
+      const id = String(a[0] ?? "");
+      this.data.weatherByFarmer[id] = {
+        payload: String(a[1] ?? ""),
+        fetched_at: Number(a[2] ?? 0),
+      };
+      this.schedulePersist();
+      return { changes: 1, lastInsertRowId: 0 };
+    }
+
     throw new Error(`[db.web] Unsupported SQL: ${s}`);
   }
 
@@ -232,6 +305,18 @@ class WebAppDatabase {
       return { payload: row.payload } as T;
     }
 
+    if (s === "SELECT id, farmer_id, title, created_at, synced FROM local_conversations WHERE id = ?") {
+      const id = String(a[0] ?? "");
+      const row = this.data.localConversations.find((c) => c.id === id);
+      return (row ?? null) as T | null;
+    }
+
+    if (s === "SELECT payload, fetched_at FROM weather_cache WHERE farmer_id = ?") {
+      const id = String(a[0] ?? "");
+      const row = this.data.weatherByFarmer[id];
+      return (row ?? null) as T | null;
+    }
+
     throw new Error(`[db.web] Unsupported SQL: ${s}`);
   }
 
@@ -257,6 +342,26 @@ class WebAppDatabase {
           imageLocalUri: m.image_local_uri ?? undefined,
           metaJson: m.meta_json ?? undefined,
         }));
+      return rows as T[];
+    }
+
+    const listConvByFarmer =
+      "SELECT id, farmer_id, title, created_at, synced FROM local_conversations WHERE farmer_id = ? ORDER BY created_at DESC";
+    if (s === norm(listConvByFarmer)) {
+      const fid = String(a[0] ?? "");
+      const rows = this.data.localConversations
+        .filter((c) => c.farmer_id === fid)
+        .sort((x, y) => y.created_at - x.created_at);
+      return rows as T[];
+    }
+
+    const listPendingConv =
+      "SELECT id, farmer_id, title, created_at, synced FROM local_conversations WHERE farmer_id = ? AND synced = 0";
+    if (s === norm(listPendingConv)) {
+      const fid = String(a[0] ?? "");
+      const rows = this.data.localConversations.filter(
+        (c) => c.farmer_id === fid && c.synced === 0,
+      );
       return rows as T[];
     }
 

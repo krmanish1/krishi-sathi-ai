@@ -4,6 +4,7 @@ import { ApiStatusProvider, useApiStatus } from "@/shared/api/apiStatus";
 import { getHealth } from "@/shared/api/endpoints";
 
 jest.mock("@/shared/api/endpoints", () => ({ getHealth: jest.fn() }));
+jest.mock("@/shared/network", () => ({ useConnectivity: () => "online" }));
 const mockHealth = getHealth as jest.Mock;
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (

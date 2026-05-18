@@ -155,6 +155,7 @@ function CtrlBtn({
   labelColor = INK_MUTED,
   onPress,
   active = false,
+  disabled = false,
 }: {
   icon: string;
   label: string;
@@ -164,11 +165,12 @@ function CtrlBtn({
   labelColor?: string;
   onPress?: () => void;
   active?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={onPress}
+      onPress={disabled ? undefined : onPress}
       style={[
         ctrlStyles.btn,
         {
@@ -178,6 +180,7 @@ function CtrlBtn({
           backgroundColor: bg,
         },
         active ? ctrlStyles.btnActive : null,
+        disabled ? { opacity: 0.45 } : null,
       ]}
     >
       <MaterialCommunityIcons
@@ -226,18 +229,22 @@ export type VoiceScreenProps = {
   speakerOn: boolean;
   audioTracks: VoiceSessionAudioTracks;
   language: Language;
+  onStart: () => void;
   onStop: () => void;
   onToggleMute: () => void;
   onToggleSpeaker: () => void;
+  stopping?: boolean;
 };
 
 export function VoiceScreen({
   phase,
   muted,
   speakerOn,
+  onStart,
   onStop,
   onToggleMute,
   onToggleSpeaker,
+  stopping = false,
 }: VoiceScreenProps) {
   const { t } = useTranslation();
   const { transcript } = useVoiceSessionStore();
@@ -276,10 +283,20 @@ export function VoiceScreen({
         <Text style={styles.pillSubtitle}>Krishisath AI Voice Session</Text>
       </View>
 
-      {/* ── Waveform ─────────────────────────────────────────────── */}
-      <View style={styles.waveArea}>
+      {/* ── Waveform — tappable when idle to start session ──────── */}
+      <Pressable
+        style={styles.waveArea}
+        onPress={phase === "idle" ? onStart : undefined}
+        accessibilityRole={phase === "idle" ? "button" : "none"}
+        accessibilityLabel={phase === "idle" ? t("voice.tapToStart") : undefined}
+      >
         <VoiceWaveform active={audioActive} />
-      </View>
+        {phase === "idle" && (
+          <View style={styles.idleOverlay}>
+            <MaterialCommunityIcons name="microphone" size={36} color={INK_MUTED} />
+          </View>
+        )}
+      </Pressable>
 
       {/* ── Current topic ────────────────────────────────────────── */}
       <View style={styles.topicSection}>
@@ -305,7 +322,7 @@ export function VoiceScreen({
         {/* Mute */}
         <View style={styles.ctrlWrap}>
           <CtrlBtn
-            icon={muted ? "microphone-off" : "microphone-off"}
+            icon={muted ? "microphone-off" : "microphone"}
             label="Mute"
             onPress={onToggleMute}
             active={isMuted}
@@ -318,10 +335,11 @@ export function VoiceScreen({
             icon="phone-hangup"
             label="End Session"
             size={72}
-            bg={END_BG}
+            bg={stopping ? "#9CA3AF" : END_BG}
             iconColor="#FFFFFF"
-            labelColor={END_BG}
+            labelColor={stopping ? "#9CA3AF" : END_BG}
             onPress={onStop}
+            disabled={stopping}
           />
         </View>
 
@@ -424,6 +442,12 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
     opacity: 0.6,
+  },
+  idleOverlay: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
+    opacity: 0.45,
   },
 
   // Controls row

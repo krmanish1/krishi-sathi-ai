@@ -68,6 +68,7 @@ jest.mock("livekit-client", () => ({
     connect: mockRoomConnect,
     disconnect: mockRoomDisconnect,
     on: mockRoomOn,
+    removeAllListeners: jest.fn(),
     remoteParticipants: new Map(),
     localParticipant: {
       setMicrophoneEnabled: mockSetMicEnabled,

@@ -7,6 +7,23 @@ import { onDeviceAgent } from "@/shared/ondevice/onDeviceAgent";
 import { offlineFallback } from "@/shared/ondevice/offlineFallback";
 import { loadBundlePayload } from "@/shared/storage/bundle";
 
+// Circuit breaker: after a network-level failure (UnknownHost / fetch failed),
+// skip the backend for CIRCUIT_OPEN_MS to avoid repeated 10s DNS timeouts.
+const CIRCUIT_OPEN_MS = 2 * 60 * 1000; // 2 minutes
+let backendDownUntil = 0;
+
+function isCircuitOpen(): boolean {
+  return Date.now() < backendDownUntil;
+}
+
+function tripCircuit(): void {
+  backendDownUntil = Date.now() + CIRCUIT_OPEN_MS;
+}
+
+function resetCircuit(): void {
+  backendDownUntil = 0;
+}
+
 export type AgentQuery = {
   text: string;
   language: Language;
@@ -15,6 +32,7 @@ export type AgentQuery = {
   imageMimeType?: string;
   intent: DeviceIntent;
   signal?: AbortSignal;
+  onToken?: (token: string) => void;
 };
 
 export type AgentContext = {
@@ -102,7 +120,9 @@ export const askAgent = async (
   ctx: AgentContext,
   opts?: AskAgentOptions,
 ): Promise<AgentResponse> => {
-  if (ctx.connectivity === "offline") {
+  // "offline" = no network; "degraded" = WiFi up but internet not reachable.
+  // Both cases go straight to on-device rather than timing out against the backend.
+  if (ctx.connectivity === "offline" || ctx.connectivity === "degraded") {
     if (!isModelReady()) {
       const bundle = await loadBundlePayload().catch(() => null);
       return offlineFallback(q, bundle ?? undefined);
@@ -133,9 +153,31 @@ export const askAgent = async (
     );
   }
 
-  // Online or degraded: backend first, fall back to on-device on USE_ONDEVICE hint
+  // Circuit open: a recent network failure confirmed backend is unreachable.
+  // Skip the DNS lookup entirely — go straight to on-device.
+  if (!opts?.forceBackend && isCircuitOpen()) {
+    if (isModelReady()) {
+      const result = await onDeviceAgent.run(
+        q,
+        {
+          district: ctx.location.district,
+          state: ctx.location.state,
+          ...(ctx.land !== undefined ? { land: ctx.land } : {}),
+          ...(ctx.hasAadhaar !== undefined ? { hasAadhaar: ctx.hasAadhaar } : {}),
+        },
+        q.signal,
+      );
+      return { ...result, banner: "network_busy" };
+    }
+    const bundle = await loadBundlePayload().catch(() => null);
+    return { ...offlineFallback(q, bundle ?? undefined), banner: "network_busy" };
+  }
+
+  // Online: backend first, fall back to on-device on USE_ONDEVICE hint
   try {
-    return await callBackend(q, ctx);
+    const result = await callBackend(q, ctx);
+    resetCircuit(); // successful response — backend reachable again
+    return result;
   } catch (e) {
     if (e instanceof ApiError && e.fallbackHint === "USE_ONDEVICE") {
       if (!isModelReady()) {
@@ -153,6 +195,30 @@ export const askAgent = async (
         q.signal,
       );
       return { ...result, banner: "network_busy" };
+    }
+    // Network unreachable (airplane mode / server down) but NetInfo still reports online.
+    // Trip the circuit so subsequent queries skip the DNS timeout entirely.
+    const msg = e instanceof Error ? e.message : "";
+    const isNetworkError =
+      e instanceof Error &&
+      (msg.includes("Network request failed") || msg.includes("fetch failed") || msg.includes("UnknownHost"));
+    if (isNetworkError) {
+      tripCircuit();
+      if (isModelReady()) {
+        const result = await onDeviceAgent.run(
+          q,
+          {
+            district: ctx.location.district,
+            state: ctx.location.state,
+            ...(ctx.land !== undefined ? { land: ctx.land } : {}),
+            ...(ctx.hasAadhaar !== undefined ? { hasAadhaar: ctx.hasAadhaar } : {}),
+          },
+          q.signal,
+        );
+        return { ...result, banner: "network_busy" };
+      }
+      const bundle = await loadBundlePayload().catch(() => null);
+      return { ...offlineFallback(q, bundle ?? undefined), banner: "network_busy" };
     }
     throw e;
   }

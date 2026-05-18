@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useChat } from "@ai-sdk/react";
 import { isReasoningUIPart, type UIMessage } from "ai";
 import { useQueryClient } from "@tanstack/react-query";
@@ -23,7 +23,6 @@ export type UseStreamChatMessageOpts = {
   lat?: number;
   lng?: number;
   connectivity: Connectivity;
-  imageRef?: string;
   /** Backend conversation UUID (from chatStore). Defaults to MAIN_THREAD_ID. */
   conversationId?: string;
 };
@@ -89,6 +88,9 @@ export function useStreamChatMessage(opts: UseStreamChatMessageOpts) {
   const [inFlight, setInFlight] = useState(false);
   /** Full `data` payload per `data-stage` SSE event (backend-controlled copy). */
   const [stageEvents, setStageEvents] = useState<StageEvent[]>([]);
+  /** Mutable ref so the transport closure reads the current imageRef at request time. */
+  const imageRefRef = useRef<string | undefined>(undefined);
+  const getImageRef = useCallback(() => imageRefRef.current, []);
 
   const conversationId = opts.conversationId ?? MAIN_THREAD_ID;
 
@@ -113,6 +115,7 @@ export function useStreamChatMessage(opts: UseStreamChatMessageOpts) {
     ],
   );
 
+  /* eslint-disable react-hooks/refs */
   const transport = useMemo(
     () =>
       createKrishiSathiChatTransport({
@@ -124,7 +127,8 @@ export function useStreamChatMessage(opts: UseStreamChatMessageOpts) {
         ...(opts.lat !== undefined ? { lat: opts.lat } : {}),
         ...(opts.lng !== undefined ? { lng: opts.lng } : {}),
         connectivity: opts.connectivity,
-        ...(opts.imageRef !== undefined ? { imageRef: opts.imageRef } : {}),
+        // imageRef is read from the ref at request time — not captured at construction.
+        getImageRef,
         guessIntent: guessDeviceIntent,
       }),
     [
@@ -136,9 +140,10 @@ export function useStreamChatMessage(opts: UseStreamChatMessageOpts) {
       opts.lat,
       opts.lng,
       opts.connectivity,
-      opts.imageRef,
+      getImageRef,
     ],
   );
+  /* eslint-enable react-hooks/refs */
 
   const { messages, sendMessage, status, error } = useChat({
     id: chatId,
@@ -154,6 +159,7 @@ export function useStreamChatMessage(opts: UseStreamChatMessageOpts) {
       [],
     ),
     onFinish: ({ message, isAbort, isError }) => {
+      imageRefRef.current = undefined;
       setInFlight(false);
       if (isAbort || isError) return;
       void (async () => {
@@ -175,6 +181,7 @@ export function useStreamChatMessage(opts: UseStreamChatMessageOpts) {
       })();
     },
     onError: (err) => {
+      imageRefRef.current = undefined;
       setInFlight(false);
       void (async () => {
         await qc.cancelQueries({ queryKey: CHAT_THREAD_QUERY_KEY(conversationId) });
@@ -211,15 +218,24 @@ export function useStreamChatMessage(opts: UseStreamChatMessageOpts) {
   const streamingReasoning = lastAssistant ? extractReasoningText(lastAssistant) : "";
 
   const send = useCallback(
-    async (text: string, streamOpts?: { skipUserMessage?: boolean }) => {
+    async (
+      text: string,
+      streamOpts?: { skipUserMessage?: boolean; imageRef?: string; imageLocalUri?: string },
+    ) => {
       const trimmed = text.trim();
       if (!trimmed) return;
+      imageRefRef.current = streamOpts?.imageRef;
       setStageEvents([]);
       if (!streamOpts?.skipUserMessage) {
         // Same pattern as offline `useSendChatMessage`: cancel in-flight thread reads so a stale
         // refetch cannot resolve after `appendMessage` and overwrite the cache with [].
         await qc.cancelQueries({ queryKey: CHAT_THREAD_QUERY_KEY(conversationId) });
-        await appendMessage({ role: "user", text: trimmed, threadId: conversationId });
+        await appendMessage({
+          role: "user",
+          text: trimmed,
+          threadId: conversationId,
+          ...(streamOpts?.imageLocalUri ? { imageLocalUri: streamOpts.imageLocalUri } : {}),
+        });
         const next = await listThreadMessages(conversationId);
         qc.setQueryData(CHAT_THREAD_QUERY_KEY(conversationId), next);
       }
