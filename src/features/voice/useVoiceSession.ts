@@ -13,11 +13,13 @@ import { appendMessage, MAIN_THREAD_ID } from "@/features/chat";
 import type { Language } from "@/shared/config/constants";
 import {
   consumeLiveKitTranscriptionStream,
+  collectLocalAudioTrackIds,
   LIVEKIT_TRANSCRIPTION_TOPIC,
   type LiveKitTranscriptSegmentUpdate,
+  type TranscriptionRoleContext,
 } from "./liveKitTranscriptionStream";
 import { parseVoiceDataMessage } from "./parseVoiceDataMessage";
-import { parseVoiceTranscription } from "./parseVoiceTranscription";
+import { parseVoiceTranscriptionSegments } from "./parseVoiceTranscription";
 import { useVoiceSessionStore } from "./useVoiceSessionStore";
 
 export type VoiceSessionInput = {
@@ -35,7 +37,12 @@ export type VoiceSessionAudioTracks = {
 
 function applySegmentUpdate(update: LiveKitTranscriptSegmentUpdate): void {
   const store = useVoiceSessionStore.getState();
-  store.addSegmentTranscript(update);
+  store.applyLiveKitTranscript({
+    segmentId: update.segmentId,
+    role: update.role,
+    text: update.text,
+    final: update.final,
+  });
   if (update.role === "agent") {
     store.setPhase("speaking");
   } else if (store.phase !== "speaking") {
@@ -279,16 +286,24 @@ export function useVoiceSession(input: VoiceSessionInput) {
 
       room.on(RoomEvent.DataReceived, onDataPayload);
 
+      const buildRoleContext = (
+        participantIdentity: string,
+      ): TranscriptionRoleContext => ({
+        localIdentity: room.localParticipant.identity || input.farmerId,
+        localAudioTrackIds: collectLocalAudioTrackIds(
+          room.localParticipant.audioTrackPublications.values(),
+        ),
+        participantIdentity,
+      });
+
       transcriptionViaTextStreamRef.current = false;
       if (typeof room.registerTextStreamHandler === "function") {
         room.registerTextStreamHandler(LIVEKIT_TRANSCRIPTION_TOPIC, (reader, participantInfo) => {
           if (!guard()) return;
-          const localIdentity =
-            room.localParticipant.identity || input.farmerId;
+          const roleCtx = buildRoleContext(participantInfo.identity);
           void consumeLiveKitTranscriptionStream(
             reader,
-            participantInfo.identity,
-            localIdentity,
+            roleCtx,
             (update) => {
               if (!guard()) return;
               transcriptionViaTextStreamRef.current = true;
@@ -309,11 +324,18 @@ export function useVoiceSession(input: VoiceSessionInput) {
           const isLocal =
             participant?.identity === room.localParticipant.identity ||
             participant?.sid === room.localParticipant.sid;
-          const parsed = parseVoiceTranscription(
-            segments as { text?: string; final?: boolean }[],
+          const parsed = parseVoiceTranscriptionSegments(
+            segments as { id?: string; text?: string; final?: boolean }[],
             isLocal,
           );
-          if (parsed) applyTranscriptUpdate(parsed.patch);
+          for (const seg of parsed) {
+            applySegmentUpdate({
+              segmentId: seg.segmentId,
+              role: seg.role,
+              text: seg.text,
+              final: seg.final,
+            });
+          }
         });
       }
 

@@ -6,74 +6,80 @@ export type VoiceTranscriptMessage = {
   id: string;
   role: VoiceTranscriptRole;
   text: string;
-  /** LiveKit `lk.segment_id` — for dedup / tracking. */
+  /** LiveKit `lk.segment_id` / TranscriptionSegment.id when from LiveKit. */
   segmentId?: string;
+  /** LiveKit `lk.transcription_final` / TranscriptionSegment.final. Omitted = final (offline). */
+  final?: boolean;
 };
 
 export type VoiceTranscriptPatch = Partial<Record<VoiceTranscriptRole, string>>;
 
-function lastIndexForRole(
-  messages: VoiceTranscriptMessage[],
-  role: VoiceTranscriptRole,
-): number {
-  for (let i = messages.length - 1; i >= 0; i -= 1) {
-    if (messages[i]?.role === role) return i;
-  }
-  return -1;
-}
+export type LiveKitSegmentInput = {
+  segmentId: string;
+  role: VoiceTranscriptRole;
+  text: string;
+  final: boolean;
+};
 
 /**
- * Merges streaming STT into the last bubble for the same speaker when the server
- * sends growing text ("hel" → "hello") or a shorter correction. Otherwise appends
- * a new turn.
+ * LiveKit-aligned transcript apply: one UI row per `segment_id`, in-place overwrite
+ * when the same segment streams interim → final text.
+ * @see https://docs.livekit.io/agents/multimodality/text/
  */
-function mergeOrAppendRole(
+export function applyLiveKitSegmentUpdate(
   messages: VoiceTranscriptMessage[],
-  role: VoiceTranscriptRole,
-  trimmed: string,
-  createId: () => string,
-  segmentId?: string,
+  input: LiveKitSegmentInput,
+  createId: () => string = randomUUID,
 ): VoiceTranscriptMessage[] {
-  const idx = lastIndexForRole(messages, role);
-  if (idx < 0) {
-    return [
-      ...messages,
-      segmentId !== undefined
-        ? { id: createId(), role, text: trimmed, segmentId }
-        : { id: createId(), role, text: trimmed },
-    ];
-  }
-  const last = messages[idx]!;
-  if (trimmed === last.text) return messages;
+  const trimmed = input.text.trim();
+  if (!trimmed) return messages;
 
-  if (trimmed.startsWith(last.text) && trimmed.length >= last.text.length) {
-    const next = [...messages];
-    const mergedSeg = last.segmentId ?? segmentId;
-    next[idx] =
-      mergedSeg !== undefined
-        ? { ...last, text: trimmed, segmentId: mergedSeg }
-        : { ...last, text: trimmed };
-    return next;
-  }
-  if (last.text.startsWith(trimmed) && trimmed.length <= last.text.length) {
-    const next = [...messages];
-    const mergedSeg = last.segmentId ?? segmentId;
-    next[idx] =
-      mergedSeg !== undefined
-        ? { ...last, text: trimmed, segmentId: mergedSeg }
-        : { ...last, text: trimmed };
-    return next;
+  const idx = messages.findIndex((m) => m.segmentId === input.segmentId);
+  if (idx >= 0) {
+    return messages.map((m, i) =>
+      i === idx
+        ? { ...m, text: trimmed, role: input.role, final: input.final }
+        : m,
+    );
   }
 
   return [
     ...messages,
-    segmentId !== undefined
-      ? { id: createId(), role, text: trimmed, segmentId }
-      : { id: createId(), role, text: trimmed },
+    {
+      id: createId(),
+      role: input.role,
+      text: trimmed,
+      segmentId: input.segmentId,
+      final: input.final,
+    },
   ];
 }
 
-/** Applies data-channel / TranscriptionReceived patches with same-turn merging. */
+/** @deprecated Prefer applyLiveKitSegmentUpdate */
+export const addSegmentMessage = applyLiveKitSegmentUpdate;
+
+/** Offline / legacy data-channel patches (no segment ids). */
+function appendOrMergeAtTail(
+  messages: VoiceTranscriptMessage[],
+  role: VoiceTranscriptRole,
+  trimmed: string,
+  createId: () => string,
+): VoiceTranscriptMessage[] {
+  const tail = messages[messages.length - 1];
+  if (tail?.role === role && tail.segmentId === undefined) {
+    if (trimmed === tail.text) return messages;
+    if (trimmed.startsWith(tail.text) && trimmed.length >= tail.text.length) {
+      return [...messages.slice(0, -1), { ...tail, text: trimmed }];
+    }
+    if (tail.text.startsWith(trimmed) && trimmed.length <= tail.text.length) {
+      return [...messages.slice(0, -1), { ...tail, text: trimmed }];
+    }
+  }
+
+  return [...messages, { id: createId(), role, text: trimmed, final: true }];
+}
+
+/** Applies data-channel / TranscriptionReceived patches without segment ids. */
 export function patchVoiceTranscriptMessages(
   messages: VoiceTranscriptMessage[],
   patch: VoiceTranscriptPatch,
@@ -82,37 +88,11 @@ export function patchVoiceTranscriptMessages(
   let next = messages;
   if (patch.user !== undefined) {
     const trimmed = patch.user.trim();
-    if (trimmed) next = mergeOrAppendRole(next, "user", trimmed, createId);
+    if (trimmed) next = appendOrMergeAtTail(next, "user", trimmed, createId);
   }
   if (patch.agent !== undefined) {
     const trimmed = patch.agent.trim();
-    if (trimmed) next = mergeOrAppendRole(next, "agent", trimmed, createId);
+    if (trimmed) next = appendOrMergeAtTail(next, "agent", trimmed, createId);
   }
   return next;
-}
-
-/**
- * LiveKit `lk.transcription` segments: same `segment_id` updates one bubble;
- * otherwise same-turn merge when the backend emits one stream per chunk.
- */
-export function addSegmentMessage(
-  messages: VoiceTranscriptMessage[],
-  input: {
-    segmentId: string;
-    role: VoiceTranscriptRole;
-    text: string;
-  },
-  createId: () => string = randomUUID,
-): VoiceTranscriptMessage[] {
-  const trimmed = input.text.trim();
-  if (!trimmed) return messages;
-
-  const segIdx = messages.findIndex((m) => m.segmentId === input.segmentId);
-  if (segIdx >= 0) {
-    return messages.map((m, i) =>
-      i === segIdx ? { ...m, text: trimmed, role: input.role } : m,
-    );
-  }
-
-  return mergeOrAppendRole(messages, input.role, trimmed, createId, input.segmentId);
 }

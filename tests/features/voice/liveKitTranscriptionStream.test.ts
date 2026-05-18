@@ -1,17 +1,23 @@
 import {
   consumeLiveKitTranscriptionStream,
   parseTranscriptionStreamMeta,
-  roleFromParticipantIdentity,
+  resolveTranscriptionRole,
+  LIVEKIT_TRANSCRIPTION_ATTR,
 } from "@/features/voice/liveKitTranscriptionStream";
 
 describe("parseTranscriptionStreamMeta", () => {
-  it("reads segment id and final flag from stream attributes", () => {
+  it("reads LiveKit TranscriptionAttributes from stream info", () => {
     expect(
       parseTranscriptionStreamMeta("stream-1", {
-        "lk.segment_id": "seg-a",
-        "lk.transcription_final": "true",
+        [LIVEKIT_TRANSCRIPTION_ATTR.SEGMENT_ID]: "seg-a",
+        [LIVEKIT_TRANSCRIPTION_ATTR.TRANSCRIPTION_FINAL]: "true",
+        [LIVEKIT_TRANSCRIPTION_ATTR.TRANSCRIBED_TRACK_ID]: "TR_abc",
       }),
-    ).toEqual({ segmentId: "seg-a", final: true });
+    ).toEqual({
+      segmentId: "seg-a",
+      final: true,
+      transcribedTrackId: "TR_abc",
+    });
   });
 
   it("falls back to stream id when segment id is missing", () => {
@@ -22,18 +28,49 @@ describe("parseTranscriptionStreamMeta", () => {
   });
 });
 
-describe("roleFromParticipantIdentity", () => {
-  it("maps local identity to user and remote to agent", () => {
-    expect(roleFromParticipantIdentity("farmer1", "farmer1")).toBe("user");
-    expect(roleFromParticipantIdentity("agent", "farmer1")).toBe("agent");
+describe("resolveTranscriptionRole", () => {
+  const base = {
+    localIdentity: "farmer1",
+    localAudioTrackIds: ["TR_local_mic"],
+    participantIdentity: "",
+  };
+
+  it("maps local participant identity to user", () => {
+    expect(
+      resolveTranscriptionRole({ ...base, participantIdentity: "farmer1" }),
+    ).toBe("user");
+  });
+
+  it("maps local transcribed track id to user", () => {
+    expect(
+      resolveTranscriptionRole(
+        { ...base, participantIdentity: "" },
+        "TR_local_mic",
+      ),
+    ).toBe("user");
+  });
+
+  it("maps remote transcribed track id to agent", () => {
+    expect(
+      resolveTranscriptionRole(
+        { ...base, participantIdentity: "agent" },
+        "TR_agent_audio",
+      ),
+    ).toBe("agent");
   });
 });
 
 describe("consumeLiveKitTranscriptionStream", () => {
-  it("emits each interim chunk as it arrives for real-time streaming", async () => {
-    const updates: { text: string }[] = [];
+  const roleCtx = {
+    localIdentity: "farmer1",
+    localAudioTrackIds: [],
+    participantIdentity: "agent",
+  };
+
+  it("emits interim chunks with final false then final true at end", async () => {
+    const updates: { text: string; final: boolean }[] = [];
     const reader = {
-      info: { id: "s1", attributes: { "lk.segment_id": "seg-1" } },
+      info: { id: "s1", attributes: { [LIVEKIT_TRANSCRIPTION_ATTR.SEGMENT_ID]: "seg-1" } },
       async * [Symbol.asyncIterator]() {
         yield "hello ";
         yield "world";
@@ -41,25 +78,25 @@ describe("consumeLiveKitTranscriptionStream", () => {
       readAll: async () => "",
     };
 
-    await consumeLiveKitTranscriptionStream(reader, "agent", "farmer1", (u) => {
-      updates.push({ text: u.text });
+    await consumeLiveKitTranscriptionStream(reader, roleCtx, (u) => {
+      updates.push({ text: u.text, final: u.final });
     });
 
-    // Each chunk emitted immediately — text grows as chunks arrive
     expect(updates).toEqual([
-      { text: "hello" },
-      { text: "hello world" },
+      { text: "hello", final: false },
+      { text: "hello world", final: false },
+      { text: "hello world", final: true },
     ]);
   });
 
-  it("emits a single final segment from readAll", async () => {
-    const updates: string[] = [];
+  it("emits a single final segment when lk.transcription_final is true", async () => {
+    const updates: { role: string; text: string; final: boolean }[] = [];
     const reader = {
       info: {
         id: "s2",
         attributes: {
-          "lk.segment_id": "seg-2",
-          "lk.transcription_final": "true",
+          [LIVEKIT_TRANSCRIPTION_ATTR.SEGMENT_ID]: "seg-2",
+          [LIVEKIT_TRANSCRIPTION_ATTR.TRANSCRIPTION_FINAL]: "true",
         },
       },
       async *[Symbol.asyncIterator]() {
@@ -68,10 +105,16 @@ describe("consumeLiveKitTranscriptionStream", () => {
       readAll: async () => "  namaste  ",
     };
 
-    await consumeLiveKitTranscriptionStream(reader, "farmer1", "farmer1", (u) => {
-      updates.push(`${u.role}:${u.text}`);
-    });
+    await consumeLiveKitTranscriptionStream(
+      reader,
+      { ...roleCtx, participantIdentity: "farmer1" },
+      (u) => {
+        updates.push({ role: u.role, text: u.text, final: u.final });
+      },
+    );
 
-    expect(updates).toEqual(["user:namaste"]);
+    expect(updates).toEqual([
+      { role: "user", text: "namaste", final: true },
+    ]);
   });
 });

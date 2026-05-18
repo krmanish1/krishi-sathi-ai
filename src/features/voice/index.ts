@@ -6,11 +6,19 @@ export type {
   VoiceTranscriptMessage,
   VoiceTranscriptPatch,
 } from "./useVoiceSessionStore";
-export { patchVoiceTranscriptMessages, addSegmentMessage } from "./voiceTranscriptMessages";
+export {
+  patchVoiceTranscriptMessages,
+  applyLiveKitSegmentUpdate,
+  addSegmentMessage,
+} from "./voiceTranscriptMessages";
 export {
   LIVEKIT_TRANSCRIPTION_TOPIC,
+  LIVEKIT_TRANSCRIPTION_ATTR,
   consumeLiveKitTranscriptionStream,
+  resolveTranscriptionRole,
+  collectLocalAudioTrackIds,
 } from "./liveKitTranscriptionStream";
+export { parseVoiceTranscriptionSegments } from "./parseVoiceTranscription";
 export { VoiceScreen } from "./components/VoiceScreen";
 export { VoiceWaveform } from "./components/VoiceWaveform";
 export { VoiceLiveKitVisualizer } from "./components/VoiceLiveKitVisualizer";

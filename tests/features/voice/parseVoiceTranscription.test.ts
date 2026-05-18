@@ -1,15 +1,29 @@
-import { parseVoiceTranscription } from "@/features/voice/parseVoiceTranscription";
+import { parseVoiceTranscriptionSegments } from "@/features/voice/parseVoiceTranscription";
 
-describe("parseVoiceTranscription", () => {
-  it("maps local segments to user transcript", () => {
+describe("parseVoiceTranscriptionSegments", () => {
+  it("maps local participant segments to user with segment ids", () => {
     expect(
-      parseVoiceTranscription([{ text: "hello ", final: true }, { text: "there" }], true),
-    ).toEqual({ patch: { user: "hello there" } });
+      parseVoiceTranscriptionSegments(
+        [
+          { id: "seg-1", text: "hello ", final: false },
+          { id: "seg-1", text: "hello there", final: true },
+        ],
+        true,
+      ),
+    ).toEqual([
+      { segmentId: "seg-1", role: "user", text: "hello", final: false },
+      { segmentId: "seg-1", role: "user", text: "hello there", final: true },
+    ]);
   });
 
-  it("maps remote segments to agent transcript", () => {
-    expect(parseVoiceTranscription([{ text: "namaste", final: false }], false)).toEqual({
-      patch: { agent: "namaste" },
-    });
+  it("maps remote participant segments to agent", () => {
+    expect(
+      parseVoiceTranscriptionSegments(
+        [{ id: "seg-2", text: "namaste", final: true }],
+        false,
+      ),
+    ).toEqual([
+      { segmentId: "seg-2", role: "agent", text: "namaste", final: true },
+    ]);
   });
 });

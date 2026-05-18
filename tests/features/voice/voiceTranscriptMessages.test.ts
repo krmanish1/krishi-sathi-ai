@@ -1,6 +1,6 @@
 import {
   patchVoiceTranscriptMessages,
-  addSegmentMessage,
+  applyLiveKitSegmentUpdate,
   type VoiceTranscriptMessage,
 } from "@/features/voice/voiceTranscriptMessages";
 
@@ -9,53 +9,11 @@ const idSeq = (() => {
   return () => `id-${++n}`;
 })();
 
-describe("patchVoiceTranscriptMessages", () => {
-  it("creates a new message for user text", () => {
-    const next = patchVoiceTranscriptMessages([], { user: "hello" }, idSeq);
-    expect(next).toEqual([{ id: "id-1", role: "user", text: "hello" }]);
-  });
-
-  it("merges growing same-role text into one bubble", () => {
-    let msgs = patchVoiceTranscriptMessages([], { user: "hel" }, idSeq);
-    msgs = patchVoiceTranscriptMessages(msgs, { user: "hello there" }, idSeq);
-    expect(msgs).toHaveLength(1);
-    expect(msgs[0]?.text).toBe("hello there");
-  });
-
-  it("keeps separate turns when text is not a prefix extension", () => {
-    let msgs = patchVoiceTranscriptMessages([], { user: "hi" }, idSeq);
-    msgs = patchVoiceTranscriptMessages(msgs, { user: "bye" }, idSeq);
-    expect(msgs).toHaveLength(2);
-    expect(msgs.map((m) => m.text)).toEqual(["hi", "bye"]);
-  });
-
-  it("keeps user and agent turns separate in order", () => {
-    let msgs: VoiceTranscriptMessage[] = [];
-    msgs = patchVoiceTranscriptMessages(msgs, { user: "hi" }, idSeq);
-    msgs = patchVoiceTranscriptMessages(msgs, { agent: "namaste" }, idSeq);
-    expect(msgs.map((m) => m.role)).toEqual(["user", "agent"]);
-  });
-
-  it("handles concurrent user and agent patches", () => {
-    const msgs = patchVoiceTranscriptMessages(
+describe("applyLiveKitSegmentUpdate", () => {
+  it("creates a row for a new segment_id", () => {
+    const next = applyLiveKitSegmentUpdate(
       [],
-      {
-        user: "hello",
-        agent: "hi there",
-      },
-      idSeq,
-    );
-    expect(msgs).toHaveLength(2);
-    expect(msgs[0]).toMatchObject({ role: "user", text: "hello" });
-    expect(msgs[1]).toMatchObject({ role: "agent", text: "hi there" });
-  });
-});
-
-describe("addSegmentMessage", () => {
-  it("creates a new message for a segment", () => {
-    const next = addSegmentMessage(
-      [],
-      { segmentId: "seg-1", role: "agent", text: "hello" },
+      { segmentId: "seg-1", role: "agent", text: "hello", final: false },
       idSeq,
     );
     expect(next).toHaveLength(1);
@@ -63,51 +21,84 @@ describe("addSegmentMessage", () => {
       segmentId: "seg-1",
       role: "agent",
       text: "hello",
+      final: false,
     });
   });
 
-  it("updates the same segment id in place", () => {
-    let msgs = addSegmentMessage(
+  it("overwrites the same segment_id in place (LiveKit interim → final)", () => {
+    let msgs = applyLiveKitSegmentUpdate(
       [],
-      { segmentId: "seg-1", role: "user", text: "what" },
+      { segmentId: "seg-1", role: "agent", text: "hel", final: false },
       idSeq,
     );
-    msgs = addSegmentMessage(
+    msgs = applyLiveKitSegmentUpdate(
       msgs,
-      { segmentId: "seg-1", role: "user", text: "what is weather" },
+      { segmentId: "seg-1", role: "agent", text: "hello", final: true },
       idSeq,
     );
     expect(msgs).toHaveLength(1);
-    expect(msgs[0]?.text).toBe("what is weather");
+    expect(msgs[0]).toMatchObject({ text: "hello", final: true });
   });
 
-  it("merges per-chunk streams for the same role when text grows", () => {
-    let msgs = addSegmentMessage(
+  it("keeps separate rows for different segment_ids", () => {
+    let msgs = applyLiveKitSegmentUpdate(
       [],
-      { segmentId: "stream-a", role: "agent", text: "For" },
+      { segmentId: "seg-a", role: "user", text: "q1", final: true },
       idSeq,
     );
-    msgs = addSegmentMessage(
+    msgs = applyLiveKitSegmentUpdate(
       msgs,
-      { segmentId: "stream-b", role: "agent", text: "For wheat" },
+      { segmentId: "seg-b", role: "agent", text: "a1", final: true },
+      idSeq,
+    );
+    msgs = applyLiveKitSegmentUpdate(
+      msgs,
+      { segmentId: "seg-c", role: "user", text: "q2", final: true },
+      idSeq,
+    );
+    msgs = applyLiveKitSegmentUpdate(
+      msgs,
+      { segmentId: "seg-d", role: "agent", text: "a2", final: true },
+      idSeq,
+    );
+    expect(msgs).toHaveLength(4);
+    expect(msgs.map((m) => m.text)).toEqual(["q1", "a1", "q2", "a2"]);
+  });
+
+  it("streams interim text on the same segment without new bubbles", () => {
+    let msgs = applyLiveKitSegmentUpdate(
+      [],
+      { segmentId: "seg-x", role: "agent", text: "For", final: false },
+      idSeq,
+    );
+    msgs = applyLiveKitSegmentUpdate(
+      msgs,
+      { segmentId: "seg-x", role: "agent", text: "For wheat", final: false },
       idSeq,
     );
     expect(msgs).toHaveLength(1);
     expect(msgs[0]?.text).toBe("For wheat");
   });
+});
 
-  it("keeps separate bubbles per distinct segment when not prefix-related", () => {
-    let msgs = addSegmentMessage(
-      [],
-      { segmentId: "seg-a", role: "user", text: "first" },
-      idSeq,
-    );
-    msgs = addSegmentMessage(
-      msgs,
-      { segmentId: "seg-b", role: "user", text: "second" },
-      idSeq,
-    );
-    expect(msgs).toHaveLength(2);
-    expect(msgs.map((m) => m.text)).toEqual(["first", "second"]);
+describe("patchVoiceTranscriptMessages (offline fallback)", () => {
+  it("creates a new message for user text", () => {
+    const next = patchVoiceTranscriptMessages([], { user: "hello" }, idSeq);
+    expect(next).toHaveLength(1);
+    expect(next[0]).toMatchObject({ role: "user", text: "hello", final: true });
+  });
+
+  it("merges growing same-role text into the tail bubble only", () => {
+    let msgs = patchVoiceTranscriptMessages([], { user: "hel" }, idSeq);
+    msgs = patchVoiceTranscriptMessages(msgs, { user: "hello there" }, idSeq);
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0]?.text).toBe("hello there");
+  });
+
+  it("keeps user and agent turns separate in order", () => {
+    let msgs: VoiceTranscriptMessage[] = [];
+    msgs = patchVoiceTranscriptMessages(msgs, { user: "hi" }, idSeq);
+    msgs = patchVoiceTranscriptMessages(msgs, { agent: "namaste" }, idSeq);
+    expect(msgs.map((m) => m.role)).toEqual(["user", "agent"]);
   });
 });

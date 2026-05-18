@@ -2,9 +2,10 @@ import { create } from "zustand";
 import { randomUUID } from "@/shared/utils/uuid";
 import {
   patchVoiceTranscriptMessages,
-  addSegmentMessage,
+  applyLiveKitSegmentUpdate,
   type VoiceTranscriptMessage,
   type VoiceTranscriptPatch,
+  type LiveKitSegmentInput,
 } from "./voiceTranscriptMessages";
 
 export type VoicePhase = "idle" | "connecting" | "listening" | "speaking" | "error";
@@ -22,7 +23,7 @@ type VoiceSessionStore = {
   setPhase: (p: VoicePhase) => void;
   setTranscriptMessages: (messages: VoiceTranscriptMessage[]) => void;
   patchTranscript: (patch: VoiceTranscriptPatch) => void;
-  addSegmentTranscript: (segment: { segmentId: string; role: "user" | "agent"; text: string }) => void;
+  applyLiveKitTranscript: (segment: LiveKitSegmentInput) => void;
   setInterimUserText: (text: string) => void;
   setInterimAgentText: (text: string) => void;
   appendAgentMessage: (text: string) => void;
@@ -49,9 +50,12 @@ export const useVoiceSessionStore = create<VoiceSessionStore>((set) => ({
         patch,
       ),
     })),
-  addSegmentTranscript: (segment) =>
+  applyLiveKitTranscript: (segment) =>
     set((state) => ({
-      transcriptMessages: addSegmentMessage(state.transcriptMessages, segment),
+      transcriptMessages: applyLiveKitSegmentUpdate(
+        state.transcriptMessages,
+        segment,
+      ),
     })),
   setInterimUserText: (interimUserText) => set({ interimUserText }),
   setInterimAgentText: (interimAgentText) => set({ interimAgentText }),

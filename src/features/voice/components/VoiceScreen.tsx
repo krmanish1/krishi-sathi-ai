@@ -101,6 +101,7 @@ function TranscriptBubble({
   message: VoiceTranscriptMessage;
 }) {
   const isUser = message.role === "user";
+  const isInterim = message.final === false;
 
   return (
     <View style={[styles.messageRow, isUser ? styles.userRow : styles.agentRow]}>
@@ -111,15 +112,21 @@ function TranscriptBubble({
       ) : null}
       <View style={[styles.bubbleWrap, isUser ? styles.userBubbleWrap : styles.agentBubbleWrap]}>
         {isUser ? (
-          <View style={styles.userBubble}>
+          <View style={[styles.userBubble, isInterim ? styles.interimBubble : null]}>
             <Text style={styles.bubbleBody} selectable>
               {message.text}
+              {isInterim ? <Text style={styles.streamCursor}>|</Text> : null}
             </Text>
           </View>
         ) : (
-          <BlurView intensity={48} tint="light" style={styles.agentBubble}>
+          <BlurView
+            intensity={48}
+            tint="light"
+            style={[styles.agentBubble, isInterim ? styles.interimBubble : null]}
+          >
             <Text style={styles.bubbleBody} selectable>
               {message.text}
+              {isInterim ? <Text style={styles.streamCursor}>|</Text> : null}
             </Text>
           </BlurView>
         )}
@@ -261,6 +268,7 @@ export function VoiceScreen({
                   message={message}
                 />
               ))}
+              {interimUserText ? <InterimBubble text={interimUserText} /> : null}
               {interimAgentText ? (
                 <View style={[styles.messageRow, styles.agentRow]}>
                   <View style={styles.avatarColumn}>
@@ -276,7 +284,6 @@ export function VoiceScreen({
                   </View>
                 </View>
               ) : null}
-              {interimUserText ? <InterimBubble text={interimUserText} /> : null}
             </>
           )}
         </ScrollView>

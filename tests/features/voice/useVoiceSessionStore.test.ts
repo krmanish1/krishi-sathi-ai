@@ -41,12 +41,43 @@ describe("useVoiceSessionStore", () => {
     expect(msgs[1]).toMatchObject({ role: "agent", text: "Rain tomorrow." });
   });
 
-  it("patchTranscript merges growing same-role transcript into one bubble", () => {
+  it("patchTranscript merges growing same-role transcript into the tail bubble only", () => {
     useVoiceSessionStore.getState().patchTranscript({ agent: "hel" });
     useVoiceSessionStore.getState().patchTranscript({ agent: "hello" });
     const msgs = useVoiceSessionStore.getState().transcriptMessages;
     expect(msgs).toHaveLength(1);
     expect(msgs[0]).toMatchObject({ role: "agent", text: "hello" });
+  });
+
+  it("applyLiveKitTranscript keeps each segment_id as its own bubble", () => {
+    const store = useVoiceSessionStore.getState();
+    store.applyLiveKitTranscript({
+      segmentId: "u1",
+      role: "user",
+      text: "q1",
+      final: true,
+    });
+    store.applyLiveKitTranscript({
+      segmentId: "a1",
+      role: "agent",
+      text: "a1",
+      final: true,
+    });
+    store.applyLiveKitTranscript({
+      segmentId: "u2",
+      role: "user",
+      text: "q2",
+      final: true,
+    });
+    store.applyLiveKitTranscript({
+      segmentId: "a2",
+      role: "agent",
+      text: "a2",
+      final: false,
+    });
+    const msgs = useVoiceSessionStore.getState().transcriptMessages;
+    expect(msgs).toHaveLength(4);
+    expect(msgs[3]).toMatchObject({ text: "a2", final: false });
   });
 
   it("reset clears all state back to idle", () => {
