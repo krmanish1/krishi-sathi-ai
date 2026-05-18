@@ -173,7 +173,7 @@ export function useVoiceSession(input: VoiceSessionInput) {
         );
         store.setInterimAgentText("");
         store.patchTranscript({ user: text });
-        store.patchTranscript({ agent: response.text });
+        store.appendAgentMessage(response.text);
         // Restart STT immediately — no await on TTS
         if (!stoppedByUser.current) {
           store.setPhase("listening");

@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { randomUUID } from "@/shared/utils/uuid";
 import {
   patchVoiceTranscriptMessages,
   addSegmentMessage,
@@ -24,6 +25,7 @@ type VoiceSessionStore = {
   addSegmentTranscript: (segment: { segmentId: string; role: "user" | "agent"; text: string }) => void;
   setInterimUserText: (text: string) => void;
   setInterimAgentText: (text: string) => void;
+  appendAgentMessage: (text: string) => void;
   setError: (msg: string) => void;
   setAgentJoined: (joined: boolean) => void;
   setMuted: (muted: boolean) => void;
@@ -53,6 +55,13 @@ export const useVoiceSessionStore = create<VoiceSessionStore>((set) => ({
     })),
   setInterimUserText: (interimUserText) => set({ interimUserText }),
   setInterimAgentText: (interimAgentText) => set({ interimAgentText }),
+  appendAgentMessage: (text) =>
+    set((state) => ({
+      transcriptMessages: [
+        ...state.transcriptMessages,
+        { id: randomUUID(), role: "agent", text: text.trim() },
+      ],
+    })),
   setError: (errorMessage) => set({ phase: "error", errorMessage }),
   setAgentJoined: (agentJoined) => set({ agentJoined }),
   setMuted: (muted) => set({ muted }),
