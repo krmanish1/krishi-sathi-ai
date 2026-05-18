@@ -22,7 +22,11 @@ import { queryConnectivityWire } from "./types";
 import { normalizeTwinFromApi, serializeTwinForApi, twinTwinQueryString } from "./twinWire";
 
 /** POST `/api/v1/query/stream` — consumes SSE, assembles text, returns QueryResponse. */
-export const postQuery = async (req: QueryRequest, signal?: AbortSignal): Promise<QueryResponse> => {
+export const postQuery = async (
+  req: QueryRequest,
+  signal?: AbortSignal,
+  onDelta?: (delta: string) => void,
+): Promise<QueryResponse> => {
   const base = getApiBaseUrl().replace(/\/$/, "");
   const url = `${base}/api/v1/query/stream`;
   const t0 = Date.now();
@@ -81,6 +85,7 @@ export const postQuery = async (req: QueryRequest, signal?: AbortSignal): Promis
           const chunk = JSON.parse(data) as Record<string, unknown>;
           if (chunk.type === "text-delta" && typeof chunk.delta === "string") {
             text += chunk.delta;
+            onDelta?.(text);
           }
         } catch {
           // skip malformed chunk
@@ -305,13 +310,17 @@ export const deleteFarmerConversation = (
 
 /** POST `/api/v1/voice/token` — get LiveKit room credentials for a voice session. */
 export const postVoiceToken = (req: VoiceTokenRequest, signal?: AbortSignal) =>
-  apiFetch<VoiceTokenResponse>("/api/v1/voice/token", {
-    baseUrl: getApiBaseUrl(),
-    timeoutMs: TIMEOUTS_MS.voiceToken,
-    method: "POST",
-    body: req,
-    ...(signal ? { signal } : {}),
-  });
+  withTransientRetry(
+    () =>
+      apiFetch<VoiceTokenResponse>("/api/v1/voice/token", {
+        baseUrl: getApiBaseUrl(),
+        timeoutMs: TIMEOUTS_MS.voiceToken,
+        method: "POST",
+        body: req,
+        ...(signal ? { signal } : {}),
+      }),
+    { attempts: 2, baseDelayMs: 600, ...(signal ? { signal } : {}) },
+  );
 
 const DATA_GOV_MANDI_URL =
   "https://api.data.gov.in/resource/9ef84268-d588-465a-a308-a864a43d0070";

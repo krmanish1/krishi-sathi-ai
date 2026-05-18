@@ -1,150 +1,33 @@
 import {
-  Animated,
-  Easing,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
+import { BlurView } from "expo-blur";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import type { VoiceSessionAudioTracks } from "../useVoiceSession";
-import type { VoicePhase } from "../useVoiceSessionStore";
+import type { VoicePhase, VoiceTranscriptMessage } from "../useVoiceSessionStore";
 import { useVoiceSessionStore } from "../useVoiceSessionStore";
 import type { Language } from "@/shared/config/constants";
-
-// ─── Design tokens ────────────────────────────────────────────────────────────
 
 const PAGE_BG = "#ECEAE4";
 const INK = "#001E2B";
 const INK_MUTED = "#5C6C75";
 const PILL_BG = "#FFFFFF";
+const PILL_BORDER = "#E0E5E2";
 const PILL_DOT_ACTIVE = "#16A34A";
 const PILL_DOT_IDLE = "#A0ADB3";
-const WAVE_DARK = "#1B3A28";   // centre bars
-const WAVE_MID = "#4A7A5A";    // mid bars
-const WAVE_LIGHT = "#A8C5B0";  // outer bars
-const WAVE_FAINT = "#C8DDD0";  // edge bars
 const CTRL_BG = "#FFFFFF";
 const CTRL_BORDER = "#E0E5E2";
 const END_BG = "#DC2626";
-
-// ─── Waveform ─────────────────────────────────────────────────────────────────
-//
-// 19 bars: symmetric mountain profile, colour darkens towards centre.
-// Each bar has an independent oscillation speed so the animation looks organic.
-
-const NUM_BARS = 19;
-
-// Height profile 0-1 (index 0 = leftmost)
-const BAR_PROFILE = [
-  0.12, 0.20, 0.34, 0.52, 0.66, 0.78, 0.90, 0.96, 1.00,
-  0.96,
-  1.00, 0.96, 0.90, 0.78, 0.66, 0.52, 0.34, 0.20, 0.12,
-] as const;
-
-// Colour per bar — dark in the centre, fading outward
-const barColour = (i: number): string => {
-  const d = Math.abs(i - (NUM_BARS - 1) / 2) / ((NUM_BARS - 1) / 2); // 0=centre,1=edge
-  if (d < 0.15) return WAVE_DARK;
-  if (d < 0.35) return WAVE_MID;
-  if (d < 0.60) return WAVE_LIGHT;
-  return WAVE_FAINT;
-};
-
-const BAR_SPEEDS = Array.from({ length: NUM_BARS }, (_, i) =>
-  500 + Math.abs(i - (NUM_BARS - 1) / 2) * 40 + (i % 3) * 70,
-);
-const BAR_PHASE_OFFSETS = Array.from({ length: NUM_BARS }, (_, i) =>
-  (i * 60) % 400,
-);
-
-const MAX_BAR_H = 120;
-const MIN_BAR_H = 6;
-
-function VoiceWaveform({ active }: { active: boolean }) {
-  const anims = useMemo(
-    () => Array.from({ length: NUM_BARS }, () => new Animated.Value(0.1)),
-    [],
-  );
-  const loops = useRef<Animated.CompositeAnimation[]>([]);
-
-  useEffect(() => {
-    loops.current.forEach((l) => l.stop());
-    loops.current = [];
-
-    if (!active) {
-      anims.forEach((a, i) => a.setValue(((BAR_PROFILE as readonly number[])[i] ?? 0.1) * 0.18));
-      return;
-    }
-
-    anims.forEach((anim, i) => {
-      const peak = (BAR_PROFILE as readonly number[])[i] ?? 0.5;
-      const dur = BAR_SPEEDS[i] ?? 600;
-      const delay = BAR_PHASE_OFFSETS[i] ?? 0;
-      const loop = Animated.loop(
-        Animated.sequence([
-          Animated.delay(delay),
-          Animated.timing(anim, {
-            toValue: peak,
-            duration: dur,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: false,
-          }),
-          Animated.timing(anim, {
-            toValue: peak * 0.18,
-            duration: dur,
-            easing: Easing.inOut(Easing.sin),
-            useNativeDriver: false,
-          }),
-        ]),
-      );
-      loops.current.push(loop);
-      loop.start();
-    });
-
-    return () => loops.current.forEach((l) => l.stop());
-  }, [active, anims]);
-
-  return (
-    <View style={waveStyles.container}>
-      {anims.map((anim, i) => (
-        <Animated.View
-          key={i}
-          style={[
-            waveStyles.bar,
-            {
-              backgroundColor: barColour(i),
-              height: anim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [MIN_BAR_H, MAX_BAR_H],
-              }),
-            },
-          ]}
-        />
-      ))}
-    </View>
-  );
-}
-
-const waveStyles = StyleSheet.create({
-  container: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 4,
-    height: MAX_BAR_H + 8,
-    paddingHorizontal: 8,
-  },
-  bar: {
-    width: 5,
-    borderRadius: 3,
-  },
-});
-
-// ─── Control button ───────────────────────────────────────────────────────────
+const USER_BUBBLE_BG = "#cce4cc";
+const AGENT_BUBBLE_BG = "#FFFFFF";
+const USER_AVATAR_BG = "#2B5E2B";
+const AGENT_AVATAR_BG = "#001E2B";
 
 function CtrlBtn({
   icon,
@@ -168,66 +51,131 @@ function CtrlBtn({
   disabled?: boolean;
 }) {
   return (
-    <Pressable
-      accessibilityRole="button"
-      onPress={disabled ? undefined : onPress}
+    <View style={[ctrlStyles.wrapper, disabled ? { opacity: 0.45 } : null]}>
+      <Pressable
+        accessibilityRole="button"
+        onPress={disabled ? undefined : onPress}
+        style={[
+          ctrlStyles.btn,
+          {
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            backgroundColor: bg,
+          },
+          active ? ctrlStyles.btnActive : null,
+        ]}
+      >
+        <MaterialCommunityIcons
+          name={icon as never}
+          size={size > 60 ? 28 : 22}
+          color={iconColor}
+        />
+      </Pressable>
+      <Text style={[ctrlStyles.label, { color: labelColor }]}>{label}</Text>
+    </View>
+  );
+}
+
+function Avatar({ role }: { role: "user" | "agent" }) {
+  const isUser = role === "user";
+  return (
+    <View
       style={[
-        ctrlStyles.btn,
-        {
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor: bg,
-        },
-        active ? ctrlStyles.btnActive : null,
-        disabled ? { opacity: 0.45 } : null,
+        styles.avatar,
+        { backgroundColor: isUser ? USER_AVATAR_BG : AGENT_AVATAR_BG },
       ]}
     >
       <MaterialCommunityIcons
-        name={icon as never}
-        size={size > 60 ? 28 : 22}
-        color={iconColor}
+        name={isUser ? "account" : "robot"}
+        size={18}
+        color="#FFFFFF"
       />
-      <Text style={[ctrlStyles.label, { color: labelColor }]}>{label}</Text>
+    </View>
+  );
+}
+
+function TranscriptBubble({
+  message,
+}: {
+  message: VoiceTranscriptMessage;
+}) {
+  const isUser = message.role === "user";
+
+  return (
+    <View style={[styles.messageRow, isUser ? styles.userRow : styles.agentRow]}>
+      {!isUser ? (
+        <View style={styles.avatarColumn}>
+          <Avatar role="agent" />
+        </View>
+      ) : null}
+      <View style={[styles.bubbleWrap, isUser ? styles.userBubbleWrap : styles.agentBubbleWrap]}>
+        {isUser ? (
+          <View style={styles.userBubble}>
+            <Text style={styles.bubbleBody} selectable>
+              {message.text}
+            </Text>
+          </View>
+        ) : (
+          <BlurView intensity={48} tint="light" style={styles.agentBubble}>
+            <Text style={styles.bubbleBody} selectable>
+              {message.text}
+            </Text>
+          </BlurView>
+        )}
+      </View>
+      {isUser ? (
+        <View style={styles.avatarColumn}>
+          <Avatar role="user" />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function InterimBubble({ text }: { text: string }) {
+  return (
+    <View style={[styles.messageRow, styles.userRow]}>
+      <View style={[styles.bubbleWrap, styles.userBubbleWrap]}>
+        <View style={[styles.userBubble, styles.interimBubble]}>
+          <Text style={styles.bubbleBody} selectable>
+            {text}
+            <Text style={styles.streamCursor}>|</Text>
+          </Text>
+        </View>
+      </View>
+      <View style={styles.avatarColumn}>
+        <Avatar role="user" />
+      </View>
+    </View>
+  );
+}
+
+function EmptyState({ phase, onStart }: { phase: VoicePhase; onStart: () => void }) {
+  const { t } = useTranslation();
+  return (
+    <Pressable
+      style={styles.emptyState}
+      onPress={phase === "idle" ? onStart : undefined}
+      accessibilityRole={phase === "idle" ? "button" : "none"}
+    >
+      <View style={styles.emptyIconWrap}>
+        <MaterialCommunityIcons
+          name="waveform"
+          size={48}
+          color={INK_MUTED}
+        />
+      </View>
+      <Text style={styles.emptyTitle}>{t("voice.transcriptHint")}</Text>
+      <Text style={styles.emptySubtitle}>{t("voice.sessionSubtitle")}</Text>
     </Pressable>
   );
 }
 
-const ctrlStyles = StyleSheet.create({
-  btn: {
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1.5,
-    borderColor: CTRL_BORDER,
-    gap: 5,
-    shadowColor: "#001E2B",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  btnActive: {
-    borderColor: "rgba(220,38,38,0.35)",
-    backgroundColor: "rgba(220,38,38,0.08)",
-  },
-  label: {
-    fontSize: 10,
-    fontWeight: "600",
-    fontFamily: "Inter_600SemiBold",
-    letterSpacing: 0.2,
-    position: "absolute",
-    bottom: -20,
-  },
-});
-
-// ─── Main screen ──────────────────────────────────────────────────────────────
-
 export type VoiceScreenProps = {
   phase: VoicePhase;
-  agentJoined: boolean;
   muted: boolean;
   speakerOn: boolean;
-  audioTracks: VoiceSessionAudioTracks;
   language: Language;
   onStart: () => void;
   onStop: () => void;
@@ -247,29 +195,39 @@ export function VoiceScreen({
   stopping = false,
 }: VoiceScreenProps) {
   const { t } = useTranslation();
-  const { transcript } = useVoiceSessionStore();
+  const { transcriptMessages, interimUserText, interimAgentText } = useVoiceSessionStore();
   const insets = useSafeAreaInsets();
+  const transcriptScrollRef = useRef<ScrollView>(null);
 
   const isActive = phase !== "idle" && phase !== "error";
-  const audioActive = (phase === "listening" && !muted) || phase === "speaking";
   const isMuted = muted && phase === "listening";
+  const hasTranscript = transcriptMessages.length > 0;
+
+  useEffect(() => {
+    if (transcriptMessages.length > 0 || interimUserText || interimAgentText) {
+      transcriptScrollRef.current?.scrollToEnd({ animated: true });
+    }
+  }, [transcriptMessages, interimUserText, interimAgentText]);
 
   const statusText = (() => {
     switch (phase) {
-      case "idle":       return t("voice.tapToStart");
-      case "connecting": return "Connecting…";
-      case "listening":  return muted ? "MUTED" : "AI IS LISTENING…";
-      case "speaking":   return "AI IS SPEAKING…";
-      case "error":      return "Session Error";
+      case "idle":
+        return t("voice.tapToStart");
+      case "connecting":
+        return t("voice.connecting");
+      case "listening":
+        return muted ? t("voice.muted") : t("voice.agentListening");
+      case "speaking":
+        return t("voice.agentSpeaking");
+      case "error":
+        return t("voice.error.unavailable");
     }
   })();
 
   const statusDotActive = isActive && !isMuted;
-  const currentTopic = transcript?.user ?? null;
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
-      {/* ── Status pill ──────────────────────────────────────────── */}
       <View style={styles.pillWrap}>
         <View style={styles.pill}>
           <View
@@ -280,60 +238,66 @@ export function VoiceScreen({
           />
           <Text style={styles.pillText}>{statusText}</Text>
         </View>
-        <Text style={styles.pillSubtitle}>Krishisath AI Voice Session</Text>
       </View>
 
-      {/* ── Waveform — tappable when idle to start session ──────── */}
-      <Pressable
-        style={styles.waveArea}
-        onPress={phase === "idle" ? onStart : undefined}
-        accessibilityRole={phase === "idle" ? "button" : "none"}
-        accessibilityLabel={phase === "idle" ? t("voice.tapToStart") : undefined}
-      >
-        <VoiceWaveform active={audioActive} />
-        {phase === "idle" && (
-          <View style={styles.idleOverlay}>
-            <MaterialCommunityIcons name="microphone" size={36} color={INK_MUTED} />
-          </View>
-        )}
-      </Pressable>
-
-      {/* ── Current topic ────────────────────────────────────────── */}
-      <View style={styles.topicSection}>
-        {/* <Text style={styles.topicHeading}>{t("voice.currentTopic")}</Text> */}
-        {currentTopic ? (
-          <Text style={styles.topicText} numberOfLines={3}>
-            {currentTopic}
-          </Text>
-        ) : (
-          <Text style={styles.topicPlaceholder}>
-            {t("voice.topicWaiting")}
-          </Text>
-        )}
+      <View style={styles.conversation}>
+        <ScrollView
+          ref={transcriptScrollRef}
+          style={styles.conversationScroll}
+          contentContainerStyle={[
+            styles.conversationContent,
+            !hasTranscript ? styles.conversationEmpty : null,
+          ]}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {!hasTranscript && !interimUserText && !interimAgentText ? (
+            <EmptyState phase={phase} onStart={onStart} />
+          ) : (
+            <>
+              {transcriptMessages.map((message) => (
+                <TranscriptBubble
+                  key={message.id}
+                  message={message}
+                />
+              ))}
+              {interimAgentText ? (
+                <View style={[styles.messageRow, styles.agentRow]}>
+                  <View style={styles.avatarColumn}>
+                    <Avatar role="agent" />
+                  </View>
+                  <View style={[styles.bubbleWrap, styles.agentBubbleWrap]}>
+                    <View style={[styles.agentBubble, styles.interimBubble]}>
+                      <Text style={styles.bubbleBody} selectable>
+                        {interimAgentText}
+                        <Text style={styles.streamCursor}>|</Text>
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              ) : null}
+              {interimUserText ? <InterimBubble text={interimUserText} /> : null}
+            </>
+          )}
+        </ScrollView>
       </View>
 
-      {/* ── Controls ─────────────────────────────────────────────── */}
       <View
-        style={[
-          styles.controls,
-          { paddingBottom: Math.max(insets.bottom, 28) + 12 },
-        ]}
+        style={[styles.controls, { paddingBottom: Math.max(insets.bottom, 28) + 12 }]}
       >
-        {/* Mute */}
         <View style={styles.ctrlWrap}>
           <CtrlBtn
             icon={muted ? "microphone-off" : "microphone"}
-            label="Mute"
+            label={t("voice.mute")}
             onPress={onToggleMute}
             active={isMuted}
           />
         </View>
 
-        {/* End Session */}
         <View style={styles.ctrlWrap}>
           <CtrlBtn
             icon="phone-hangup"
-            label="End Session"
+            label={t("voice.endSession")}
             size={72}
             bg={stopping ? "#9CA3AF" : END_BG}
             iconColor="#FFFFFF"
@@ -343,11 +307,10 @@ export function VoiceScreen({
           />
         </View>
 
-        {/* Speaker */}
         <View style={styles.ctrlWrap}>
           <CtrlBtn
             icon={speakerOn ? "volume-high" : "volume-off"}
-            label="Speaker"
+            label={t("voice.speaker")}
             onPress={onToggleSpeaker}
             active={!speakerOn}
           />
@@ -357,21 +320,47 @@ export function VoiceScreen({
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+const ctrlStyles = StyleSheet.create({
+  wrapper: {
+    alignItems: "center",
+    gap: 8,
+  },
+  btn: {
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1.5,
+    borderColor: CTRL_BORDER,
+    shadowColor: "#001E2B",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  btnActive: {
+    borderColor: "rgba(220,38,38,0.35)",
+    backgroundColor: "rgba(220,38,38,0.08)",
+  },
+  label: {
+    fontSize: 10,
+    fontWeight: "600",
+    fontFamily: "Inter_600SemiBold",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
+    textAlign: "center",
+  },
+});
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: PAGE_BG,
-    alignItems: "center",
   },
-
-  // Pill
   pillWrap: {
     alignItems: "center",
-    marginTop: 24,
-    marginBottom: 0,
-    gap: 10,
+    marginTop: 16,
+    marginBottom: 12,
+    gap: 8,
+    paddingHorizontal: 20,
   },
   pill: {
     flexDirection: "row",
@@ -379,6 +368,8 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: PILL_BG,
     borderRadius: 999,
+    borderWidth: 1,
+    borderColor: PILL_BORDER,
     paddingHorizontal: 18,
     paddingVertical: 9,
     shadowColor: "#001E2B",
@@ -393,74 +384,134 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   pillText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "700",
     fontFamily: "Inter_600SemiBold",
     color: INK,
-    letterSpacing: 0.5,
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
   },
-  pillSubtitle: {
-    fontSize: 13,
-    fontFamily: "Inter_400Regular",
-    color: INK_MUTED,
-  },
-
-  // Waveform area
-  waveArea: {
+  conversation: {
     flex: 1,
+    width: "100%",
+    minHeight: 0,
+  },
+  conversationScroll: {
+    flex: 1,
+  },
+  conversationContent: {
+    flexGrow: 1,
+    gap: 16,
+    paddingHorizontal: 12,
+    paddingTop: 8,
+    paddingBottom: 28,
+  },
+  conversationEmpty: {
+    justifyContent: "center",
+  },
+  emptyState: {
+    alignItems: "center",
+    gap: 12,
+    paddingHorizontal: 40,
+  },
+  emptyIconWrap: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
-    width: "100%",
-    paddingHorizontal: 20,
+    borderWidth: 1,
+    borderColor: PILL_BORDER,
   },
-
-  // Topic
-  topicSection: {
-    alignItems: "center",
-    paddingHorizontal: 40,
-    marginBottom: 52,
-    gap: 8,
-  },
-  topicHeading: {
-    fontSize: 20,
-    fontWeight: "700",
-    fontFamily: "PlusJakartaSans_700Bold",
+  emptyTitle: {
+    fontSize: 17,
+    fontFamily: "Inter_600SemiBold",
     color: INK,
-  },
-  topicText: {
-    fontSize: 15,
-    fontFamily: "Inter_400Regular",
-    fontStyle: "italic",
-    color: INK_MUTED,
     textAlign: "center",
-    lineHeight: 22,
+    lineHeight: 24,
   },
-  topicPlaceholder: {
+  emptySubtitle: {
     fontSize: 14,
     fontFamily: "Inter_400Regular",
     color: INK_MUTED,
     textAlign: "center",
     lineHeight: 20,
-    opacity: 0.6,
   },
-  idleOverlay: {
-    position: "absolute",
+  messageRow: {
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "flex-end",
+  },
+  userRow: {
+    justifyContent: "flex-end",
+  },
+  agentRow: {
+    justifyContent: "flex-start",
+  },
+  avatarColumn: {
+    alignItems: "center",
+    justifyContent: "flex-end",
+  },
+  avatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
-    opacity: 0.45,
   },
-
-  // Controls row
+  bubbleWrap: {
+    maxWidth: "75%",
+  },
+  userBubbleWrap: {
+    alignItems: "flex-end",
+  },
+  agentBubbleWrap: {
+    alignItems: "flex-start",
+  },
+  userBubble: {
+    backgroundColor: USER_BUBBLE_BG,
+    borderRadius: 18,
+    borderTopRightRadius: 4,
+    borderWidth: 1,
+    borderColor: "#b8d4b8",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  interimBubble: {
+    opacity: 0.8,
+    borderStyle: "dashed",
+  },
+  agentBubble: {
+    borderRadius: 18,
+    borderTopLeftRadius: 4,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.08)",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    overflow: "hidden",
+    backgroundColor: AGENT_BUBBLE_BG,
+  },
+  bubbleBody: {
+    fontSize: 16,
+    fontFamily: "Inter_400Regular",
+    color: INK,
+    lineHeight: 24,
+  },
+  streamCursor: {
+    color: PILL_DOT_ACTIVE,
+    fontWeight: "300",
+  },
   controls: {
     flexDirection: "row",
     alignItems: "flex-end",
     justifyContent: "center",
     gap: 40,
-    paddingTop: 8,
+    paddingTop: 4,
     width: "100%",
+    flexShrink: 0,
   },
   ctrlWrap: {
     alignItems: "center",
-    paddingBottom: 24,
   },
 });

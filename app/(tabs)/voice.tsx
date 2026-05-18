@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
 import { VoiceScreen } from "@/features/voice/components/VoiceScreen";
-import { useVoiceSession } from "@/features/voice";
+import { useVoiceSession, useVoiceSessionStore } from "@/features/voice";
 import { useFarmerId } from "@/shared/auth";
 import { useOnboarding } from "@/features/onboarding";
 import type { Language } from "@/shared/config/constants";
@@ -23,7 +23,7 @@ export default function VoiceTab() {
 
   const [sessionLanguage] = useState<Language>(defaultLang);
 
-  const { phase, agentJoined, muted, speakerOn, audioTracks, start, stop, toggleMute, toggleSpeaker, stopping } =
+  const { phase, muted, speakerOn, start, stop, toggleMute, toggleSpeaker, stopping } =
     useVoiceSession({
       farmerId,
       language: sessionLanguage,
@@ -40,12 +40,12 @@ export default function VoiceTab() {
   // eslint-disable-next-line react-hooks/refs
   stopRef.current = stop;
 
+  // Start once when opening the voice tab; stay connected until "End Session" (no stop on tab blur).
   useFocusEffect(
     useCallback(() => {
-      void startRef.current();
-      return () => {
-        void stopRef.current();
-      };
+      if (useVoiceSessionStore.getState().phase === "idle") {
+        void startRef.current();
+      }
     }, []),
   );
 
@@ -57,9 +57,7 @@ export default function VoiceTab() {
   return (
     <VoiceScreen
       phase={phase}
-      agentJoined={agentJoined}
       muted={muted}
-      audioTracks={audioTracks}
       language={sessionLanguage}
       onStart={start}
       onStop={handleEndSession}

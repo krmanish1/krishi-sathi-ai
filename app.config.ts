@@ -45,6 +45,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     permissions: [
       "CAMERA",
       "RECORD_AUDIO",
+      "MODIFY_AUDIO_SETTINGS",
       "ACCESS_FINE_LOCATION",
       "ACCESS_COARSE_LOCATION",
       "INTERNET",

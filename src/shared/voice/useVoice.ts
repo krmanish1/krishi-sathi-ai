@@ -15,14 +15,17 @@ const DEFAULT_SILENCE_TIMEOUT_MS = 30_000;
 export function useVoice(opts?: {
   silenceTimeoutMs?: number;
   onSpeechResult?: (text: string) => void;
+  onSpeechInterim?: (text: string) => void;
 }): UseVoiceReturn {
   const silenceTimeoutMs = opts?.silenceTimeoutMs ?? DEFAULT_SILENCE_TIMEOUT_MS;
   const [listening, setListening] = useState(false);
   const [speaking, setSpeaking] = useState(false);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onSpeechResultRef = useRef(opts?.onSpeechResult);
+  const onSpeechInterimRef = useRef(opts?.onSpeechInterim);
   useLayoutEffect(() => {
     onSpeechResultRef.current = opts?.onSpeechResult;
+    onSpeechInterimRef.current = opts?.onSpeechInterim;
   });
 
   const resetSilenceTimer = useCallback(() => {
@@ -41,6 +44,7 @@ export function useVoice(opts?: {
       const v = e.value?.[0];
       if (v) {
         lastResultRef.current = v;
+        onSpeechInterimRef.current?.(v);
         resetSilenceTimer();
       }
     };
