@@ -8,7 +8,7 @@ describe("useVoiceSessionStore", () => {
   it("starts in idle phase with no transcript or error", () => {
     const s = useVoiceSessionStore.getState();
     expect(s.phase).toBe("idle");
-    expect(s.transcript).toBeNull();
+    expect(s.transcriptMessages).toEqual([]);
     expect(s.errorMessage).toBeNull();
   });
 
@@ -32,23 +32,64 @@ describe("useVoiceSessionStore", () => {
     expect(s.errorMessage).toBe("voice.error.noMic");
   });
 
-  it("setTranscript stores user and agent text", () => {
-    useVoiceSessionStore
-      .getState()
-      .setTranscript({ user: "hello", agent: "namaste" });
-    const s = useVoiceSessionStore.getState();
-    expect(s.transcript).toEqual({ user: "hello", agent: "namaste" });
+  it("patchTranscript appends separate user and agent messages", () => {
+    useVoiceSessionStore.getState().patchTranscript({ user: "what is weather" });
+    useVoiceSessionStore.getState().patchTranscript({ agent: "Rain tomorrow." });
+    const msgs = useVoiceSessionStore.getState().transcriptMessages;
+    expect(msgs).toHaveLength(2);
+    expect(msgs[0]).toMatchObject({ role: "user", text: "what is weather" });
+    expect(msgs[1]).toMatchObject({ role: "agent", text: "Rain tomorrow." });
+  });
+
+  it("patchTranscript merges growing same-role transcript into the tail bubble only", () => {
+    useVoiceSessionStore.getState().patchTranscript({ agent: "hel" });
+    useVoiceSessionStore.getState().patchTranscript({ agent: "hello" });
+    const msgs = useVoiceSessionStore.getState().transcriptMessages;
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0]).toMatchObject({ role: "agent", text: "hello" });
+  });
+
+  it("applyLiveKitTranscript keeps each segment_id as its own bubble", () => {
+    const store = useVoiceSessionStore.getState();
+    store.applyLiveKitTranscript({
+      segmentId: "u1",
+      role: "user",
+      text: "q1",
+      final: true,
+    });
+    store.applyLiveKitTranscript({
+      segmentId: "a1",
+      role: "agent",
+      text: "a1",
+      final: true,
+    });
+    store.applyLiveKitTranscript({
+      segmentId: "u2",
+      role: "user",
+      text: "q2",
+      final: true,
+    });
+    store.applyLiveKitTranscript({
+      segmentId: "a2",
+      role: "agent",
+      text: "a2",
+      final: false,
+    });
+    const msgs = useVoiceSessionStore.getState().transcriptMessages;
+    expect(msgs).toHaveLength(4);
+    expect(msgs[3]).toMatchObject({ text: "a2", final: false });
   });
 
   it("reset clears all state back to idle", () => {
     const store = useVoiceSessionStore.getState();
     store.setPhase("speaking");
-    store.setTranscript({ user: "a", agent: "b" });
+    store.patchTranscript({ user: "a" });
+    store.patchTranscript({ agent: "b" });
     store.setError("some error");
     useVoiceSessionStore.getState().reset();
     const s = useVoiceSessionStore.getState();
     expect(s.phase).toBe("idle");
-    expect(s.transcript).toBeNull();
+    expect(s.transcriptMessages).toEqual([]);
     expect(s.errorMessage).toBeNull();
   });
 });

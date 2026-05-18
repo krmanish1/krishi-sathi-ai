@@ -16,7 +16,7 @@ type Props = {
 
 export function VoiceSessionSheet({ onStop }: Props) {
   const { t } = useTranslation();
-  const { phase, transcript, errorMessage } = useVoiceSessionStore();
+  const { phase, transcriptMessages, errorMessage } = useVoiceSessionStore();
   const visible = phase !== "idle";
 
   const phaseLabel = (() => {
@@ -50,16 +50,18 @@ export function VoiceSessionSheet({ onStop }: Props) {
             <Text style={styles.phaseLabel}>{phaseLabel}</Text>
           </View>
 
-          {transcript && (
+          {transcriptMessages.length > 0 ? (
             <View style={styles.transcriptBox}>
-              <Text style={styles.transcriptUser}>
-                🎤 {transcript.user}
-              </Text>
-              <Text style={styles.transcriptAgent}>
-                🤖 {transcript.agent}
-              </Text>
+              {transcriptMessages.map((msg) => (
+                <Text
+                  key={msg.id}
+                  style={msg.role === "user" ? styles.transcriptUser : styles.transcriptAgent}
+                >
+                  {msg.role === "user" ? "🎤" : "🤖"} {msg.text}
+                </Text>
+              ))}
             </View>
-          )}
+          ) : null}
 
           <Pressable
             style={styles.stopButton}

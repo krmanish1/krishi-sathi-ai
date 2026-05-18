@@ -1,17 +1,66 @@
 import { useCallback, useRef, useEffect, useState } from "react";
 import { Platform } from "react-native";
-import type { LocalAudioTrack, RemoteAudioTrack } from "livekit-client";
+import type { RemoteAudioTrack } from "livekit-client";
 import { useConnectivity } from "@/shared/network";
 import { useVoice, speak as speakText } from "@/shared/voice";
-import { askAgent, postVoiceToken } from "@/shared/api";
+import {
+  setLiveKitSpeakerRoute,
+  startLiveKitVoiceAudio,
+  stopLiveKitVoiceAudio,
+} from "@/shared/voice/liveKitVoiceAudio";
+import { ApiError, askAgent, postVoiceToken } from "@/shared/api";
 import { appendMessage, MAIN_THREAD_ID } from "@/features/chat";
-import { useVoiceSessionStore } from "./useVoiceSessionStore";
 import type { Language } from "@/shared/config/constants";
+import {
+  consumeLiveKitTranscriptionStream,
+  collectLocalAudioTrackIds,
+  LIVEKIT_TRANSCRIPTION_TOPIC,
+  type LiveKitTranscriptSegmentUpdate,
+  type TranscriptionRoleContext,
+} from "./liveKitTranscriptionStream";
+import { parseVoiceDataMessage } from "./parseVoiceDataMessage";
+import { parseVoiceTranscriptionSegments } from "./parseVoiceTranscription";
+import { useVoiceSessionStore } from "./useVoiceSessionStore";
+
+export type VoiceSessionInput = {
+  farmerId: string;
+  language: Language;
+  state: string;
+  district: string;
+  conversationId?: string;
+};
 
 export type VoiceSessionAudioTracks = {
-  localMic?: LocalAudioTrack;
+  localMic?: import("livekit-client").LocalAudioTrack;
   remoteAgent?: RemoteAudioTrack;
 };
+
+function applySegmentUpdate(update: LiveKitTranscriptSegmentUpdate): void {
+  const store = useVoiceSessionStore.getState();
+  store.applyLiveKitTranscript({
+    segmentId: update.segmentId,
+    role: update.role,
+    text: update.text,
+    final: update.final,
+  });
+  if (update.role === "agent") {
+    store.setPhase("speaking");
+  } else if (store.phase !== "speaking") {
+    store.setPhase("listening");
+  }
+}
+
+function applyTranscriptUpdate(
+  patch: { user?: string; agent?: string },
+): void {
+  const store = useVoiceSessionStore.getState();
+  store.patchTranscript(patch);
+  if (patch.agent) {
+    store.setPhase("speaking");
+  } else if (patch.user && store.phase !== "speaking") {
+    store.setPhase("listening");
+  }
+}
 
 const STT_LOCALE: Record<string, string> = {
   hi: "hi-IN",
@@ -44,38 +93,27 @@ function loadLiveKit(): {
   }
 }
 
-export type VoiceSessionInput = {
-  farmerId: string;
-  language: Language;
-  state: string;
-  district: string;
-  conversationId?: string;
-};
-
 export function useVoiceSession(input: VoiceSessionInput) {
   const connectivity = useConnectivity();
   const store = useVoiceSessionStore();
   const roomRef = useRef<import("livekit-client").Room | null>(null);
-  const [audioTracks, setAudioTracks] = useState<VoiceSessionAudioTracks>({});
+  const connectionAbortRef = useRef<AbortController | null>(null);
   // True while stop() is executing — prevents Disconnected handler from double-resetting
   const stoppedByUser = useRef(false);
+  const transcriptionViaTextStreamRef = useRef(false);
   const stopGenRef = useRef(0);
   const [stopping, setStopping] = useState(false);
   const [speakerOn, setSpeakerOn] = useState(true);
+
+  const volumeRetryRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const syncAudioFromRoom = useCallback(() => {
     const r = roomRef.current;
     const lk = loadLiveKit();
     if (!r || !lk) {
-      setAudioTracks({});
       return;
     }
     const { Track } = lk.livekitClient;
-    const localPub = r.localParticipant.getTrackPublication(Track.Source.Microphone);
-    let localMic: LocalAudioTrack | undefined;
-    if (localPub?.track?.kind === Track.Kind.Audio) {
-      localMic = localPub.track as LocalAudioTrack;
-    }
     let remoteAgent: RemoteAudioTrack | undefined;
     for (const p of r.remoteParticipants.values()) {
       for (const pub of p.trackPublications.values()) {
@@ -86,16 +124,28 @@ export function useVoiceSession(input: VoiceSessionInput) {
       }
       if (remoteAgent) break;
     }
-    const next: VoiceSessionAudioTracks = {};
-    if (localMic !== undefined) next.localMic = localMic;
-    if (remoteAgent !== undefined) next.remoteAgent = remoteAgent;
-    setAudioTracks(next);
+    if (remoteAgent !== undefined) {
+      try {
+        remoteAgent.setVolume(1.0);
+      } catch {
+        // ignore
+      }
+      // Found the track — stop retrying
+      if (volumeRetryRef.current) {
+        clearInterval(volumeRetryRef.current);
+        volumeRetryRef.current = null;
+      }
+    }
     store.setAgentJoined(r.remoteParticipants.size > 0);
   }, [store]);
 
   // Cleanup room on unmount
   useEffect(() => {
     return () => {
+      if (volumeRetryRef.current) {
+        clearInterval(volumeRetryRef.current);
+        volumeRetryRef.current = null;
+      }
       const r = roomRef.current;
       roomRef.current = null;
       if (r) {
@@ -109,11 +159,17 @@ export function useVoiceSession(input: VoiceSessionInput) {
 
   const handleSpeechResult = useCallback(
     async (text: string) => {
+      store.setInterimUserText("");
+      store.setInterimAgentText("");
       store.setPhase("speaking");
-      let hadError = false;
       try {
         const response = await askAgent(
-          { text, language: input.language, intent: "general" },
+          {
+            text,
+            language: input.language,
+            intent: "general",
+            onToken: (token) => store.setInterimAgentText(token),
+          },
           {
             farmerId: input.farmerId,
             conversationId: input.conversationId ?? MAIN_THREAD_ID,
@@ -122,36 +178,41 @@ export function useVoiceSession(input: VoiceSessionInput) {
             deviceCapabilities: { ondeviceModel: "gemma-4-e4b-it" },
           },
         );
-        store.setTranscript({ user: text, agent: response.text });
-        await speakText(response.text, input.language);
-        await appendMessage({ role: "user", text, threadId: MAIN_THREAD_ID });
-        await appendMessage({
-          role: "assistant",
-          text: response.text,
-          threadId: MAIN_THREAD_ID,
-        });
-      } catch {
-        hadError = true;
-        store.setError("voice.error.unavailable");
-      } finally {
-        if (!hadError && !stoppedByUser.current) {
-          // Stay active — restart STT for next query
+        store.setInterimAgentText("");
+        store.patchTranscript({ user: text });
+        store.appendAgentMessage(response.text);
+        // Restart STT immediately — no await on TTS
+        if (!stoppedByUser.current) {
           store.setPhase("listening");
           startOfflineRef.current?.().catch(() => store.setError("voice.error.unavailable"));
-        } else if (!stoppedByUser.current) {
-          // Error state — leave error visible, don't reset
         }
-        // If stoppedByUser: stop() is handling cleanup, do nothing
+        // Fire-and-forget TTS + SQLite persistence
+        speakText(response.text, input.language).then(() => {
+          if (!stoppedByUser.current) {
+            appendMessage({ role: "user", text, threadId: MAIN_THREAD_ID }).catch(() => {});
+            appendMessage({ role: "assistant", text: response.text, threadId: MAIN_THREAD_ID }).catch(() => {});
+          }
+        });
+      } catch {
+        store.setError("voice.error.unavailable");
+        if (!stoppedByUser.current) {
+          store.setPhase("listening");
+          startOfflineRef.current?.().catch(() => store.setError("voice.error.unavailable"));
+        }
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [input.farmerId, input.language, input.state, input.district, input.conversationId, connectivity],
   );
 
-  const voice = useVoice({ onSpeechResult: handleSpeechResult });
+  const voice = useVoice({
+    onSpeechResult: handleSpeechResult,
+    onSpeechInterim: useCallback((text: string) => {
+      store.setInterimUserText(text);
+    }, [store]),
+  });
 
   const startOffline = useCallback(async () => {
-    setAudioTracks({});
     const locale = toSttLocale(input.language);
     await voice.startListening(locale);
     store.setPhase("listening");
@@ -170,9 +231,7 @@ export function useVoiceSession(input: VoiceSessionInput) {
       }
       const { livekitClient, livekitRN } = livekit;
       const { Room: LKRoom, RoomEvent } = livekitClient;
-      const { AudioSession, AndroidAudioTypePresets } = livekitRN;
 
-      // Fire audio config and token fetch in parallel — saves ~300ms on first connect.
       const tokenPromise = postVoiceToken({
         farmer_id: input.farmerId,
         ...(input.conversationId ? { conversation_id: input.conversationId } : {}),
@@ -180,15 +239,11 @@ export function useVoiceSession(input: VoiceSessionInput) {
         language: input.language,
       });
 
-      // Route audio to speaker by default (headset/bluetooth override automatically)
-      await AudioSession.configureAudio({
-        android: {
-          preferredOutputList: ["speaker", "earpiece"],
-          audioTypeOptions: AndroidAudioTypePresets.media,
-        },
-        ios: { defaultOutput: "speaker" },
-      });
-      await AudioSession.startAudioSession();
+      // Voice-call audio mode + token in parallel — mic ready sooner before connect.
+      const [, tokenResult] = await Promise.all([
+        startLiveKitVoiceAudio(livekitRN, { speakerFirst: true }),
+        tokenPromise,
+      ]);
 
       // Disconnect any stale room before creating a new one.
       // removeAllListeners() first — prevents stale room's WebSocket error
@@ -200,28 +255,94 @@ export function useVoiceSession(input: VoiceSessionInput) {
         try { stale.disconnect(); } catch { /* ignore */ }
       }
 
-      const { server_url, participant_token } = await tokenPromise;
+      const { server_url, participant_token } = tokenResult;
 
-      const room = new LKRoom();
+      const room = new LKRoom({
+        audioCaptureDefaults: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
       roomRef.current = room;
 
-      room.on(RoomEvent.DataReceived, (payload: Uint8Array) => {
-        try {
-          const msg = JSON.parse(new TextDecoder().decode(payload)) as {
-            type?: string;
-            user?: string;
-            agent?: string;
-          };
-          if (msg.type === "transcript" && msg.user && msg.agent) {
-            store.setTranscript({ user: msg.user, agent: msg.agent });
-            store.setPhase("speaking");
+      const onDataPayload = (payload: Uint8Array) => {
+        if (!guard()) return;
+        if (transcriptionViaTextStreamRef.current) return;
+        const parsed = parseVoiceDataMessage(payload);
+        if (!parsed) {
+          if (__DEV__) {
+            try {
+              const raw = new TextDecoder().decode(payload);
+              if (raw.trim()) console.log("[VoiceSession] Unhandled data:", raw.slice(0, 200));
+            } catch {
+              // ignore
+            }
           }
-        } catch {
-          // malformed data message — ignore
+          return;
         }
+        applyTranscriptUpdate(parsed.patch);
+      };
+
+      room.on(RoomEvent.DataReceived, onDataPayload);
+
+      const buildRoleContext = (
+        participantIdentity: string,
+      ): TranscriptionRoleContext => ({
+        localIdentity: room.localParticipant.identity || input.farmerId,
+        localAudioTrackIds: collectLocalAudioTrackIds(
+          room.localParticipant.audioTrackPublications.values(),
+        ),
+        participantIdentity,
       });
 
+      transcriptionViaTextStreamRef.current = false;
+      if (typeof room.registerTextStreamHandler === "function") {
+        room.registerTextStreamHandler(LIVEKIT_TRANSCRIPTION_TOPIC, (reader, participantInfo) => {
+          if (!guard()) return;
+          const roleCtx = buildRoleContext(participantInfo.identity);
+          void consumeLiveKitTranscriptionStream(
+            reader,
+            roleCtx,
+            (update) => {
+              if (!guard()) return;
+              transcriptionViaTextStreamRef.current = true;
+              applySegmentUpdate(update);
+            },
+          ).catch((err) => {
+            if (__DEV__) {
+              console.warn("[VoiceSession] lk.transcription stream error:", err);
+            }
+          });
+        });
+      }
+
+      if (RoomEvent.TranscriptionReceived != null) {
+        room.on(RoomEvent.TranscriptionReceived, (segments, participant) => {
+          if (!guard()) return;
+          if (transcriptionViaTextStreamRef.current) return;
+          const isLocal =
+            participant?.identity === room.localParticipant.identity ||
+            participant?.sid === room.localParticipant.sid;
+          const parsed = parseVoiceTranscriptionSegments(
+            segments as { id?: string; text?: string; final?: boolean }[],
+            isLocal,
+          );
+          for (const seg of parsed) {
+            applySegmentUpdate({
+              segmentId: seg.segmentId,
+              role: seg.role,
+              text: seg.text,
+              final: seg.final,
+            });
+          }
+        });
+      }
+
+      const guard = () => roomRef.current === room;
+
       const onRoomTracksChanged = () => {
+        if (!guard()) return;
         syncAudioFromRoom();
       };
       room.on(RoomEvent.TrackPublished, onRoomTracksChanged);
@@ -235,6 +356,7 @@ export function useVoiceSession(input: VoiceSessionInput) {
 
       // Track agent speaking state via active speakers
       room.on(RoomEvent.ActiveSpeakersChanged, (speakers) => {
+        if (!guard()) return;
         const agentSpeaking = speakers.some((s) => s.sid !== room.localParticipant.sid);
         if (agentSpeaking) {
           store.setPhase("speaking");
@@ -244,39 +366,63 @@ export function useVoiceSession(input: VoiceSessionInput) {
       });
 
       // Reconnect resilience on brief network drops
-      room.on(RoomEvent.Reconnecting, () => store.setPhase("connecting"));
+      room.on(RoomEvent.Reconnecting, () => {
+        if (!guard()) return;
+        store.setPhase("connecting");
+      });
       room.on(RoomEvent.Reconnected, () => {
+        if (!guard()) return;
         store.setPhase("listening");
         syncAudioFromRoom();
       });
 
       room.on(RoomEvent.Disconnected, async () => {
         if (stoppedByUser.current) return;
-        const { transcript } = useVoiceSessionStore.getState();
-        if (transcript) {
-          try {
-            await appendMessage({ role: "user", text: transcript.user, threadId: MAIN_THREAD_ID });
-            await appendMessage({ role: "assistant", text: transcript.agent, threadId: MAIN_THREAD_ID });
-          } catch {
-            // best-effort save
+        if (guard()) roomRef.current = null;
+        store.setPhase("error");
+        store.setError("voice.error.unavailable");
+      });
+
+      // prepareConnection is an optimization — if it fails (e.g. region DNS issue),
+      // the SDK internally retries other regions. Don't let a failure here block connect().
+      if (typeof room.prepareConnection === "function") {
+        connectionAbortRef.current = new AbortController();
+        try {
+          await room.prepareConnection(server_url, participant_token);
+        } catch (prepareErr) {
+          if (__DEV__) {
+            console.warn("[VoiceSession] prepareConnection failed, will retry via connect():", prepareErr);
           }
         }
-        setAudioTracks({});
-        roomRef.current = null;
-        store.reset();
-      });
+      }
 
       await room.connect(server_url, participant_token, { autoSubscribe: true });
       await room.localParticipant.setMicrophoneEnabled(true);
       syncAudioFromRoom();
+      // Keep retrying volume until the remote agent track is subscribed
+      // (tracks can arrive late, especially on slow networks)
+      volumeRetryRef.current = setInterval(() => syncAudioFromRoom(), 800);
       store.setPhase("listening");
     } catch (err) {
-      if (__DEV__) {
-        console.warn("[VoiceSession] startOnline failed, falling back to offline STT:", err);
-      }
       roomRef.current = null;
-      setAudioTracks({});
-      await startOffline();
+      const liveKitMissing =
+        err instanceof Error &&
+        err.message.includes("LiveKit native module not available");
+      if (liveKitMissing) {
+        if (__DEV__) {
+          console.warn("[VoiceSession] LiveKit unavailable, falling back to offline STT:", err);
+        }
+        await startOffline();
+        return;
+      }
+      if (__DEV__) {
+        console.warn("[VoiceSession] startOnline failed:", err);
+      }
+      if (err instanceof ApiError && (err.code === "LLM_TIMEOUT" || err.status === 0)) {
+        store.setError("voice.error.serverWaking");
+        return;
+      }
+      store.setError("voice.error.unavailable");
     }
   }, [input.farmerId, input.language, input.conversationId, store, startOffline, syncAudioFromRoom]);
 
@@ -284,6 +430,7 @@ export function useVoiceSession(input: VoiceSessionInput) {
     // Allow restart from error state
     if (store.phase === "error") store.reset();
     if (store.phase !== "idle") return;
+    stoppedByUser.current = false;
     // Invalidate any in-flight stop() so it won't reset this new session
     stopGenRef.current += 1;
     if (Platform.OS === "web") {
@@ -301,22 +448,49 @@ export function useVoiceSession(input: VoiceSessionInput) {
     const myGen = ++stopGenRef.current;
     setStopping(true);
     stoppedByUser.current = true;
-    setAudioTracks({});
+    // Abort any pending prepareConnection
+    connectionAbortRef.current?.abort();
+    connectionAbortRef.current = null;
+    // Stop volume retry
+    if (volumeRetryRef.current) {
+      clearInterval(volumeRetryRef.current);
+      volumeRetryRef.current = null;
+    }
     const room = roomRef.current;
     if (room) {
-      const { transcript } = useVoiceSessionStore.getState();
-      if (transcript) {
+      if (typeof room.unregisterTextStreamHandler === "function") {
         try {
-          await appendMessage({ role: "user", text: transcript.user, threadId: MAIN_THREAD_ID });
-          await appendMessage({ role: "assistant", text: transcript.agent, threadId: MAIN_THREAD_ID });
+          room.unregisterTextStreamHandler(LIVEKIT_TRANSCRIPTION_TOPIC);
+        } catch {
+          // ignore
+        }
+      }
+      transcriptionViaTextStreamRef.current = false;
+      const { transcriptMessages } = useVoiceSessionStore.getState();
+      if (transcriptMessages.length > 0) {
+        try {
+          for (const msg of transcriptMessages) {
+            if (!msg.text.trim()) continue;
+            await appendMessage({
+              role: msg.role === "user" ? "user" : "assistant",
+              text: msg.text,
+              threadId: MAIN_THREAD_ID,
+            });
+          }
         } catch {
           // best-effort save
         }
       }
+      try {
+        await room.localParticipant.setMicrophoneEnabled(false);
+      } catch {
+        // ignore
+      }
+      room.removeAllListeners();
       room.disconnect();
       try {
         const lk = loadLiveKit();
-        if (lk) await lk.livekitRN.AudioSession.stopAudioSession();
+        if (lk) await stopLiveKitVoiceAudio(lk.livekitRN);
       } catch {
         // ignore — web or mock env
       }
@@ -328,7 +502,6 @@ export function useVoiceSession(input: VoiceSessionInput) {
     // Only reset if no newer session was started while we were awaiting
     if (stopGenRef.current === myGen) {
       store.reset();
-      stoppedByUser.current = false;
     }
     setStopping(false);
   }, [store, voice.stopListening, voice.cancelSpeech]);
@@ -339,15 +512,7 @@ export function useVoiceSession(input: VoiceSessionInput) {
     try {
       const lk = loadLiveKit();
       if (!lk) return;
-      const { AudioSession, AndroidAudioTypePresets } = lk.livekitRN;
-      await AudioSession.configureAudio({
-        android: {
-          preferredOutputList: next ? ["speaker", "earpiece"] : ["earpiece", "speaker"],
-          audioTypeOptions: AndroidAudioTypePresets.media,
-        },
-        ios: { defaultOutput: next ? "speaker" : "earpiece" },
-      });
-      await AudioSession.startAudioSession();
+      await setLiveKitSpeakerRoute(lk.livekitRN, next);
     } catch {
       // ignore — web or mock env
     }
@@ -372,7 +537,6 @@ export function useVoiceSession(input: VoiceSessionInput) {
     agentJoined: store.agentJoined,
     muted: store.muted,
     speakerOn,
-    audioTracks,
     start,
     stop,
     toggleMute,

@@ -159,6 +159,7 @@ export async function speak(text: string, locale = "hi"): Promise<void> {
     Speech.speak(text, {
       language: locale,
       rate: 0.85,
+      volume: 1.0,
       onDone: () => resolve(),
       onError: () => resolve(),
     });

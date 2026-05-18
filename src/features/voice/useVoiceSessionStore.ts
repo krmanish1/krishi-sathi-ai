@@ -1,15 +1,32 @@
 import { create } from "zustand";
+import { randomUUID } from "@/shared/utils/uuid";
+import {
+  patchVoiceTranscriptMessages,
+  applyLiveKitSegmentUpdate,
+  type VoiceTranscriptMessage,
+  type VoiceTranscriptPatch,
+  type LiveKitSegmentInput,
+} from "./voiceTranscriptMessages";
 
 export type VoicePhase = "idle" | "connecting" | "listening" | "speaking" | "error";
+
+export type { VoiceTranscriptMessage, VoiceTranscriptPatch };
 
 type VoiceSessionStore = {
   phase: VoicePhase;
   errorMessage: string | null;
-  transcript: { user: string; agent: string } | null;
+  transcriptMessages: VoiceTranscriptMessage[];
   agentJoined: boolean;
   muted: boolean;
+  interimUserText: string;
+  interimAgentText: string;
   setPhase: (p: VoicePhase) => void;
-  setTranscript: (t: { user: string; agent: string } | null) => void;
+  setTranscriptMessages: (messages: VoiceTranscriptMessage[]) => void;
+  patchTranscript: (patch: VoiceTranscriptPatch) => void;
+  applyLiveKitTranscript: (segment: LiveKitSegmentInput) => void;
+  setInterimUserText: (text: string) => void;
+  setInterimAgentText: (text: string) => void;
+  appendAgentMessage: (text: string) => void;
   setError: (msg: string) => void;
   setAgentJoined: (joined: boolean) => void;
   setMuted: (muted: boolean) => void;
@@ -19,13 +36,47 @@ type VoiceSessionStore = {
 export const useVoiceSessionStore = create<VoiceSessionStore>((set) => ({
   phase: "idle",
   errorMessage: null,
-  transcript: null,
+  transcriptMessages: [],
   agentJoined: false,
   muted: false,
+  interimUserText: "",
+  interimAgentText: "",
   setPhase: (phase) => set({ phase }),
-  setTranscript: (transcript) => set({ transcript }),
+  setTranscriptMessages: (transcriptMessages) => set({ transcriptMessages }),
+  patchTranscript: (patch) =>
+    set((state) => ({
+      transcriptMessages: patchVoiceTranscriptMessages(
+        state.transcriptMessages,
+        patch,
+      ),
+    })),
+  applyLiveKitTranscript: (segment) =>
+    set((state) => ({
+      transcriptMessages: applyLiveKitSegmentUpdate(
+        state.transcriptMessages,
+        segment,
+      ),
+    })),
+  setInterimUserText: (interimUserText) => set({ interimUserText }),
+  setInterimAgentText: (interimAgentText) => set({ interimAgentText }),
+  appendAgentMessage: (text) =>
+    set((state) => ({
+      transcriptMessages: [
+        ...state.transcriptMessages,
+        { id: randomUUID(), role: "agent", text: text.trim() },
+      ],
+    })),
   setError: (errorMessage) => set({ phase: "error", errorMessage }),
   setAgentJoined: (agentJoined) => set({ agentJoined }),
   setMuted: (muted) => set({ muted }),
-  reset: () => set({ phase: "idle", errorMessage: null, transcript: null, agentJoined: false, muted: false }),
+  reset: () =>
+    set({
+      phase: "idle",
+      errorMessage: null,
+      transcriptMessages: [],
+      agentJoined: false,
+      muted: false,
+      interimUserText: "",
+      interimAgentText: "",
+    }),
 }));

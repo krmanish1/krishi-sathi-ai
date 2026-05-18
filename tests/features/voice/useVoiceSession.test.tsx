@@ -63,20 +63,27 @@ const mockSetMicEnabled = jest.fn().mockResolvedValue(undefined);
 const mockRoomConnect = jest.fn().mockResolvedValue(undefined);
 const mockRoomOn = jest.fn();
 
+const mockRegisterTextStreamHandler = jest.fn();
+const mockUnregisterTextStreamHandler = jest.fn();
+
 jest.mock("livekit-client", () => ({
   Room: jest.fn().mockImplementation(() => ({
     connect: mockRoomConnect,
     disconnect: mockRoomDisconnect,
     on: mockRoomOn,
     removeAllListeners: jest.fn(),
+    registerTextStreamHandler: mockRegisterTextStreamHandler,
+    unregisterTextStreamHandler: mockUnregisterTextStreamHandler,
     remoteParticipants: new Map(),
     localParticipant: {
+      identity: "farmer1",
       setMicrophoneEnabled: mockSetMicEnabled,
       getTrackPublication: jest.fn(() => null),
     },
   })),
   RoomEvent: {
     DataReceived: "dataReceived",
+    TranscriptionReceived: "transcriptionReceived",
     Disconnected: "disconnected",
     TrackPublished: "trackPublished",
     TrackUnpublished: "trackUnpublished",
@@ -101,11 +108,25 @@ jest.mock("@livekit/react-native", () => ({
     configureAudio: jest.fn().mockResolvedValue(undefined),
     startAudioSession: jest.fn().mockResolvedValue(undefined),
     stopAudioSession: jest.fn().mockResolvedValue(undefined),
+    setDefaultRemoteAudioTrackVolume: jest.fn().mockResolvedValue(undefined),
+    setAppleAudioConfiguration: jest.fn().mockResolvedValue(undefined),
   },
   AndroidAudioTypePresets: {
     communication: { audioMode: "inCommunication" },
     media: { audioMode: "normal" },
   },
+  getDefaultAppleAudioConfigurationForMode: jest.fn(() => ({ audioCategory: "playAndRecord" })),
+}));
+
+const mockStartLiveKitVoiceAudio = jest.fn().mockResolvedValue(undefined);
+const mockStopLiveKitVoiceAudio = jest.fn().mockResolvedValue(undefined);
+
+const mockSetLiveKitSpeakerRoute = jest.fn().mockResolvedValue(undefined);
+
+jest.mock("@/shared/voice/liveKitVoiceAudio", () => ({
+  startLiveKitVoiceAudio: (...args: unknown[]) => mockStartLiveKitVoiceAudio(...args),
+  stopLiveKitVoiceAudio: (...args: unknown[]) => mockStopLiveKitVoiceAudio(...args),
+  setLiveKitSpeakerRoute: (...args: unknown[]) => mockSetLiveKitSpeakerRoute(...args),
 }));
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -142,15 +163,18 @@ describe("useVoiceSession — online path", () => {
     expect(mockPostVoiceToken).toHaveBeenCalledWith(
       expect.objectContaining({ farmer_id: "farmer1", language: "hi" }),
     );
-    const { AudioSession } = require("@livekit/react-native") as {
-      AudioSession: { configureAudio: jest.Mock; startAudioSession: jest.Mock };
-    };
-    expect(AudioSession.configureAudio).toHaveBeenCalledWith(
-      expect.objectContaining({ android: expect.any(Object), ios: expect.any(Object) }),
-    );
-    expect(AudioSession.startAudioSession).toHaveBeenCalled();
+    expect(mockStartLiveKitVoiceAudio).toHaveBeenCalled();
     expect(mockRoomConnect).toHaveBeenCalledWith("wss://lk.test", "tok", expect.any(Object));
+    const audioOrder = mockStartLiveKitVoiceAudio.mock.invocationCallOrder[0];
+    const connectOrder = mockRoomConnect.mock.invocationCallOrder[0];
+    expect(audioOrder).toBeDefined();
+    expect(connectOrder).toBeDefined();
+    expect(audioOrder!).toBeLessThan(connectOrder!);
     expect(mockSetMicEnabled).toHaveBeenCalledWith(true);
+    expect(mockRegisterTextStreamHandler).toHaveBeenCalledWith(
+      "lk.transcription",
+      expect.any(Function),
+    );
     expect(result.current.phase).toBe("listening");
   });
 
@@ -161,9 +185,9 @@ describe("useVoiceSession — online path", () => {
     });
     // Simulate a transcript being set
     act(() => {
-      useVoiceSessionStore
-        .getState()
-        .setTranscript({ user: "question", agent: "answer" });
+      const store = useVoiceSessionStore.getState();
+      store.patchTranscript({ user: "question" });
+      store.patchTranscript({ agent: "answer" });
     });
     await act(async () => {
       await result.current.stop();

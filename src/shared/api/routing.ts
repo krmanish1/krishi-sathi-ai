@@ -101,6 +101,7 @@ const callBackend = async (q: AgentQuery, ctx: AgentContext): Promise<AgentRespo
       },
     },
     q.signal,
+    q.onToken,
   );
   return {
     text: extractTextContent(r.text),
