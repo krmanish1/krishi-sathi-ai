@@ -340,6 +340,8 @@
   "offline": {
     "modelDownloadingGeneral": "AI model is downloading. Here is what I found from cached data:",
     "modelDownloadingWeather": "AI model is downloading. Weather data requires a live connection — please connect to the internet for the latest forecast.",
+    "modelNotDownloaded": "Please download the AI model first to chat offline. Go to Settings > Download Offline Model.",
+    "modelNotDownloadedWeather": "Please download the AI model first to get offline weather insights, or connect to the internet for the latest forecast.",
     "visionUnavailable": "Image analysis is not available on this device in offline mode.",
     "inferenceTimeout": "Response timed out. Please try again.",
     "download_error_title": "Download error",

@@ -44,22 +44,22 @@ export function offlineFallback(
     case "scheme_query": {
       const summary = schemesSummary(bundle);
       text = summary
-        ? `${i18next.t("offline.modelDownloadingGeneral")}\n\n${summary}`
-        : i18next.t("offline.modelDownloadingGeneral");
+        ? `${i18next.t("offline.modelNotDownloaded")}\n\n${summary}`
+        : i18next.t("offline.modelNotDownloaded");
       break;
     }
     case "market_price": {
       const summary = mandiSummary(bundle);
       text = summary
-        ? `${i18next.t("offline.modelDownloadingGeneral")}\n\n${summary}`
-        : i18next.t("offline.modelDownloadingGeneral");
+        ? `${i18next.t("offline.modelNotDownloaded")}\n\n${summary}`
+        : i18next.t("offline.modelNotDownloaded");
       break;
     }
     case "weather":
-      text = i18next.t("offline.modelDownloadingWeather");
+      text = i18next.t("offline.modelNotDownloadedWeather");
       break;
     default:
-      text = i18next.t("offline.modelDownloadingGeneral");
+      text = i18next.t("offline.modelNotDownloaded");
   }
 
   return {

@@ -83,7 +83,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       projectId: "3efbd78c-90d8-49f9-8dfe-4cf9a9009f76",
     },
     apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? "http://10.0.2.2:8000",
-    useNativeGemma: process.env.EXPO_PUBLIC_USE_NATIVE_GEMMA ?? "0",
+    useNativeGemma: process.env.EXPO_PUBLIC_USE_NATIVE_GEMMA ?? "1",
     nativeGemmaModelPath: process.env.EXPO_PUBLIC_NATIVE_GEMMA_MODEL_PATH ?? "",
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL ?? "",
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_KEY ?? "",
