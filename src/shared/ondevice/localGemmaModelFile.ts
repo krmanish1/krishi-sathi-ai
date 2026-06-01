@@ -8,7 +8,7 @@ const MODEL_FILENAMES: Record<ModelVariant, string> = {
   e4b: "gemma-4-E4B-it-web.task",
   e2b: "gemma-4-E2B-it-web.task",
 };
-const GB4_IN_BYTES = 4 * 1024 * 1024 * 1024;
+const GB8_IN_BYTES = 8 * 1024 * 1024 * 1024;
 
 // Conservative minimums — a valid model file cannot be smaller than this.
 // E4B ~4 GB task file, E2B ~2 GB task file.
@@ -30,7 +30,7 @@ export async function detectModelVariant(): Promise<ModelVariant> {
   try {
     const totalMemory: number =
       ((NativeModules.PlatformConstants as Record<string, unknown>)?.totalMemory as number) ?? 0;
-    return totalMemory > 0 && totalMemory < GB4_IN_BYTES ? "e2b" : "e4b";
+    return totalMemory > 0 && totalMemory <= GB8_IN_BYTES ? "e2b" : "e4b";
   } catch {
     return "e4b";
   }
