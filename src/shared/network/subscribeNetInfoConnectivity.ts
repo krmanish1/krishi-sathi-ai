@@ -17,8 +17,8 @@ export type SubscribeNetInfoOptions = {
 
 /**
  * Subscribes to NetInfo and maps snapshots into {@link Connectivity}.
- * Confirms a single "offline" signal with an immediate second fetch to avoid transient
- * false offline blips on some devices.
+ * Confirms "offline" and "online" signals with an immediate second fetch to avoid
+ * transient false state changes on some devices.
  */
 export function subscribeNetInfoConnectivity(
   setC: Dispatch<SetStateAction<Connectivity>>,
@@ -27,17 +27,20 @@ export function subscribeNetInfoConnectivity(
   let cancelled = false;
   let pollId: ReturnType<typeof setInterval> | undefined;
 
+  const confirm = (state: NetInfoLike) => {
+    void NetInfo.fetch().then((s2) => {
+      if (cancelled) return;
+      const n2 = mapNetInfoToConnectivity(pick(s2));
+      if (n2 != null) setC(n2);
+    });
+  };
+
   const apply = (state: NetInfoLike) => {
     const next = mapNetInfoToConnectivity(state);
     if (cancelled || next == null) return;
 
-    if (next === "offline") {
-      void NetInfo.fetch().then((s2) => {
-        if (cancelled) return;
-        const n2 = mapNetInfoToConnectivity(pick(s2));
-        if (n2 === "offline") setC("offline");
-        else if (n2 != null) setC(n2);
-      });
+    if (next === "offline" || next === "online") {
+      confirm(state);
       return;
     }
 
