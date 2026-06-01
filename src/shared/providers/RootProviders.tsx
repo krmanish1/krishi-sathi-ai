@@ -20,15 +20,8 @@ import { ApiStatusProvider } from "@/shared/api";
 import { SyncPushScheduler } from "@/shared/providers/SyncPushScheduler";
 import Constants from "expo-constants";
 import { initDb } from "@/shared/storage/db";
-import {
-  checkLocalGemmaModelOnDisk,
-  createNativeBackend,
-  getModelPath,
-  mockGemmaBackend,
-  setGemmaBackend,
-  setModelReady,
-} from "@/shared/ondevice";
-import { isNativeGemmaModuleLinked } from "@/modules/gemma-llm/src";
+import { syncModelReadyFromDisk } from "@/shared/ondevice";
+import { mockGemmaBackend, setGemmaBackend, setModelReady } from "@/shared/ondevice";
 import { theme } from "@/shared/ui/theme/tokens";
 import { initAuthBrowser } from "@/shared/supabase";
 import { ConnectivityProvider, useSyncOnResume } from "@/shared/network";
@@ -90,28 +83,18 @@ export const RootProviders = ({ children }: { children: ReactNode }) => {
       try {
         await initDb();
         await runChatLocalCacheMigrationIfNeeded(queryClient);
-        await checkLocalGemmaModelOnDisk().catch(() => undefined);
-
-        const useNative = Constants.expoConfig?.extra?.useNativeGemma === "1";
-        // Priority: (1) path detected on disk at boot, (2) explicit env var, (3) adb push default.
-        // Use || not ?? so empty string falls through to the next option.
-        const modelPath =
-          getModelPath() ||
-          (Constants.expoConfig?.extra?.nativeGemmaModelPath as string | undefined) ||
-          "/data/local/tmp/gemma-4-e4b-it.task";
-        if (useNative && isNativeGemmaModuleLinked()) {
-          setGemmaBackend(createNativeBackend(modelPath));
-          try {
-            if (modelPath.trim()) setModelReady(modelPath);
-          } catch {
-            /* setModelReady rejects empty path */
-          }
-        } else {
+        const modelOnDisk = await syncModelReadyFromDisk()
+          .then((r) => r.ready)
+          .catch(() => false);
+        if (!modelOnDisk) {
           setGemmaBackend(mockGemmaBackend);
-          // In dev builds without native module, mark model ready so offline routing
-          // exercises the full onDeviceAgent path with mock responses.
+          // Dev without a downloaded model: mock backend so offline routing is testable.
           if (__DEV__) {
-            try { setModelReady("mock"); } catch { /* ignore */ }
+            try {
+              setModelReady("mock");
+            } catch {
+              /* ignore */
+            }
           }
         }
       } finally {

@@ -2,6 +2,13 @@ import i18next from "i18next";
 import { guessDeviceIntent } from "@/features/chat/guessDeviceIntent";
 import type { AgentQuery, AgentResponse } from "@/shared/api/routing";
 import type { SyncBundle } from "@/shared/api/types";
+import { getModelPath, isModelReady } from "./modelState";
+import { logOnDevice } from "./ondeviceLog";
+import { toNativeFilesystemPath } from "./nativeModelPath";
+
+export type OfflineFallbackReason = "not_downloaded" | "inference_failed" | "wrong_format";
+
+const isLegacyWebTaskModelPath = (path: string): boolean => /-web\.task$/i.test(path.trim());
 
 function schemesSummary(bundle?: SyncBundle): string {
   const schemes = bundle?.data?.schemes;
@@ -33,33 +40,56 @@ function mandiSummary(bundle?: SyncBundle, district?: string): string {
     .join("\n");
 }
 
+function baseOfflineMessage(
+  intent: ReturnType<typeof guessDeviceIntent>,
+  reason?: OfflineFallbackReason,
+): string {
+  const path = getModelPath();
+  if (reason === "wrong_format" || (path && isLegacyWebTaskModelPath(path))) {
+    return i18next.t("offline.modelWrongFormat");
+  }
+  if (reason === "inference_failed" || isModelReady()) {
+    return intent === "weather"
+      ? i18next.t("offline.inferenceFailedWeather")
+      : i18next.t("offline.inferenceFailed");
+  }
+  return intent === "weather"
+    ? i18next.t("offline.modelNotDownloadedWeather")
+    : i18next.t("offline.modelNotDownloaded");
+}
+
 export function offlineFallback(
   query: AgentQuery,
   bundle?: SyncBundle,
+  opts?: { reason?: OfflineFallbackReason; error?: unknown },
 ): AgentResponse {
   const intent = guessDeviceIntent(query.text);
-  let text = "";
+  const lead = baseOfflineMessage(intent, opts?.reason);
+  logOnDevice("offline_fallback", {
+    reason: opts?.reason ?? (isModelReady() ? "inference_failed" : "not_downloaded"),
+    intent,
+    modelReady: isModelReady(),
+    path: getModelPath() ? toNativeFilesystemPath(getModelPath()) : null,
+    error: opts?.error instanceof Error ? opts.error.message : opts?.error ? String(opts.error) : null,
+  });
+  let text = lead;
 
   switch (intent) {
     case "scheme_query": {
       const summary = schemesSummary(bundle);
-      text = summary
-        ? `${i18next.t("offline.modelNotDownloaded")}\n\n${summary}`
-        : i18next.t("offline.modelNotDownloaded");
+      text = summary ? `${lead}\n\n${summary}` : lead;
       break;
     }
     case "market_price": {
       const summary = mandiSummary(bundle);
-      text = summary
-        ? `${i18next.t("offline.modelNotDownloaded")}\n\n${summary}`
-        : i18next.t("offline.modelNotDownloaded");
+      text = summary ? `${lead}\n\n${summary}` : lead;
       break;
     }
     case "weather":
-      text = i18next.t("offline.modelNotDownloadedWeather");
+      text = lead;
       break;
     default:
-      text = i18next.t("offline.modelNotDownloaded");
+      text = lead;
   }
 
   return {

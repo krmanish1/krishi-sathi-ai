@@ -26,7 +26,7 @@ export default function ScanScreen() {
   const lat = latRaw != null && Number.isFinite(latRaw) ? latRaw : undefined;
   const lng = lngRaw != null && Number.isFinite(lngRaw) ? lngRaw : undefined;
   const ui = useConnectivityUi();
-  const connectivity = ui.connectivity;
+  const connectivity = ui.apiConnectivity;
   const send = useSendChatMessage();
   const [localUri, setLocalUri] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);

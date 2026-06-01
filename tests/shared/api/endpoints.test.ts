@@ -6,8 +6,37 @@ import {
   postQuery,
   postSyncPush,
 } from "@/shared/api/endpoints";
+import { platformFetch } from "@/shared/api/platformFetch";
 
 jest.mock("@/shared/config/env", () => ({ getApiBaseUrl: () => "http://test" }));
+jest.mock("@/shared/api/platformFetch", () => ({
+  platformFetch: jest.fn((input: RequestInfo | URL, init?: RequestInit) =>
+    globalThis.fetch(input, init),
+  ),
+}));
+
+const mockPlatformFetch = platformFetch as jest.MockedFunction<typeof fetch>;
+
+function sseQueryResponse(text: string): Response {
+  const encoder = new TextEncoder();
+  const line = `data: ${JSON.stringify({ type: "text-delta", delta: text })}\n\n`;
+  const bytes = encoder.encode(line);
+  let sent = false;
+  return {
+    ok: true,
+    status: 200,
+    body: {
+      getReader: () => ({
+        read: async () => {
+          if (sent) return { done: true, value: undefined };
+          sent = true;
+          return { done: false, value: bytes };
+        },
+        releaseLock: () => undefined,
+      }),
+    },
+  } as Response;
+}
 
 describe("postSyncPush", () => {
   const orig = global.fetch;
@@ -59,32 +88,17 @@ describe("postSyncPush", () => {
 });
 
 describe("postQuery", () => {
-  const orig = global.fetch;
+  beforeEach(() => {
+    mockPlatformFetch.mockClear();
+  });
 
   afterEach(() => {
-    global.fetch = orig;
+    mockPlatformFetch.mockReset();
+    mockPlatformFetch.mockImplementation((input, init) => globalThis.fetch(input, init));
   });
 
   it("returns a typed QueryResponse", async () => {
-    const fetchMock = jest.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      text: async () =>
-        JSON.stringify({
-          response_id: "r1",
-          text: "hello f1",
-          data_source: "live",
-          confidence_level: "high",
-          confidence_score: 0.9,
-          model_used: "gemma-4-26b-a4b-it",
-          tool_trace: [],
-          safety_flags: [],
-          fallback_hint: null,
-          language: "en",
-          timestamp: new Date().toISOString(),
-        }),
-    } as Response);
-    global.fetch = fetchMock;
+    mockPlatformFetch.mockResolvedValueOnce(sseQueryResponse("hello f1"));
 
     const r = await postQuery({
       farmer_id: "f1",
@@ -98,8 +112,11 @@ describe("postQuery", () => {
       },
     });
     expect(r.text).toBe("hello f1");
-    const init = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
-    expect(init?.body).toContain('"connectivity":"online"');
+    const streamCall = mockPlatformFetch.mock.calls.find((c) =>
+      String(c[0]).includes("/query/stream"),
+    );
+    const init = streamCall?.[1] as RequestInit | undefined;
+    expect(String(init?.body)).toContain('"connectivity":"online"');
     expect(JSON.stringify(init?.headers)).not.toContain("X-Client-Connectivity");
   });
 });

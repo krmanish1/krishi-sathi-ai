@@ -4,11 +4,14 @@ import { isReasoningUIPart, type UIMessage } from "ai";
 import { useQueryClient } from "@tanstack/react-query";
 import { z } from "zod";
 import { ApiError } from "@/shared/api/errors";
+import { isNetworkFetchError } from "@/shared/api/networkErrors";
+import { askAgent, tripBackendCircuit } from "@/shared/api/routing";
 import { createKrishiSathiChatTransport } from "@/shared/api/streamTransport";
 import type { Connectivity } from "@/shared/api/types";
 import type { Language } from "@/shared/config/constants";
 import { appendMessage, listThreadMessages, MAIN_THREAD_ID } from "./chatMessagesRepo";
 import { guessDeviceIntent } from "./guessDeviceIntent";
+import { detectModelVariant, modelVariantToOnDeviceModelId } from "@/shared/ondevice";
 import { CHAT_THREAD_QUERY_KEY } from "./useChatThread";
 import type { StageEvent } from "./thinkingStages";
 
@@ -91,6 +94,8 @@ export function useStreamChatMessage(opts: UseStreamChatMessageOpts) {
   /** Mutable ref so the transport closure reads the current imageRef at request time. */
   const imageRefRef = useRef<string | undefined>(undefined);
   const getImageRef = useCallback(() => imageRefRef.current, []);
+  /** Last user text sent via `send` — used for on-device fallback when stream fetch fails. */
+  const lastSentTextRef = useRef("");
 
   const conversationId = opts.conversationId ?? MAIN_THREAD_ID;
 
@@ -184,6 +189,48 @@ export function useStreamChatMessage(opts: UseStreamChatMessageOpts) {
       imageRefRef.current = undefined;
       setInFlight(false);
       void (async () => {
+        const text = lastSentTextRef.current.trim();
+        if (text && isNetworkFetchError(err)) {
+          tripBackendCircuit();
+          try {
+            const intent = guessDeviceIntent(text);
+            const imageRef = getImageRef();
+            const ondeviceModel = modelVariantToOnDeviceModelId(await detectModelVariant());
+            const r = await askAgent(
+              {
+                text,
+                language: opts.language,
+                intent,
+                ...(imageRef !== undefined ? { imageRef } : {}),
+              },
+              {
+                farmerId: opts.farmerId,
+                conversationId,
+                location: {
+                  state: opts.state,
+                  district: opts.district,
+                  ...(opts.lat !== undefined ? { lat: opts.lat } : {}),
+                  ...(opts.lng !== undefined ? { lng: opts.lng } : {}),
+                },
+                connectivity: opts.connectivity,
+                deviceCapabilities: { ondeviceModel },
+              },
+            );
+            await qc.cancelQueries({ queryKey: CHAT_THREAD_QUERY_KEY(conversationId) });
+            await appendMessage({
+              role: "assistant",
+              text: r.text,
+              source: r.source,
+              confidence: r.confidence,
+              threadId: conversationId,
+            });
+            const next = await listThreadMessages(conversationId);
+            qc.setQueryData(CHAT_THREAD_QUERY_KEY(conversationId), next);
+            return;
+          } catch {
+            /* fall through to generic error message */
+          }
+        }
         await qc.cancelQueries({ queryKey: CHAT_THREAD_QUERY_KEY(conversationId) });
         await appendMessage({
           role: "assistant",
@@ -224,6 +271,7 @@ export function useStreamChatMessage(opts: UseStreamChatMessageOpts) {
     ) => {
       const trimmed = text.trim();
       if (!trimmed) return;
+      lastSentTextRef.current = trimmed;
       imageRefRef.current = streamOpts?.imageRef;
       setStageEvents([]);
       if (!streamOpts?.skipUserMessage) {

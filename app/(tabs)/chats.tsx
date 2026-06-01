@@ -28,7 +28,7 @@ export default function ChatsListScreen() {
   const farmerId = useFarmerId();
   const ready = useAuthReady();
   const ui = useConnectivityUi();
-  const connectivity = ui.connectivity;
+  const connectivity = ui.apiConnectivity;
   const conversationId = useChatStore((s) => s.conversationId);
 
   const { openSession, deleteSession } = useChatSessionActions({

@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { AppState } from "react-native";
-import { useConnectivity } from "./connectivityContext";
+import { useApiConnectivity } from "./useApiConnectivity";
 import { runInitialSync } from "@/features/onboarding/useInitialSync";
 import { postSyncPush } from "@/shared/api/endpoints";
 import { loadBundleVersion } from "@/shared/storage/bundle";
@@ -11,7 +11,7 @@ const MIN_SYNC_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
 let lastSyncAt = 0;
 
 export function useSyncOnResume(): void {
-  const connectivity = useConnectivity();
+  const connectivity = useApiConnectivity();
   const isOnline = connectivity === "online";
 
   useEffect(() => {

@@ -1,5 +1,6 @@
 import * as SQLite from "expo-sqlite";
 import type { AppDatabase } from "./db.types";
+import { enqueueDb } from "./dbLock.native";
 
 let db: AppDatabase | null = null;
 let initDbPromise: Promise<AppDatabase> | null = null;
@@ -97,7 +98,10 @@ export const initDb = async (): Promise<AppDatabase> => {
   if (initDbPromise) return initDbPromise;
 
   initDbPromise = (async () => {
-    const d = await SQLite.openDatabaseAsync("krishisaathi.db");
+    const raw = await SQLite.openDatabaseAsync("krishisaathi.db");
+    await raw.execAsync("PRAGMA journal_mode = WAL;");
+    await raw.execAsync("PRAGMA busy_timeout = 10000;");
+    const d = wrapSerializedDb(raw);
     await d.execAsync(MIGRATION_0001);
     await d.execAsync(MIGRATION_0002_OFFLINE);
     await d.execAsync(MIGRATION_0003_LOCAL_STORE);
@@ -122,6 +126,27 @@ export const initDb = async (): Promise<AppDatabase> => {
     throw e;
   }
 };
+
+function wrapSerializedDb(raw: SQLite.SQLiteDatabase): AppDatabase {
+  const wrapped: AppDatabase = {
+    execAsync: (source) => enqueueDb(() => raw.execAsync(source)),
+    runAsync: (source, params) =>
+      enqueueDb(() => raw.runAsync(source, params as SQLite.SQLiteBindParams)),
+    getFirstAsync: (source, params) =>
+      enqueueDb(() =>
+        params === undefined
+          ? raw.getFirstAsync(source)
+          : raw.getFirstAsync(source, params as SQLite.SQLiteBindParams),
+      ),
+    getAllAsync: (source, params) =>
+      enqueueDb(() =>
+        params === undefined
+          ? raw.getAllAsync(source)
+          : raw.getAllAsync(source, params as SQLite.SQLiteBindParams),
+      ),
+  };
+  return wrapped;
+}
 
 export const getDb = (): AppDatabase => {
   if (!db) {

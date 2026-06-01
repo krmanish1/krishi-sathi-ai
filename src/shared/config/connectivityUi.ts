@@ -4,6 +4,15 @@ import { hexToRgba } from "@/shared/utils/hexToRgba";
 /** UI mode derived from network + optional on-device model (for offline chat). */
 export type ConnectivityUiMode = "online" | "degraded" | "offline";
 
+/** Offline chat: file + runtime state for the on-device model. */
+export type OfflineModelDetail = "checking" | "ready" | "missing" | "failed";
+
+export type ChatOfflineModelStatusKey =
+  | "offlineModelStatusChecking"
+  | "offlineModelStatusReady"
+  | "offlineModelStatusMissing"
+  | "offlineModelStatusFailed";
+
 export type ConnectivityUiComposerKey =
   | "placeholder"
   | "placeholderOffline"
@@ -127,6 +136,10 @@ function visualKey(connectivity: Connectivity, onDeviceModelReady: boolean): key
 
 export type ConnectivityUiConfig = {
   connectivity: Connectivity;
+  /** Same as `connectivity` — online devices call the cloud API (`online` wire param). */
+  apiConnectivity: Connectivity;
+  /** Last successful `/api/v1/health` — UI hint only; does not block API calls when online. */
+  cloudReachable: boolean;
   mode: ConnectivityUiMode;
   /** `online` or `degraded` — backend / stream can be used. */
   backendReachable: boolean;
@@ -142,6 +155,11 @@ export type ConnectivityUiConfig = {
   chatEmptyHintKey: "emptyHint" | "emptyHintOffline" | "emptyHintOfflineNoModel";
   newChatLoadingKey: "sessionStarting" | "sessionStartingOffline";
   chatModeBannerKey: "modeBannerDegraded" | "modeBannerOffline" | "modeBannerOfflineNoModel" | null;
+  /** Shown on chat when fully offline — explicit model file/runtime status. */
+  chatOfflineModelStatusKey: ChatOfflineModelStatusKey | null;
+  offlineModelStatusIcon: "check-circle" | "download" | "alert-circle" | "progress-clock";
+  offlineModelStatusBannerBackgroundRgba: string;
+  offlineModelStatusBannerTextHex: string;
   headerAccentHex: string;
   accentHex: string;
   chatsHeaderSurfaceHex: string;
@@ -168,15 +186,40 @@ export type ConnectivityUiConfig = {
   offlineSyncAlertIconHex: string;
 };
 
+function offlineModelStatusKey(
+  detail: OfflineModelDetail,
+  onDeviceModelReady: boolean,
+): ChatOfflineModelStatusKey {
+  if (detail === "checking") return "offlineModelStatusChecking";
+  if (onDeviceModelReady || detail === "ready") return "offlineModelStatusReady";
+  if (detail === "failed") return "offlineModelStatusFailed";
+  return "offlineModelStatusMissing";
+}
+
 export function buildConnectivityUiConfig(
   connectivity: Connectivity,
-  opts?: { onDeviceModelReady?: boolean },
+  opts?: {
+    onDeviceModelReady?: boolean;
+    preferOffline?: boolean;
+    cloudReachable?: boolean;
+    offlineModelDetail?: OfflineModelDetail;
+  },
 ): ConnectivityUiConfig {
   const onDeviceModelReady = opts?.onDeviceModelReady ?? false;
+  const offlineModelDetail = opts?.offlineModelDetail ?? "checking";
+  const preferOffline = opts?.preferOffline ?? false;
+  const cloudReachable = opts?.cloudReachable ?? true;
+  const apiConnectivity = connectivity;
   const backendReachable = connectivity === "online" || connectivity === "degraded";
+  /** Stream when NetInfo is online and user has not opted into on-device-only. */
+  const enableStreamChat =
+    connectivity === "online" && !(preferOffline && onDeviceModelReady);
   const isFullyOffline = connectivity === "offline";
-  const mode: ConnectivityUiMode =
-    connectivity === "offline" ? "offline" : connectivity === "degraded" ? "degraded" : "online";
+  const mode: ConnectivityUiMode = isFullyOffline
+    ? "offline"
+    : connectivity === "degraded"
+      ? "degraded"
+      : "online";
 
   let composerPlaceholderKey: ConnectivityUiComposerKey = "placeholder";
   let chatEmptyHintKey: ConnectivityUiConfig["chatEmptyHintKey"] = "emptyHint";
@@ -193,7 +236,7 @@ export function buildConnectivityUiConfig(
       composerPlaceholderKey = "placeholderOfflineNoModel";
       chatEmptyHintKey = "emptyHintOfflineNoModel";
     }
-  } else if (connectivity === "degraded") {
+  } else if (mode === "degraded") {
     chatModeBannerKey = "modeBannerDegraded";
     composerPlaceholderKey = "placeholderDegraded";
   } else {
@@ -202,6 +245,26 @@ export function buildConnectivityUiConfig(
 
   const vk = visualKey(connectivity, onDeviceModelReady);
   const v = VISUAL[vk];
+
+  let chatOfflineModelStatusKey: ConnectivityUiConfig["chatOfflineModelStatusKey"] = null;
+  let offlineModelStatusIcon: ConnectivityUiConfig["offlineModelStatusIcon"] = "progress-clock";
+  let offlineModelStatusBannerBackgroundRgba: string = hexToRgba(C.slate, 0.12);
+  let offlineModelStatusBannerTextHex: string = C.slateMuted;
+
+  if (isFullyOffline) {
+    chatOfflineModelStatusKey = offlineModelStatusKey(offlineModelDetail, onDeviceModelReady);
+    if (chatOfflineModelStatusKey === "offlineModelStatusReady") {
+      offlineModelStatusIcon = "check-circle";
+      offlineModelStatusBannerBackgroundRgba = hexToRgba(C.brandDeep, 0.12);
+      offlineModelStatusBannerTextHex = C.brandDeep;
+    } else if (chatOfflineModelStatusKey === "offlineModelStatusFailed") {
+      offlineModelStatusIcon = "alert-circle";
+      offlineModelStatusBannerBackgroundRgba = hexToRgba(C.syncAlert, 0.1);
+      offlineModelStatusBannerTextHex = C.syncAlert;
+    } else if (chatOfflineModelStatusKey === "offlineModelStatusMissing") {
+      offlineModelStatusIcon = "download";
+    }
+  }
 
   const weatherBadgeBackgroundRgba = backendReachable
     ? hexToRgba(C.amber, 0.12)
@@ -214,19 +277,25 @@ export function buildConnectivityUiConfig(
 
   return {
     connectivity,
+    apiConnectivity,
+    cloudReachable,
     mode,
     backendReachable,
     isFullyOffline,
     onDeviceModelReady,
     enableChatHistoryRefresh: connectivity === "online",
-    enableStreamChat: connectivity === "online",
+    enableStreamChat,
     enableImageAttach: connectivity === "online",
     showChatOfflineStrip: isFullyOffline,
-    showChatDegradedStrip: connectivity === "degraded",
+    showChatDegradedStrip: mode === "degraded",
     composerPlaceholderKey,
     chatEmptyHintKey,
     newChatLoadingKey,
     chatModeBannerKey,
+    chatOfflineModelStatusKey,
+    offlineModelStatusIcon,
+    offlineModelStatusBannerBackgroundRgba,
+    offlineModelStatusBannerTextHex,
     headerAccentHex: v.headerAccentHex,
     accentHex: v.accentHex,
     chatsHeaderSurfaceHex: v.chatsHeaderSurfaceHex,

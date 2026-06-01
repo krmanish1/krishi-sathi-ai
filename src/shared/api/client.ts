@@ -1,6 +1,7 @@
 import { Platform } from "react-native";
 import { ApiError, parseErrorResponse } from "./errors";
 import { withFetchLane } from "./fetchLane";
+import { platformFetch } from "./platformFetch";
 import {
   bodySummaryForLog,
   logApiEndErr,
@@ -19,6 +20,10 @@ export type ApiFetchOptions = {
 
 const isPlainObject = (b: unknown): b is Record<string, unknown> =>
   typeof b === "object" && b !== null && !(b instanceof FormData);
+
+/** Gzip magic — happens when the server compresses but the client did not decode (common with manual Accept-Encoding). */
+const looksLikeGzipBody = (text: string): boolean =>
+  text.length >= 2 && text.charCodeAt(0) === 0x1f && text.charCodeAt(1) === 0x8b;
 
 export const apiFetch = async <T>(path: string, opts: ApiFetchOptions): Promise<T> => {
   const { baseUrl, timeoutMs, headers, method = "GET", body, signal } = opts;
@@ -58,7 +63,7 @@ export const apiFetch = async <T>(path: string, opts: ApiFetchOptions): Promise<
   const started = Date.now();
 
   try {
-    const res = await withFetchLane(() => fetch(url, requestInit));
+    const res = await withFetchLane(() => platformFetch(url, requestInit));
 
     const text = await res.text();
     let json: unknown = null;
@@ -76,10 +81,16 @@ export const apiFetch = async <T>(path: string, opts: ApiFetchOptions): Promise<
             null,
           );
         }
+        const enc = res.headers.get("content-encoding")?.toLowerCase() ?? "";
+        const gzipBody = looksLikeGzipBody(text) || enc.includes("gzip");
         throw new ApiError(
           "INTERNAL_ERROR",
           res.status,
-          "Invalid response body",
+          gzipBody
+            ? "Compressed response could not be decoded (gzip)"
+            : text.trim()
+              ? "Invalid response body"
+              : "Empty response body",
           false,
           undefined,
           null,

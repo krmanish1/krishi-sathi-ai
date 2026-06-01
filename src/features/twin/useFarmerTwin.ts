@@ -6,7 +6,7 @@ import type { Language } from "@/shared/config/constants";
 import { getCachedTwin, setCachedTwin } from "./twinCache";
 import { useOnboarding } from "@/features/onboarding/store";
 import { useFarmerId, useSupabaseSession } from "@/shared/auth";
-import { useConnectivity } from "@/shared/network";
+import { useApiConnectivity } from "@/shared/network";
 
 /**
  * Best-effort registration: fire-and-forget `PUT /twin` so the backend
@@ -30,7 +30,7 @@ export const TWIN_QUERY_KEY = (farmerId: string | null) => ["farmer", "twin", fa
 
 export function useFarmerTwin() {
   const farmerId = useFarmerId();
-  const connectivity = useConnectivity();
+  const connectivity = useApiConnectivity();
   const session = useSupabaseSession();
   const locState = useOnboarding((s) => s.state);
   const locDistrict = useOnboarding((s) => s.district);
@@ -126,7 +126,7 @@ export function useFarmerTwin() {
 export function useUpdateFarmerTwin() {
   const qc = useQueryClient();
   const farmerId = useFarmerId();
-  const connectivity = useConnectivity();
+  const connectivity = useApiConnectivity();
   const session = useSupabaseSession();
   return useMutation({
     mutationKey: ["farmer", "twin", "put"],

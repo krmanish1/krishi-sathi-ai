@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { postSyncPush } from "@/shared/api";
 import { useFarmerId, useSupabaseSession } from "@/shared/auth";
-import { useConnectivity } from "@/shared/network";
+import { useApiConnectivity } from "@/shared/network";
 
 /**
  * Calls `POST /api/v1/sync/push` when the user is signed in and the device has connectivity
@@ -10,7 +10,7 @@ import { useConnectivity } from "@/shared/network";
 export function SyncPushScheduler() {
   const farmerId = useFarmerId();
   const session = useSupabaseSession();
-  const connectivity = useConnectivity();
+  const connectivity = useApiConnectivity();
   const online = connectivity === "online";
 
   useEffect(() => {

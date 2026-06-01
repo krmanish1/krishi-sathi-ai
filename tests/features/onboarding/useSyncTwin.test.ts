@@ -2,6 +2,10 @@ import { syncTwinOnboarding } from "@/features/onboarding/useSyncTwin";
 import * as endpoints from "@/shared/api/endpoints";
 import * as twinCache from "@/features/twin/twinCache";
 
+jest.mock("@/shared/network/useApiConnectivity", () => ({
+  useApiConnectivity: jest.fn(() => "online"),
+}));
+
 jest.mock("@/shared/api/endpoints", () => ({
   putFarmerTwin: jest.fn(),
 }));

@@ -9,6 +9,7 @@ import { useVoiceSessionStore } from "@/features/voice/useVoiceSessionStore";
 
 jest.mock("@/shared/network", () => ({
   useConnectivity: jest.fn(() => "online" as const),
+  useApiConnectivity: jest.fn(() => "online" as const),
 }));
 
 const mockStartListening = jest.fn().mockResolvedValue(undefined);
@@ -144,10 +145,10 @@ describe("useVoiceSession — online path", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     useVoiceSessionStore.getState().reset();
-    const { useConnectivity } = require("@/shared/network") as {
-      useConnectivity: jest.Mock;
+    const { useApiConnectivity } = require("@/shared/network") as {
+      useApiConnectivity: jest.Mock;
     };
-    useConnectivity.mockReturnValue("online");
+    useApiConnectivity.mockReturnValue("online");
   });
 
   it("starts idle", () => {
@@ -234,10 +235,10 @@ describe("useVoiceSession — offline path", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     useVoiceSessionStore.getState().reset();
-    const { useConnectivity } = require("@/shared/network") as {
-      useConnectivity: jest.Mock;
+    const { useApiConnectivity } = require("@/shared/network") as {
+      useApiConnectivity: jest.Mock;
     };
-    useConnectivity.mockReturnValue("offline");
+    useApiConnectivity.mockReturnValue("offline");
   });
 
   it("start() uses local STT when offline", async () => {

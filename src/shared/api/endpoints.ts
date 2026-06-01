@@ -2,6 +2,8 @@ import { Platform } from "react-native";
 import { getApiBaseUrl, getDataGovApiKey } from "@/shared/config/env";
 import { TIMEOUTS_MS } from "@/shared/config/constants";
 import { apiFetch } from "./client";
+import { withFetchLane } from "./fetchLane";
+import { platformFetch } from "./platformFetch";
 import { withTransientRetry } from "./withTransientRetry";
 import type {
   Connectivity,
@@ -47,12 +49,18 @@ export const postQuery = async (
 
   let res: Response;
   try {
-    res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: bodyStr,
-      signal: mergedSignal,
-    });
+    res = await withFetchLane(() =>
+      platformFetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          Connection: "close",
+        },
+        body: bodyStr,
+        signal: mergedSignal,
+      }),
+    );
     clearTimeout(timeoutId); // connection established — disable timeout
   } catch (err) {
     clearTimeout(timeoutId);
@@ -167,10 +175,10 @@ export const postQueryImage = async (
   });
 };
 
-export const getHealth = (signal?: AbortSignal) =>
+export const getHealth = (signal?: AbortSignal, opts?: { timeoutMs?: number }) =>
   apiFetch<{ status: string; version: string }>("/api/v1/health", {
     baseUrl: getApiBaseUrl(),
-    timeoutMs: TIMEOUTS_MS.health,
+    timeoutMs: opts?.timeoutMs ?? TIMEOUTS_MS.health,
     ...(signal ? { signal } : {}),
   });
 
@@ -182,7 +190,6 @@ export const getSyncBundle = (params: { state: string; district: string; bundleV
   return apiFetch<SyncBundle>(`/api/v1/sync/bundle?${q.toString()}`, {
     baseUrl: getApiBaseUrl(),
     timeoutMs: TIMEOUTS_MS.syncBundle,
-    headers: { "Accept-Encoding": "gzip" },
   });
 };
 
@@ -355,7 +362,7 @@ export const getMandiPricesFromGov = async (params: {
   const url = `${DATA_GOV_MANDI_URL}?${q.toString()}`;
   if (__DEV__) console.info(`[MandiAPI] → GET state=${params.state ?? "*"} district=${params.district ?? "*"}`);
 
-  const res = await fetch(url, params.signal ? { signal: params.signal } : undefined);
+  const res = await platformFetch(url, params.signal ? { signal: params.signal } : undefined);
   if (!res.ok) {
     if (__DEV__) console.warn(`[MandiAPI] ✗ ${res.status} ${res.statusText}`);
     throw new Error(`data.gov.in mandi API error: ${res.status} ${res.statusText}`);
@@ -394,7 +401,7 @@ export const getEnamMandiPricesFromGov = async (params: {
   const url = `${DATA_GOV_ENAM_TRADE_URL}?${q.toString()}`;
   if (__DEV__) console.info(`[MandiENAM] → GET state=${params.state ?? "*"} district=${params.district ?? "*"}`);
 
-  const res = await fetch(url, params.signal ? { signal: params.signal } : undefined);
+  const res = await platformFetch(url, params.signal ? { signal: params.signal } : undefined);
   if (!res.ok) {
     if (__DEV__) console.warn(`[MandiENAM] ✗ ${res.status}`);
     throw new Error(`data.gov.in eNAM mandi error: ${res.status}`);

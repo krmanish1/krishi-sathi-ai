@@ -50,7 +50,7 @@ export default function HomeScreen() {
   const displayName = useDisplayName();
   const greetingName = greetingFirstName(displayName);
   const ui = useConnectivityUi();
-  const connectivity = ui.connectivity;
+  const connectivity = ui.apiConnectivity;
   const isOnlineMode = ui.backendReachable;
 
   const {

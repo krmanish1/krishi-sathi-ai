@@ -25,6 +25,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useOnboarding } from "@/features/onboarding/store";
 import { useAuthReady, useFarmerId } from "@/shared/auth";
 import { useConnectivityUi } from "@/shared/network";
+import { useModelDownloadStore } from "@/features/model-download";
 import {
   useChatThread,
   useSendChatMessage,
@@ -596,7 +597,8 @@ export default function ChatScreen() {
   const lat = latRaw != null && Number.isFinite(latRaw) ? latRaw : undefined;
   const lng = lngRaw != null && Number.isFinite(lngRaw) ? lngRaw : undefined;
   const ui = useConnectivityUi();
-  const connectivity = ui.connectivity;
+  const connectivity = ui.apiConnectivity;
+  const downloadedVariant = useModelDownloadStore((s) => s.variant);
 
   // Bootstrap session on first open / web reload; does not reset on tab blur.
   useConversation({ farmerId, connectivity });
@@ -838,7 +840,7 @@ export default function ChatScreen() {
       attachment.clearImage();
     }
 
-    if (ui.backendReachable) {
+    if (ui.enableStreamChat) {
       void stream
         .send(text, {
           ...(imageRef ? { imageRef } : {}),
@@ -848,7 +850,10 @@ export default function ChatScreen() {
       return;
     }
 
-    // Offline / prefer-offline text-only path (images already blocked above).
+    // Offline, degraded, or prefer-on-device — use askAgent (Gemma / bundle fallback).
+    abortControllerRef.current?.abort();
+    const ac = new AbortController();
+    abortControllerRef.current = ac;
     const payload: SendQueryInput = {
       text,
       farmerId,
@@ -859,9 +864,12 @@ export default function ChatScreen() {
       ...(lng !== undefined ? { lng } : {}),
       connectivity,
       conversationId,
+      ...(imageRef ? { imageRef } : {}),
+      ...(localUri ? { imageLocalUri: localUri } : {}),
+      signal: ac.signal,
     };
     void send.mutateAsync(payload).catch(() => undefined);
-  }, [attachment, draft, farmerId, language, state, district, lat, lng, connectivity, conversationId, send, stream, ui.backendReachable, t]);
+  }, [attachment, draft, farmerId, language, state, district, lat, lng, connectivity, conversationId, send, stream, ui.enableStreamChat, t]);
 
   const handleMicPress = useCallback(async () => {
     if (send.isPending) {
@@ -976,6 +984,38 @@ export default function ChatScreen() {
         </View>
       ) : null}
 
+      {ui.chatOfflineModelStatusKey ? (
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+            paddingVertical: 8,
+            paddingHorizontal: 14,
+            backgroundColor: ui.offlineModelStatusBannerBackgroundRgba,
+            borderBottomWidth: 1,
+            borderBottomColor: "rgba(0,30,43,0.08)",
+          }}
+        >
+          <MaterialCommunityIcons
+            name={ui.offlineModelStatusIcon}
+            size={18}
+            color={ui.offlineModelStatusBannerTextHex}
+          />
+          <Text
+            style={{
+              flex: 1,
+              fontSize: 12,
+              lineHeight: 17,
+              color: ui.offlineModelStatusBannerTextHex,
+              fontWeight: "600",
+            }}
+          >
+            {t(`chat.${ui.chatOfflineModelStatusKey}`)}
+          </Text>
+        </View>
+      ) : null}
+
       {/*
         ── KeyboardAvoidingView only wraps message list + input footer ──
         • iOS: behavior="padding" shrinks the KAV from the bottom
@@ -1036,7 +1076,14 @@ export default function ChatScreen() {
               />
               {item.role === "assistant" && item.source === "ondevice" && (
                 <Text style={{ fontSize: 10, color: "#8997A0", marginLeft: 12, marginTop: 2, marginBottom: 6 }}>
-                  {t("chat.offlineBadge", { model: "Gemma 4 E4B" })}
+                  {t("chat.offlineBadge", {
+                    model:
+                      downloadedVariant === "e2b"
+                        ? t("modelDownload.variant.e2b")
+                        : downloadedVariant === "e4b"
+                          ? t("modelDownload.variant.e4b")
+                          : t("modelDownload.variant.e2b"),
+                  })}
                 </Text>
               )}
               {item.role === "assistant" && item.source === "backend" && (

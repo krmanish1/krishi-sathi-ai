@@ -5,8 +5,8 @@ import type { FarmerTwin } from "@/shared/api/types";
 import type { Connectivity } from "@/shared/api/types";
 import type { Language } from "@/shared/config/constants";
 import { useFarmerId, useSupabaseSession } from "@/shared/auth";
-// Import context hook only (not `@/shared/network` barrel) so Node `unit-ts` tests avoid TSX providers.
-import { useConnectivity } from "@/shared/network/connectivityContext";
+// Import hook file only (not `@/shared/network` barrel) so Node `unit-ts` tests avoid TSX providers.
+import { useApiConnectivity } from "@/shared/network/useApiConnectivity";
 import { useOnboarding } from "@/features/onboarding/store";
 
 export type SyncTwinParams = {
@@ -95,7 +95,7 @@ export const useSyncTwin = (): (() => Promise<void>) => {
   const lng = useOnboarding((s) => s.lng);
   const language = useOnboarding((s) => s.language);
   const landAcres = useOnboarding((s) => s.landAcres);
-  const connectivity = useConnectivity();
+  const connectivity = useApiConnectivity();
   const session = useSupabaseSession();
 
   const meta = session?.user?.user_metadata as Record<string, unknown> | undefined;
