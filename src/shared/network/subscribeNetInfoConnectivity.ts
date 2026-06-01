@@ -44,7 +44,26 @@ export function subscribeNetInfoConnectivity(
     setC(next);
   };
 
-  void NetInfo.fetch().then((s) => apply(pick(s)));
+  // Initial boot fetch — confirm "online" with a second fetch after 2s to avoid
+  // transient false positives (e.g. airplane mode where captive portal check hasn't
+  // resolved yet). The context stays at the initial "offline" until confirmed.
+  void NetInfo.fetch().then((s) => {
+    if (cancelled) return;
+    const next = mapNetInfoToConnectivity(pick(s));
+    if (next == null) return;
+    if (next === "online") {
+      setTimeout(() => {
+        if (cancelled) return;
+        void NetInfo.fetch().then((s2) => {
+          if (cancelled) return;
+          setC(mapNetInfoToConnectivity(pick(s2)) ?? next);
+        });
+      }, 2000);
+      return;
+    }
+    setC(next);
+  });
+
   const unsub = NetInfo.addEventListener((s) => apply(pick(s)));
 
   const { pollIntervalMs } = opts;
