@@ -13,6 +13,7 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import type { VoicePhase, VoiceTranscriptMessage } from "../useVoiceSessionStore";
 import { useVoiceSessionStore } from "../useVoiceSessionStore";
 import type { Language } from "@/shared/config/constants";
+import { NetworkBanner } from "@/shared/network/NetworkBanner";
 
 const PAGE_BG = "#ECEAE4";
 const INK = "#001E2B";
@@ -235,6 +236,7 @@ export function VoiceScreen({
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
+      <NetworkBanner />
       <View style={styles.pillWrap}>
         <View style={styles.pill}>
           <View

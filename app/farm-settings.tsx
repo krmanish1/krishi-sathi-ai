@@ -16,6 +16,7 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useOnboarding } from "@/features/onboarding/store";
 import { useFarmerTwin, useUpdateFarmerTwin } from "@/features/twin";
 import type { FarmerTwin } from "@/shared/api/types";
+import { NetworkBanner } from "@/shared/network";
 
 const INK = "#001E2B";
 const INK_MUTED = "#5C6C75";
@@ -159,6 +160,7 @@ export default function FarmSettingsScreen() {
         <Text style={styles.title}>{t("farmSettings.title")}</Text>
         <View style={{ width: 36 }} />
       </View>
+      <NetworkBanner />
 
       {isLoading ? (
         <View style={styles.loader}>

@@ -79,8 +79,8 @@ function MicFab({
   accessibilityLabel: string;
   accessibilityState: object;
 }) {
-  const ring1 = useRef(new Animated.Value(0)).current;
-  const ring2 = useRef(new Animated.Value(0)).current;
+  const [ring1] = useState(() => new Animated.Value(0));
+  const [ring2] = useState(() => new Animated.Value(0));
 
   useEffect(() => {
     const makeLoop = (anim: Animated.Value, delay: number) =>

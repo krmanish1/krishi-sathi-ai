@@ -20,7 +20,7 @@ import {
   type MandiFilter,
   type MandiPriceRow,
 } from "@/features/mandi";
-import { useConnectivityUi } from "@/shared/network";
+import { useConnectivityUi, NetworkBanner } from "@/shared/network";
 import { useDisplayName, greetingFirstName } from "@/features/twin";
 import { SidebarDrawer } from "@/shared/ui/primitives";
 
@@ -623,6 +623,7 @@ export default function MandiScreen() {
           <Text style={styles.avatarLetter}>{avatarLetter}</Text>
         </Pressable>
       </View>
+      <NetworkBanner />
 
       {/* ── Scrollable content ─────────────────────────────────── */}
       <ScrollView

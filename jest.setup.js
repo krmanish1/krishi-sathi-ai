@@ -15,3 +15,14 @@ jest.mock("expo-constants", () => ({
     },
   },
 }));
+
+jest.mock("@react-native-async-storage/async-storage", () =>
+  require("@react-native-async-storage/async-storage/jest/async-storage-mock")
+);
+
+jest.mock("expo-file-system/legacy", () => ({
+  documentDirectory: "test-dir/",
+  cacheDirectory: "test-cache/",
+  downloadAsync: jest.fn(),
+  createDownloadResumable: jest.fn(),
+}));

@@ -22,6 +22,7 @@ import Constants from "expo-constants";
 import { useOnboarding } from "@/features/onboarding/store";
 import i18n from "@/shared/i18n";
 import type { Language } from "@/shared/config/constants";
+import { NetworkBanner } from "@/shared/network";
 
 const INK = "#001E2B";
 const INK_MUTED = "#5C6C75";
@@ -109,6 +110,7 @@ export default function SettingsScreen() {
         <Text style={styles.title}>{t("settings.title")}</Text>
         <View style={{ width: 36 }} />
       </View>
+      <NetworkBanner />
 
       <ScrollView
         contentContainerStyle={[

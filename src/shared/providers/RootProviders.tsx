@@ -63,7 +63,7 @@ const queryClient = new QueryClient({
 export const RootProviders = ({ children }: { children: ReactNode }) => {
   // Freeze container reference on first render — Fast Refresh re-evaluates the ioc module
   // and creates a new container object, which inversify-react rejects as a prop swap.
-  const containerRef = useRef(container);
+  const [iocContainer] = useState(() => container);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -115,7 +115,7 @@ export const RootProviders = ({ children }: { children: ReactNode }) => {
       <SafeAreaProvider>
         <I18nextProvider i18n={i18n}>
           <QueryClientProvider client={queryClient}>
-            <Provider container={containerRef.current}>
+            <Provider container={iocContainer}>
               {!fonts || !ready ? (
                 <View style={styles.splash} accessibilityLabel="Loading">
                   <ActivityIndicator size="large" color={theme.brand} />

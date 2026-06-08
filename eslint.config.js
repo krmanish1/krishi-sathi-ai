@@ -22,6 +22,7 @@ module.exports = [
       "babel.config.js",
       "metro.config.js",
       "tailwind.config.js",
+      "agy-hud/**",
     ],
   },
   ...compat.extends("expo"),

@@ -10,7 +10,7 @@ import { postQueryImage } from "@/shared/api/endpoints";
 import { appendMessage, useSendChatMessage } from "@/features/chat";
 import { useFarmerId } from "@/shared/auth/AuthProvider";
 import { useOnboarding } from "@/features/onboarding/store";
-import { useConnectivityUi } from "@/shared/network";
+import { useConnectivityUi, NetworkBanner } from "@/shared/network";
 import { ApiError } from "@/shared/api/errors";
 import type { Language } from "@/shared/config/constants";
 
@@ -110,6 +110,7 @@ export default function ScanScreen() {
         </Pressable>
         <Text className="font-display text-lg text-title-green">{t("scan.title")}</Text>
       </View>
+      <NetworkBanner />
       <ScrollView className="flex-1" contentContainerStyle={{ padding: 16 }}>
         {!ui.backendReachable ? (
           <View

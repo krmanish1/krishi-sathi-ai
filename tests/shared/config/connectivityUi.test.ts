@@ -78,8 +78,8 @@ describe("buildConnectivityUiConfig", () => {
 
   it("offline without model uses no-model copy and muted accent", () => {
     const c = buildConnectivityUiConfig("offline", { onDeviceModelReady: false });
-    expect(c.composerPlaceholderKey).toBe("placeholderOfflineNoModel");
-    expect(c.chatEmptyHintKey).toBe("emptyHintOfflineNoModel");
+    expect(c.composerPlaceholderKey).toBe("placeholderOffline");
+    expect(c.chatEmptyHintKey).toBe("emptyHintOffline");
     expect(c.chatModeBannerKey).toBe("modeBannerOfflineNoModel");
     expect(c.accentHex).toBe("#94a3b8");
     expect(c.gradientPartnerHex).toBe("#475569");

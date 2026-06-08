@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { getFarmerConversations } from "@/shared/api";
 import type { Connectivity } from "@/shared/api/types";
 import { listLocalConversations, localConvToConversation } from "./localConversationsRepo";
@@ -33,5 +33,6 @@ export function useFarmerConversations(opts: {
       return getFarmerConversations(farmerId, connectivity);
     },
     enabled: !!farmerId,
+    placeholderData: keepPreviousData,
   });
 }

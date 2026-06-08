@@ -229,13 +229,8 @@ export function buildConnectivityUiConfig(
   if (isFullyOffline) {
     newChatLoadingKey = "sessionStartingOffline";
     chatModeBannerKey = onDeviceModelReady ? "modeBannerOffline" : "modeBannerOfflineNoModel";
-    if (onDeviceModelReady) {
-      composerPlaceholderKey = "placeholderOffline";
-      chatEmptyHintKey = "emptyHintOffline";
-    } else {
-      composerPlaceholderKey = "placeholderOfflineNoModel";
-      chatEmptyHintKey = "emptyHintOfflineNoModel";
-    }
+    composerPlaceholderKey = "placeholderOffline";
+    chatEmptyHintKey = "emptyHintOffline";
   } else if (mode === "degraded") {
     chatModeBannerKey = "modeBannerDegraded";
     composerPlaceholderKey = "placeholderDegraded";
