@@ -12,6 +12,7 @@ import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import { NetworkBanner } from "@/shared/network";
 
 const INK = "#001E2B";
 const INK_MUTED = "#5C6C75";
@@ -89,6 +90,7 @@ export default function ExpertSupportScreen() {
         <Text style={styles.title}>{t("expertSupport.title")}</Text>
         <View style={{ width: 36 }} />
       </View>
+      <NetworkBanner />
 
       <ScrollView
         contentContainerStyle={[

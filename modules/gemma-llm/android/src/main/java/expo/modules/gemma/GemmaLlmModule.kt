@@ -16,6 +16,13 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeout
 
+private fun normalizeModelPath(modelPath: String): String {
+    val trimmed = modelPath.trim()
+    if (!trimmed.startsWith("file://", ignoreCase = true)) return trimmed
+    // file:///data/user/0/... → /data/user/0/...
+    return java.net.URLDecoder.decode(trimmed.substring(7), Charsets.UTF_8)
+}
+
 class GemmaLlmModule : Module() {
     private var engine: Engine? = null
     @Volatile private var conversation: com.google.ai.edge.litertlm.Conversation? = null
@@ -38,8 +45,9 @@ class GemmaLlmModule : Module() {
                 try {
                     conversation?.close()
                     engine?.close()
+                    val fsPath = normalizeModelPath(modelPath)
                     val config = EngineConfig(
-                        modelPath = modelPath,
+                        modelPath = fsPath,
                         backend = Backend.CPU(),
                         visionBackend = Backend.CPU(),
                     )

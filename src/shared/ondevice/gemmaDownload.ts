@@ -2,12 +2,13 @@ import * as FileSystem from "expo-file-system/legacy";
 import type { FileSystemDownloadResult, DownloadResumable } from "expo-file-system/legacy";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import NetInfo from "@react-native-community/netinfo";
-import { setModelReady } from "./modelState";
 import {
   type ModelVariant,
-  checkLocalGemmaModelOnDisk,
   detectModelVariant,
+  getDeviceGemmaVariantPolicy,
   modelFilePath,
+  resolveLocalGemmaModelOnDisk,
+  scanLocalGemmaModelOnDisk,
 } from "./localGemmaModelFile";
 
 const RESUME_STATE_KEY = (variant: ModelVariant) => `gemma-download-resume-${variant}`;
@@ -18,8 +19,8 @@ export type { ModelVariant };
 
 // Hosted on Hugging Face (official @mediapipe/tasks-genai points here; GCS llm_inference URLs 404).
 const MODEL_URLS: Record<ModelVariant, string> = {
-  e4b: "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it-web.task",
-  e2b: "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it-web.task",
+  e4b: "https://huggingface.co/litert-community/gemma-4-E4B-it-litert-lm/resolve/main/gemma-4-E4B-it.litertlm",
+  e2b: "https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm/resolve/main/gemma-4-E2B-it.litertlm",
 };
 
 export async function checkIsOnWifi(): Promise<boolean> {
@@ -34,7 +35,12 @@ export async function checkIsOnWifi(): Promise<boolean> {
 export async function checkModelExists(
   variant?: ModelVariant,
 ): Promise<{ exists: boolean; variant: ModelVariant; path: string }> {
-  return checkLocalGemmaModelOnDisk(variant);
+  const policy = await getDeviceGemmaVariantPolicy();
+  const v = policy.strictOnly ? policy.variant : (variant ?? policy.variant);
+  return scanLocalGemmaModelOnDisk({
+    preferredVariant: v,
+    strictPreferred: policy.strictOnly,
+  });
 }
 
 export async function downloadGemmaModel(
@@ -42,11 +48,15 @@ export async function downloadGemmaModel(
   signal?: AbortSignal,
   variant?: ModelVariant,
 ): Promise<{ variant: ModelVariant; path: string }> {
-  const v = variant ?? (await detectModelVariant());
+  const policy = await getDeviceGemmaVariantPolicy();
+  const v = policy.strictOnly ? policy.variant : (variant ?? policy.variant);
   const destPath = modelFilePath(v);
   const url = MODEL_URLS[v];
 
-  const existing = await checkLocalGemmaModelOnDisk(v);
+  const existing = await scanLocalGemmaModelOnDisk({
+    preferredVariant: v,
+    strictPreferred: true,
+  });
   if (existing.exists) {
     onProgress({ received: 100, total: 100 });
     return { variant: v, path: destPath };
@@ -90,7 +100,12 @@ export async function downloadGemmaModel(
     downloadResumable = FileSystem.createDownloadResumable(
       url,
       destPath,
-      {},
+      {
+        headers: {
+          "User-Agent": "KrishiSaathi/1.0 (Expo; Android)",
+          Accept: "*/*",
+        },
+      },
       progressCallback,
       savedResumeData ?? undefined,
     );
@@ -108,8 +123,17 @@ export async function downloadGemmaModel(
         }
         // Clear saved resume state — download complete.
         void AsyncStorage.removeItem(RESUME_STATE_KEY(v)).catch(() => undefined);
-        setModelReady(destPath);
-        resolve({ variant: v, path: destPath });
+        void resolveLocalGemmaModelOnDisk({ preferredVariant: v, strictPreferred: true })
+          .then((verified) => {
+            if (!verified.exists) {
+              void AsyncStorage.removeItem(RESUME_STATE_KEY(v)).catch(() => undefined);
+              void FileSystem.deleteAsync(destPath, { idempotent: true }).catch(() => undefined);
+              reject(new Error("Download finished but model file failed verification"));
+              return;
+            }
+            resolve({ variant: v, path: verified.path });
+          })
+          .catch(reject);
       })
       .catch(async (err: unknown) => {
         // Save resume state so next attempt picks up from current byte offset.

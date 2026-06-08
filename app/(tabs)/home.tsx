@@ -18,7 +18,7 @@ import { greetingFirstName, useDisplayName } from "@/features/twin";
 import { SidebarDrawer } from "@/shared/ui/primitives";
 import { useFarmerWeather } from "@/features/weather";
 import { useFarmerId } from "@/shared/auth";
-import { useConnectivityUi } from "@/shared/network";
+import { useConnectivityUi, NetworkBanner } from "@/shared/network";
 import { runInitialSync } from "@/features/onboarding/useInitialSync";
 import { useMandiFromBundle } from "@/features/mandi/mandiFromBundle";
 import { ModelDownloadBanner } from "@/features/model-download";
@@ -50,7 +50,7 @@ export default function HomeScreen() {
   const displayName = useDisplayName();
   const greetingName = greetingFirstName(displayName);
   const ui = useConnectivityUi();
-  const connectivity = ui.connectivity;
+  const connectivity = ui.apiConnectivity;
   const isOnlineMode = ui.backendReachable;
 
   const {
@@ -65,7 +65,7 @@ export default function HomeScreen() {
     fallbackPlace: district && state ? `${district}, ${state}` : "—",
   });
 
-  const spinAnim = useRef(new Animated.Value(0)).current;
+  const [spinAnim] = useState(() => new Animated.Value(0));
   useEffect(() => {
     if (isRefreshingWeather) {
       Animated.loop(
@@ -122,6 +122,7 @@ export default function HomeScreen() {
           <Text style={styles.avatarLetter}>{avatarLetter}</Text>
         </Pressable>
       </View>
+      <NetworkBanner />
 
       {/* ── Scroll content ─────────────────────────────────────────── */}
       <ModelDownloadBanner />

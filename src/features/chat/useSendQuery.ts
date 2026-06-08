@@ -1,13 +1,22 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import i18next from "i18next";
 import { askAgent } from "@/shared/api/routing";
 import { ApiError } from "@/shared/api/errors";
 import type { Language } from "@/shared/config/constants";
 import { CONFIDENCE_THRESHOLD_LOW } from "@/shared/config/constants";
 import type { Connectivity } from "@/shared/api/types";
-import { appendMessage, MAIN_THREAD_ID, type ChatMessageRow } from "./chatMessagesRepo";
+import {
+  appendMessage,
+  listThreadMessages,
+  updateMessageText,
+  MAIN_THREAD_ID,
+  type ChatMessageRow,
+} from "./chatMessagesRepo";
 import { CHAT_THREAD_QUERY_KEY } from "./useChatThread";
 import { guessDeviceIntent } from "./guessDeviceIntent";
 import { randomUUID } from "@/shared/utils/uuid";
+import { detectModelVariant, modelVariantToOnDeviceModelId } from "@/shared/ondevice";
+import { logOnDevice } from "@/shared/ondevice/ondeviceLog";
 
 export type SendQueryInput = {
   text: string;
@@ -15,20 +24,15 @@ export type SendQueryInput = {
   language: Language;
   state: string;
   district: string;
-  /** Onboarding / twin GPS; included in backend context when set. */
   lat?: number;
   lng?: number;
   connectivity: Connectivity;
   imageRef?: string;
   imageLocalUri?: string;
-  /** Re-ask on server without writing another user row (e.g. low-confidence CTA). */
   skipUserMessage?: boolean;
   forceBackend?: boolean;
-  /** Backend conversation UUID. Defaults to MAIN_THREAD_ID when not provided (offline path). */
   conversationId?: string;
-  /** AbortSignal to cancel in-flight requests (offline path). */
   signal?: AbortSignal;
-  /** Streaming token callback forwarded to askAgent (offline/ondevice path). */
   onToken?: (token: string) => void;
 };
 
@@ -42,36 +46,26 @@ const mapErr = (e: unknown): string => {
   return "Something went wrong.";
 };
 
+async function syncThreadCache(
+  qc: ReturnType<typeof useQueryClient>,
+  threadId: string,
+): Promise<ChatMessageRow[]> {
+  const next = await listThreadMessages(threadId);
+  qc.setQueryData(CHAT_THREAD_QUERY_KEY(threadId), next);
+  return next;
+}
+
 export function useSendChatMessage() {
   const qc = useQueryClient();
   return useMutation({
     mutationKey: ["chat", "sendFull"] as const,
-    onMutate: async (p: SendQueryInput) => {
-      if (p.skipUserMessage) return;
-      const threadId = p.conversationId ?? MAIN_THREAD_ID;
-      // Cancel in-flight queries so the optimistic update isn't overwritten
-      await qc.cancelQueries({ queryKey: CHAT_THREAD_QUERY_KEY(threadId) });
-      const prev = qc.getQueryData<ChatMessageRow[]>(CHAT_THREAD_QUERY_KEY(threadId));
-      const optimistic: ChatMessageRow = {
-        id: `opt-${randomUUID()}`,
-        thread_id: threadId,
-        role: "user",
-        text: p.text.trim(),
-        source: null,
-        confidence: null,
-        created_at: Date.now(),
-        ...(p.imageLocalUri ? { imageLocalUri: p.imageLocalUri } : {}),
-      };
-      qc.setQueryData<ChatMessageRow[]>(
-        CHAT_THREAD_QUERY_KEY(threadId),
-        (old) => [...(old ?? []), optimistic],
-      );
-      return { prev, threadId };
-    },
     mutationFn: async (p: SendQueryInput) => {
       const text = p.text.trim();
       const threadId = p.conversationId ?? MAIN_THREAD_ID;
       const intent = guessDeviceIntent(text);
+
+      await qc.cancelQueries({ queryKey: CHAT_THREAD_QUERY_KEY(threadId) });
+
       if (!p.skipUserMessage) {
         await appendMessage({
           role: "user",
@@ -79,8 +73,33 @@ export function useSendChatMessage() {
           threadId,
           ...(p.imageLocalUri ? { imageLocalUri: p.imageLocalUri } : {}),
         });
+        await syncThreadCache(qc, threadId);
       }
+
+      const assistantId = randomUUID();
+      let draftReply = "";
+      await appendMessage({
+        id: assistantId,
+        role: "assistant",
+        text: i18next.t("chat.thinking") || "Thinking…",
+        source: "ondevice",
+        confidence: null,
+        threadId,
+      });
+      await syncThreadCache(qc, threadId);
+
+      const onToken = (token: string) => {
+        draftReply += token;
+        p.onToken?.(token);
+        qc.setQueryData<ChatMessageRow[]>(CHAT_THREAD_QUERY_KEY(threadId), (old) =>
+          (old ?? []).map((m) =>
+            m.id === assistantId ? { ...m, text: draftReply || m.text } : m,
+          ),
+        );
+      };
+
       try {
+        const ondeviceModel = modelVariantToOnDeviceModelId(await detectModelVariant());
         const r = await askAgent(
           {
             text,
@@ -88,7 +107,7 @@ export function useSendChatMessage() {
             intent,
             ...(p.imageRef ? { imageRef: p.imageRef } : {}),
             ...(p.signal ? { signal: p.signal } : {}),
-            ...(p.onToken ? { onToken: p.onToken } : {}),
+            onToken,
           },
           {
             farmerId: p.farmerId,
@@ -100,39 +119,58 @@ export function useSendChatMessage() {
               ...(p.lng !== undefined ? { lng: p.lng } : {}),
             },
             connectivity: p.connectivity,
-            deviceCapabilities: { ondeviceModel: "gemma-4-e4b-it" },
+            deviceCapabilities: { ondeviceModel },
           },
           p.forceBackend ? { forceBackend: true } : undefined,
         );
-        await appendMessage({
-          role: "assistant",
-          text: r.text,
+
+        const replyText =
+          (r.text ?? "").trim() ||
+          draftReply.trim() ||
+          i18next.t("offline.generationTimeout");
+
+        logOnDevice("agent_reply", {
           source: r.source,
-          confidence: r.confidence,
-          threadId,
+          textLength: replyText.length,
+          preview: replyText.slice(0, 160),
         });
-        return { response: r, intent, text };
+
+        await updateMessageText(assistantId, replyText);
+        qc.setQueryData<ChatMessageRow[]>(CHAT_THREAD_QUERY_KEY(threadId), (old) =>
+          (old ?? []).map((m) =>
+            m.id === assistantId
+              ? {
+                  ...m,
+                  text: replyText,
+                  source: r.source,
+                  confidence: r.confidence ?? m.confidence,
+                }
+              : m,
+          ),
+        );
+        return { response: { ...r, text: replyText }, intent, text };
       } catch (e) {
-        await appendMessage({
-          role: "assistant",
-          text: mapErr(e),
+        const errText = mapErr(e);
+        logOnDevice("agent_reply", {
           source: "ondevice",
-          confidence: null,
-          threadId,
+          textLength: errText.length,
+          preview: errText.slice(0, 160),
+          error: true,
         });
+        await updateMessageText(assistantId, errText);
+        qc.setQueryData<ChatMessageRow[]>(CHAT_THREAD_QUERY_KEY(threadId), (old) =>
+          (old ?? []).map((m) =>
+            m.id === assistantId ? { ...m, text: errText, source: "ondevice" } : m,
+          ),
+        );
+        await syncThreadCache(qc, threadId);
         throw e;
       }
     },
-    onError: (_err, _vars, context) => {
-      const ctx = context as { prev?: ChatMessageRow[]; threadId?: string } | undefined;
-      const threadId = ctx?.threadId ?? MAIN_THREAD_ID;
-      if (ctx?.prev !== undefined) {
-        qc.setQueryData(CHAT_THREAD_QUERY_KEY(threadId), ctx.prev);
-      }
-    },
-    onSettled: async (_data, _err, variables) => {
+    onSettled: async (_data, err, variables) => {
+      if (!err) return;
       const threadId = variables?.conversationId ?? MAIN_THREAD_ID;
-      await qc.invalidateQueries({ queryKey: CHAT_THREAD_QUERY_KEY(threadId) });
+      await syncThreadCache(qc, threadId);
     },
   });
 }

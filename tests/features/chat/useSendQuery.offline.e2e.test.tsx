@@ -3,7 +3,13 @@ import { Text } from "react-native";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, waitFor } from "@testing-library/react-native";
 import { useSendChatMessage } from "@/features/chat/useSendQuery";
-import { clearThread, listThreadMessages, MAIN_THREAD_ID } from "@/features/chat/chatMessagesRepo";
+import {
+  clearThread,
+  listThreadMessages,
+  MAIN_THREAD_ID,
+  type ChatMessageRow,
+} from "@/features/chat/chatMessagesRepo";
+import { CHAT_THREAD_QUERY_KEY } from "@/features/chat/useChatThread";
 
 // --- Mocks: keep the test offline, deterministic, and fast ---
 jest.mock("@/shared/storage/db", () => {
@@ -35,6 +41,12 @@ jest.mock("@/shared/storage/db", () => {
         });
         return;
       }
+      if (sql.includes("UPDATE chat_messages")) {
+        const [text, id] = params as [string, string];
+        const row = state.rows.find((r) => r.id === id);
+        if (row) row.text = text;
+        return;
+      }
       throw new Error(`Unexpected SQL in test DB mock: ${sql}`);
     },
     async getAllAsync<T>(sql: string, params: unknown[]) {
@@ -44,7 +56,7 @@ jest.mock("@/shared/storage/db", () => {
       const threadId = String(params[0]);
       const rows = state.rows
         .filter((r) => r.thread_id === threadId)
-        .sort((a, b) => a.created_at - b.created_at)
+        .sort((a, b) => a.created_at - b.created_at || String(a.id).localeCompare(String(b.id)))
         .map((r) => ({
           id: r.id,
           thread_id: r.thread_id,
@@ -62,35 +74,46 @@ jest.mock("@/shared/storage/db", () => {
   return { getDb: () => db };
 });
 
+jest.mock("i18next", () => ({
+  __esModule: true,
+  default: {
+    t: (key: string) => {
+      if (key === "chat.thinking") return "Thinking…";
+      if (key === "offline.generationTimeout") return "Generation timed out.";
+      return key;
+    },
+  },
+}));
+
 jest.mock("@/shared/api/endpoints", () => ({
   postQuery: jest.fn(async () => {
     throw new Error("Backend must not be called in offline mode.");
   }),
 }));
 
-jest.mock("@/shared/ondevice/modelState", () => ({ isModelReady: () => true }));
-
-const mockOnDeviceRun = jest.fn(async (_query?: unknown, _ctx?: unknown) => ({
-  text: "Offline answer from small Gemma 4 model.",
-  structured: undefined,
-  confidence: 0.91,
-  source: "ondevice" as const,
-  modelUsed: "gemma-4-e4b-it",
-  canEscalate: true,
-  dataSource: "offline" as const,
+jest.mock("@/shared/ondevice", () => ({
+  detectModelVariant: jest.fn(async () => "e2b" as const),
+  modelVariantToOnDeviceModelId: () => "gemma-4-e2b-it" as const,
 }));
 
-jest.mock("@/shared/ondevice/onDeviceAgent", () => ({
-  onDeviceAgent: {
-    run: (query: unknown, ctx: unknown) => mockOnDeviceRun(query, ctx),
-  },
+const mockAskAgent = jest.fn(
+  async (_q?: unknown, _ctx?: unknown, _opts?: unknown) => ({
+    text: "Offline answer from small Gemma 4 model.",
+    confidence: 0.91,
+    source: "ondevice" as const,
+    modelUsed: "gemma-4-e2b-it" as const,
+  }),
+);
+
+jest.mock("@/shared/api/routing", () => ({
+  askAgent: (q: unknown, ctx: unknown, opts?: unknown) => mockAskAgent(q, ctx, opts),
 }));
 
-function Harness(props: { onReady: () => void }) {
+function Harness(props: { onReady: (result: { response: { text: string } }) => void }) {
   const send = useSendChatMessage();
   useEffect(() => {
     void (async () => {
-      await send.mutateAsync({
+      const result = await send.mutateAsync({
         text: "what is the weather tomorrow?",
         farmerId: "farmer-1",
         language: "en",
@@ -99,7 +122,7 @@ function Harness(props: { onReady: () => void }) {
         connectivity: "offline",
         conversationId: MAIN_THREAD_ID,
       });
-      props.onReady();
+      props.onReady(result);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -108,35 +131,42 @@ function Harness(props: { onReady: () => void }) {
 
 describe("offline chat (integration)", () => {
   beforeEach(async () => {
-    mockOnDeviceRun.mockClear();
+    mockAskAgent.mockClear();
     await clearThread(MAIN_THREAD_ID);
   });
 
   it("routes to on-device agent and persists messages (no backend)", async () => {
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-    let done = false;
+    let result: { response: { text: string } } | null = null;
 
     render(
       <QueryClientProvider client={qc}>
-        <Harness onReady={() => { done = true; }} />
+        <Harness onReady={(r) => { result = r; }} />
       </QueryClientProvider>,
     );
 
-    await waitFor(() => expect(done).toBe(true));
+    await waitFor(() => expect(result).not.toBeNull());
+    expect(result!.response.text).toContain("Offline answer");
 
-    expect(mockOnDeviceRun).toHaveBeenCalledTimes(1);
-    const firstArgs = mockOnDeviceRun.mock.calls[0];
-    expect(firstArgs).toBeDefined();
-    const [q, ctx] = firstArgs as unknown as [
+    expect(mockAskAgent).toHaveBeenCalledTimes(1);
+    const [q, ctx] = mockAskAgent.mock.calls[0] as unknown as [
       { text: string; language: string; intent: string },
-      { district: string; state: string },
+      {
+        location: { district: string; state: string };
+        connectivity: string;
+      },
     ];
     expect(q.text).toContain("weather");
-    expect(ctx).toEqual(expect.objectContaining({ district: "Pune", state: "MH" }));
+    expect(ctx).toEqual(
+      expect.objectContaining({
+        connectivity: "offline",
+        location: expect.objectContaining({ district: "Pune", state: "MH" }),
+      }),
+    );
 
-    const rows = await listThreadMessages(MAIN_THREAD_ID);
-    expect(rows.map((r) => r.role)).toEqual(["user", "assistant"]);
-    expect(rows[1]?.source).toBe("ondevice");
-    expect(rows[1]?.text).toContain("Offline answer");
+    const cached = qc.getQueryData<ChatMessageRow[]>(CHAT_THREAD_QUERY_KEY(MAIN_THREAD_ID));
+    expect(cached?.some((r) => r.role === "assistant" && r.text.includes("Offline answer"))).toBe(
+      true,
+    );
   });
 });

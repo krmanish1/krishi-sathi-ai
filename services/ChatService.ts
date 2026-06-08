@@ -83,7 +83,6 @@ export class ChatService implements IChatService {
     if (params.bundleVersion) q.set("bundle_version", params.bundleVersion);
     return this.http.get<SyncBundleDto>(`/api/v1/sync/bundle?${q.toString()}`, {
       timeoutMs: TIMEOUTS_MS.syncBundle,
-      headers: { "Accept-Encoding": "gzip" },
     });
   }
 

@@ -24,7 +24,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useOnboarding } from "@/features/onboarding/store";
 import { useAuthReady, useFarmerId } from "@/shared/auth";
-import { useConnectivityUi } from "@/shared/network";
+import { useConnectivityUi, NetworkBanner } from "@/shared/network";
+import { useModelDownloadStore } from "@/features/model-download";
 import {
   useChatThread,
   useSendChatMessage,
@@ -596,7 +597,8 @@ export default function ChatScreen() {
   const lat = latRaw != null && Number.isFinite(latRaw) ? latRaw : undefined;
   const lng = lngRaw != null && Number.isFinite(lngRaw) ? lngRaw : undefined;
   const ui = useConnectivityUi();
-  const connectivity = ui.connectivity;
+  const connectivity = ui.apiConnectivity;
+  const downloadedVariant = useModelDownloadStore((s) => s.variant);
 
   // Bootstrap session on first open / web reload; does not reset on tab blur.
   useConversation({ farmerId, connectivity });
@@ -621,17 +623,25 @@ export default function ChatScreen() {
   }, [sessionsRaw]);
 
   const headerSubtitle = useMemo(() => {
-    if (!ui.backendReachable) return t("chat.offlineStrip");
     const hit = sessions.find((s) => s.conversation_id === conversationId);
     if (hit?.title?.trim()) return hit.title.trim();
     if (conversationId !== MAIN_THREAD_ID) return t("chat.sessionUntitled");
     return t("chat.headerSubtitleDefault");
-  }, [sessions, conversationId, ui.backendReachable, t]);
+  }, [sessions, conversationId, t]);
 
   const [refreshing, setRefreshing] = useState(false);
 
   const { data: messagesData, isPending: threadPending } = useChatThread(conversationId);
   const messages = messagesData ?? [];
+
+  const [hasLoadedInitialThread, setHasLoadedInitialThread] = useState(false);
+  useEffect(() => {
+    if (!threadPending && messagesData !== undefined) {
+      Promise.resolve().then(() => {
+        setHasLoadedInitialThread(true);
+      });
+    }
+  }, [threadPending, messagesData]);
   const send = useSendChatMessage();
   const stream = useStreamChatMessage({
     farmerId: farmerId ?? "",
@@ -838,7 +848,7 @@ export default function ChatScreen() {
       attachment.clearImage();
     }
 
-    if (ui.backendReachable) {
+    if (ui.enableStreamChat) {
       void stream
         .send(text, {
           ...(imageRef ? { imageRef } : {}),
@@ -848,7 +858,10 @@ export default function ChatScreen() {
       return;
     }
 
-    // Offline / prefer-offline text-only path (images already blocked above).
+    // Offline, degraded, or prefer-on-device — use askAgent (Gemma / bundle fallback).
+    abortControllerRef.current?.abort();
+    const ac = new AbortController();
+    abortControllerRef.current = ac;
     const payload: SendQueryInput = {
       text,
       farmerId,
@@ -859,9 +872,12 @@ export default function ChatScreen() {
       ...(lng !== undefined ? { lng } : {}),
       connectivity,
       conversationId,
+      ...(imageRef ? { imageRef } : {}),
+      ...(localUri ? { imageLocalUri: localUri } : {}),
+      signal: ac.signal,
     };
     void send.mutateAsync(payload).catch(() => undefined);
-  }, [attachment, draft, farmerId, language, state, district, lat, lng, connectivity, conversationId, send, stream, ui.backendReachable, t]);
+  }, [attachment, draft, farmerId, language, state, district, lat, lng, connectivity, conversationId, send, stream, ui.enableStreamChat, ui.backendReachable, t]);
 
   const handleMicPress = useCallback(async () => {
     if (send.isPending) {
@@ -892,7 +908,7 @@ export default function ChatScreen() {
   const canSend = (!!draft.trim() || !!attachment.pickedUri) && !isBusy;
 
   /** Full-screen spinner only before the first SQLite read — not during background refetch. */
-  if (!ready || (threadPending && messagesData === undefined)) {
+  if (!ready || (!hasLoadedInitialThread && threadPending && messagesData === undefined)) {
     return (
       <View
         className="flex-1 items-center justify-center bg-page"
@@ -952,29 +968,8 @@ export default function ChatScreen() {
         </Pressable>
       </View>
 
-      {/* Connectivity banner (outside KAV — doesn't move with keyboard) */}
-      {ui.chatModeBannerKey ? (
-        <View
-          style={{
-            paddingVertical: 8,
-            paddingHorizontal: 14,
-            backgroundColor: ui.chatInlineBannerBackgroundRgba,
-            borderBottomWidth: 1,
-            borderBottomColor: "rgba(0,30,43,0.08)",
-          }}
-        >
-          <Text
-            style={{
-              fontSize: 12,
-              lineHeight: 17,
-              color: ui.chatInlineBannerTextHex,
-              fontWeight: "500",
-            }}
-          >
-            {t(`chat.${ui.chatModeBannerKey}`)}
-          </Text>
-        </View>
-      ) : null}
+      {/* Offline banner */}
+      <NetworkBanner />
 
       {/*
         ── KeyboardAvoidingView only wraps message list + input footer ──
@@ -1036,7 +1031,14 @@ export default function ChatScreen() {
               />
               {item.role === "assistant" && item.source === "ondevice" && (
                 <Text style={{ fontSize: 10, color: "#8997A0", marginLeft: 12, marginTop: 2, marginBottom: 6 }}>
-                  {t("chat.offlineBadge", { model: "Gemma 4 E4B" })}
+                  {t("chat.offlineBadge", {
+                    model:
+                      downloadedVariant === "e2b"
+                        ? t("modelDownload.variant.e2b")
+                        : downloadedVariant === "e4b"
+                          ? t("modelDownload.variant.e4b")
+                          : t("modelDownload.variant.e2b"),
+                  })}
                 </Text>
               )}
               {item.role === "assistant" && item.source === "backend" && (
@@ -1048,7 +1050,7 @@ export default function ChatScreen() {
           );
         }}
         ListEmptyComponent={
-          refreshing ? (
+          threadPending || refreshing ? (
             <View className="items-center px-6 py-14" accessibilityLabel={t("chat.loading")}>
               <ActivityIndicator color={ui.accentHex} />
               <Text className="mt-4 text-center font-body text-sm text-ink-muted">{t("chat.loading")}</Text>
@@ -1076,7 +1078,7 @@ export default function ChatScreen() {
               mdStyles={mdStyles}
               isStreaming={stream.isStreaming}
             />
-          ) : send.isPending ? (
+          ) : (send.isPending && (messages.length === 0 || messages[messages.length - 1]?.role !== "assistant")) ? (
             <TypingIndicator />
           ) : null
         }

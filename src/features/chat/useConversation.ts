@@ -98,8 +98,13 @@ export function useConversation(opts: {
         // If this is a pending local conversation, sync it to the backend now that we're online
         const pending = await getLocalConversation(currentId).catch(() => null);
         if (pending && !pending.synced) {
+          const localMessages = qc.getQueryData(CHAT_THREAD_QUERY_KEY(currentId));
           await syncLocalConversation(farmerId, currentId, connectivityRef.current, ctrl.signal);
           if (!cancelled && !ctrl.signal.aborted) {
+            const newId = useChatStore.getState().conversationId;
+            if (newId !== currentId && localMessages) {
+              qc.setQueryData(CHAT_THREAD_QUERY_KEY(newId), localMessages);
+            }
             await qc.invalidateQueries({
               queryKey: FARMER_CONVERSATIONS_QUERY_KEY(farmerId, connectivityRef.current),
             });

@@ -1,15 +1,20 @@
 import { apiFetch } from "@/shared/api/client";
 import { ApiError } from "@/shared/api/errors";
+import { platformFetch } from "@/shared/api/platformFetch";
+
+jest.mock("@/shared/api/platformFetch", () => ({
+  platformFetch: jest.fn(),
+}));
+
+const mockFetch = platformFetch as jest.MockedFunction<typeof fetch>;
 
 describe("apiFetch", () => {
-  const orig = global.fetch;
-
   afterEach(() => {
-    global.fetch = orig;
+    mockFetch.mockReset();
   });
 
   it("returns parsed JSON on 2xx", async () => {
-    global.fetch = jest.fn().mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: true,
       status: 200,
       text: async () => JSON.stringify({ ok: true }),
@@ -23,7 +28,7 @@ describe("apiFetch", () => {
   });
 
   it("throws ApiError with fallbackHint on non-2xx", async () => {
-    global.fetch = jest.fn().mockResolvedValue({
+    mockFetch.mockResolvedValue({
       ok: false,
       status: 503,
       text: async () =>
@@ -43,7 +48,7 @@ describe("apiFetch", () => {
   });
 
   it("maps AbortError to LLM_TIMEOUT", async () => {
-    global.fetch = jest.fn().mockImplementation((_url: string, init?: RequestInit) => {
+    mockFetch.mockImplementation((_input: RequestInfo | URL, init?: RequestInit) => {
       if (init?.signal?.aborted) {
         const e = new Error("The operation was aborted");
         e.name = "AbortError";

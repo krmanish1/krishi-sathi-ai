@@ -1,6 +1,25 @@
 import { buildConnectivityUiConfig } from "@/shared/config/connectivityUi";
 
 describe("buildConnectivityUiConfig", () => {
+  it("online with cloud health down still uses online API mode and enables stream", () => {
+    const c = buildConnectivityUiConfig("online", { cloudReachable: false });
+    expect(c.mode).toBe("online");
+    expect(c.apiConnectivity).toBe("online");
+    expect(c.cloudReachable).toBe(false);
+    expect(c.backendReachable).toBe(true);
+    expect(c.enableStreamChat).toBe(true);
+    expect(c.showChatDegradedStrip).toBe(false);
+  });
+
+  it("online with preferOffline and model ready disables stream chat", () => {
+    const c = buildConnectivityUiConfig("online", {
+      onDeviceModelReady: true,
+      preferOffline: true,
+    });
+    expect(c.enableStreamChat).toBe(false);
+    expect(c.backendReachable).toBe(true);
+  });
+
   it("online uses default composer copy and enables backend features", () => {
     const c = buildConnectivityUiConfig("online", { onDeviceModelReady: true });
     expect(c.mode).toBe("online");
@@ -25,6 +44,7 @@ describe("buildConnectivityUiConfig", () => {
   it("degraded disables streaming/image/history and shows degraded banner", () => {
     const c = buildConnectivityUiConfig("degraded", { onDeviceModelReady: false });
     expect(c.mode).toBe("degraded");
+    expect(c.apiConnectivity).toBe("degraded");
     expect(c.backendReachable).toBe(true);
     expect(c.enableStreamChat).toBe(false);
     expect(c.enableImageAttach).toBe(false);
@@ -58,8 +78,8 @@ describe("buildConnectivityUiConfig", () => {
 
   it("offline without model uses no-model copy and muted accent", () => {
     const c = buildConnectivityUiConfig("offline", { onDeviceModelReady: false });
-    expect(c.composerPlaceholderKey).toBe("placeholderOfflineNoModel");
-    expect(c.chatEmptyHintKey).toBe("emptyHintOfflineNoModel");
+    expect(c.composerPlaceholderKey).toBe("placeholderOffline");
+    expect(c.chatEmptyHintKey).toBe("emptyHintOffline");
     expect(c.chatModeBannerKey).toBe("modeBannerOfflineNoModel");
     expect(c.accentHex).toBe("#94a3b8");
     expect(c.gradientPartnerHex).toBe("#475569");

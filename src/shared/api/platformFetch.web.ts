@@ -1,0 +1,1 @@
+export { platformFetch } from "./platformFetch";

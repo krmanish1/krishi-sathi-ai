@@ -6,15 +6,14 @@ import { useConnectivityUi } from "./useConnectivityUi";
 export const NetworkBanner = () => {
   const ui = useConnectivityUi();
   const { t } = useTranslation();
-  if (ui.mode === "online") {
+  if (ui.connectivity !== "offline") {
     return null;
   }
   const accent = ui.headerAccentHex;
-  const offline = ui.connectivity === "offline";
   return (
     <View
       accessibilityRole="alert"
-      accessibilityLabel={`${offline ? t("network.offlineTitle") : t("network.degradedTitle")}. ${offline ? t("network.offlineBody") : t("network.degradedBody")}`}
+      accessibilityLabel={`${t("network.offlineTitle")}. ${t("network.offlineBody")}`}
       style={{
         borderBottomWidth: StyleSheet.hairlineWidth,
         borderBottomColor: hexToRgba(accent, 0.35),
@@ -28,13 +27,13 @@ export const NetworkBanner = () => {
         className="text-center font-body-semibold text-sm leading-5"
         style={{ color: accent }}
       >
-        {offline ? t("network.offlineTitle") : t("network.degradedTitle")}
+        {t("network.offlineTitle")}
       </Text>
       <Text
         className="text-center font-body text-[13px] leading-[18px]"
         style={{ color: accent, opacity: 0.92 }}
       >
-        {offline ? t("network.offlineBody") : t("network.degradedBody")}
+        {t("network.offlineBody")}
       </Text>
     </View>
   );

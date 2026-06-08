@@ -2,10 +2,14 @@ import type { Language } from "@/shared/config/constants";
 import { queryConnectivityWire, type Connectivity, type DeviceIntent, type OnDeviceModel } from "./types";
 import { ApiError } from "./errors";
 import { postQuery } from "./endpoints";
-import { isModelReady, getPreferOffline } from "@/shared/ondevice/modelState";
+import { syncModelReadyFromDisk } from "@/shared/ondevice";
+import { logOnDevice } from "@/shared/ondevice/ondeviceLog";
+import { toNativeFilesystemPath } from "@/shared/ondevice/nativeModelPath";
+import { getModelPath, isModelReady, getPreferOffline } from "@/shared/ondevice/modelState";
 import { onDeviceAgent } from "@/shared/ondevice/onDeviceAgent";
 import { offlineFallback } from "@/shared/ondevice/offlineFallback";
 import { loadBundlePayload } from "@/shared/storage/bundle";
+import { isNetworkFetchError } from "./networkErrors";
 
 // Circuit breaker: after a network-level failure (UnknownHost / fetch failed),
 // skip the backend for CIRCUIT_OPEN_MS to avoid repeated 10s DNS timeouts.
@@ -16,12 +20,23 @@ function isCircuitOpen(): boolean {
   return Date.now() < backendDownUntil;
 }
 
-function tripCircuit(): void {
+/** Open circuit so subsequent queries skip backend DNS timeout. */
+export function tripBackendCircuit(): void {
   backendDownUntil = Date.now() + CIRCUIT_OPEN_MS;
+}
+
+/** True while recent network failures mean the backend should not be polled. */
+export function isBackendCircuitOpen(): boolean {
+  return isCircuitOpen();
 }
 
 function resetCircuit(): void {
   backendDownUntil = 0;
+}
+
+/** Clears circuit after a successful backend response (e.g. health warm). */
+export function resetBackendCircuit(): void {
+  resetCircuit();
 }
 
 export type AgentQuery = {
@@ -125,8 +140,16 @@ export const askAgent = async (
   // Both cases go straight to on-device rather than timing out against the backend.
   if (ctx.connectivity === "offline" || ctx.connectivity === "degraded") {
     if (!isModelReady()) {
+      await syncModelReadyFromDisk().catch(() => undefined);
+    }
+    logOnDevice("routing_offline", {
+      connectivity: ctx.connectivity,
+      modelReady: isModelReady(),
+      path: getModelPath() ? toNativeFilesystemPath(getModelPath()) : null,
+    });
+    if (!isModelReady()) {
       const bundle = await loadBundlePayload().catch(() => null);
-      return offlineFallback(q, bundle ?? undefined);
+      return offlineFallback(q, bundle ?? undefined, { reason: "not_downloaded" });
     }
     return onDeviceAgent.run(
       q,
@@ -154,27 +177,7 @@ export const askAgent = async (
     );
   }
 
-  // Circuit open: a recent network failure confirmed backend is unreachable.
-  // Skip the DNS lookup entirely — go straight to on-device.
-  if (!opts?.forceBackend && isCircuitOpen()) {
-    if (isModelReady()) {
-      const result = await onDeviceAgent.run(
-        q,
-        {
-          district: ctx.location.district,
-          state: ctx.location.state,
-          ...(ctx.land !== undefined ? { land: ctx.land } : {}),
-          ...(ctx.hasAadhaar !== undefined ? { hasAadhaar: ctx.hasAadhaar } : {}),
-        },
-        q.signal,
-      );
-      return { ...result, banner: "network_busy" };
-    }
-    const bundle = await loadBundlePayload().catch(() => null);
-    return { ...offlineFallback(q, bundle ?? undefined), banner: "network_busy" };
-  }
-
-  // Online: backend first, fall back to on-device on USE_ONDEVICE hint
+  // Online: always try cloud first; fall back to on-device only after the request fails.
   try {
     const result = await callBackend(q, ctx);
     resetCircuit(); // successful response — backend reachable again
@@ -199,12 +202,8 @@ export const askAgent = async (
     }
     // Network unreachable (airplane mode / server down) but NetInfo still reports online.
     // Trip the circuit so subsequent queries skip the DNS timeout entirely.
-    const msg = e instanceof Error ? e.message : "";
-    const isNetworkError =
-      e instanceof Error &&
-      (msg.includes("Network request failed") || msg.includes("fetch failed") || msg.includes("UnknownHost"));
-    if (isNetworkError) {
-      tripCircuit();
+    if (isNetworkFetchError(e)) {
+      tripBackendCircuit();
       if (isModelReady()) {
         const result = await onDeviceAgent.run(
           q,

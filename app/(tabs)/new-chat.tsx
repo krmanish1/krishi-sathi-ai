@@ -29,7 +29,7 @@ export default function NewChatTabScreen() {
   const ready = useAuthReady();
   const qc = useQueryClient();
   const ui = useConnectivityUi();
-  const connectivity = ui.connectivity;
+  const connectivity = ui.apiConnectivity;
   const { startNewSession } = useChatSessionActions({ farmerId, connectivity });
 
   // Tabs often stay mounted when switching away — focus re-runs the flow each visit.

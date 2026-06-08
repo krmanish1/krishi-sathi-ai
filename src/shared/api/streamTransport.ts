@@ -1,6 +1,6 @@
 import type { UIMessage } from "ai";
-import { fetch as expoFetch } from "expo/fetch";
 import { KrishiCompatChatTransport } from "@/shared/api/krishiCompatChatTransport";
+import { platformFetch } from "@/shared/api/platformFetch";
 import { getApiBaseUrl } from "@/shared/config/env";
 import {
   queryConnectivityWire,
@@ -48,8 +48,7 @@ export function createKrishiSathiChatTransport(
   return new KrishiCompatChatTransport<UIMessage>({
     api,
     fetch: wrapFetchWithApiLogging(
-      (input, init) =>
-        withFetchLane(() => (expoFetch as unknown as typeof globalThis.fetch)(input, init)),
+      (input, init) => withFetchLane(() => platformFetch(input, init)),
       "POST",
     ),
     prepareSendMessagesRequest: ({ messages }) => {

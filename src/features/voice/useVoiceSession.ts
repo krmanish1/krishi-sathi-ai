@@ -1,7 +1,7 @@
 import { useCallback, useRef, useEffect, useState } from "react";
 import { Platform } from "react-native";
 import type { RemoteAudioTrack } from "livekit-client";
-import { useConnectivity } from "@/shared/network";
+import { useApiConnectivity } from "@/shared/network";
 import { useVoice, speak as speakText } from "@/shared/voice";
 import {
   setLiveKitSpeakerRoute,
@@ -9,6 +9,7 @@ import {
   stopLiveKitVoiceAudio,
 } from "@/shared/voice/liveKitVoiceAudio";
 import { ApiError, askAgent, postVoiceToken } from "@/shared/api";
+import { detectModelVariant, modelVariantToOnDeviceModelId } from "@/shared/ondevice";
 import { appendMessage, MAIN_THREAD_ID } from "@/features/chat";
 import type { Language } from "@/shared/config/constants";
 import {
@@ -94,7 +95,7 @@ function loadLiveKit(): {
 }
 
 export function useVoiceSession(input: VoiceSessionInput) {
-  const connectivity = useConnectivity();
+  const connectivity = useApiConnectivity();
   const store = useVoiceSessionStore();
   const roomRef = useRef<import("livekit-client").Room | null>(null);
   const connectionAbortRef = useRef<AbortController | null>(null);
@@ -175,7 +176,9 @@ export function useVoiceSession(input: VoiceSessionInput) {
             conversationId: input.conversationId ?? MAIN_THREAD_ID,
             location: { state: input.state, district: input.district },
             connectivity,
-            deviceCapabilities: { ondeviceModel: "gemma-4-e4b-it" },
+            deviceCapabilities: {
+              ondeviceModel: modelVariantToOnDeviceModelId(await detectModelVariant()),
+            },
           },
         );
         store.setInterimAgentText("");

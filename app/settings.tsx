@@ -7,10 +7,14 @@ import {
   Linking,
   Switch,
 } from "react-native";
-import { useState } from "react";
-import { useBackgroundModelDownload } from "@/features/model-download";
-import { ModelDownloadConsentModal } from "@/features/model-download";
-import { useRouter } from "expo-router";
+import { useCallback, useState } from "react";
+import {
+  useBackgroundModelDownload,
+  ModelDownloadConsentModal,
+  useModelDiskReady,
+  useModelDownloadStore,
+} from "@/features/model-download";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
@@ -18,6 +22,7 @@ import Constants from "expo-constants";
 import { useOnboarding } from "@/features/onboarding/store";
 import i18n from "@/shared/i18n";
 import type { Language } from "@/shared/config/constants";
+import { NetworkBanner } from "@/shared/network";
 
 const INK = "#001E2B";
 const INK_MUTED = "#5C6C75";
@@ -73,6 +78,14 @@ export default function SettingsScreen() {
     cancelDownload,
     setPreferOffline,
   } = useBackgroundModelDownload();
+  const { diskReady, refresh } = useModelDiskReady();
+  const dlVariant = useModelDownloadStore((s) => s.variant) ?? "e2b";
+
+  useFocusEffect(
+    useCallback(() => {
+      void refresh();
+    }, [refresh]),
+  );
 
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
@@ -97,6 +110,7 @@ export default function SettingsScreen() {
         <Text style={styles.title}>{t("settings.title")}</Text>
         <View style={{ width: 36 }} />
       </View>
+      <NetworkBanner />
 
       <ScrollView
         contentContainerStyle={[
@@ -181,7 +195,9 @@ export default function SettingsScreen() {
                   <View style={styles.rowIconWrap}>
                     <MaterialCommunityIcons name="download-outline" size={18} color={INK_MUTED} />
                   </View>
-                  <Text style={styles.rowLabel}>{t("modelDownload.settingsDownloadBtn")}</Text>
+                  <Text style={styles.rowLabel}>
+                    {t("modelDownload.settingsDownloadBtn")} ({t(`modelDownload.variant.${dlVariant}`)})
+                  </Text>
                   <MaterialCommunityIcons name="chevron-right" size={18} color={INK_MUTED} />
                 </View>
               </Pressable>
@@ -202,29 +218,66 @@ export default function SettingsScreen() {
                 <Text style={dlStyles.cancelBtnText}>{t("modelDownload.cancel")}</Text>
               </Pressable>
             </View>
+          ) : dlStatus === "completed" && !diskReady ? (
+            <>
+              <View style={[styles.row, { paddingBottom: 4 }]}>
+                <View style={styles.rowIconWrap}>
+                  <MaterialCommunityIcons name="alert-circle-outline" size={18} color="#D97706" />
+                </View>
+                <Text style={[styles.rowLabel, { color: "#D97706", flex: 1 }]}>
+                  {t("modelDownload.settingsFileMissing")}
+                </Text>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                onPress={() => {
+                  useModelDownloadStore.getState().resetToIdle();
+                  setConsentVisible(true);
+                }}
+                style={{ opacity: 1 }}
+              >
+                <View style={styles.row}>
+                  <View style={styles.rowIconWrap}>
+                    <MaterialCommunityIcons name="download-outline" size={18} color={INK_MUTED} />
+                  </View>
+                  <Text style={styles.rowLabel}>
+                    {t("modelDownload.settingsDownloadBtn")} ({t(`modelDownload.variant.${dlVariant}`)})
+                  </Text>
+                  <MaterialCommunityIcons name="chevron-right" size={18} color={INK_MUTED} />
+                </View>
+              </Pressable>
+            </>
           ) : (
             <>
               <View style={styles.row}>
                 <View style={styles.rowIconWrap}>
-                  <MaterialCommunityIcons name="check-circle-outline" size={18} color="#16A34A" />
+                  <MaterialCommunityIcons
+                    name="check-circle-outline"
+                    size={18}
+                    color={diskReady ? "#16A34A" : INK_MUTED}
+                  />
                 </View>
-                <Text style={[styles.rowLabel, { color: "#16A34A" }]}>
+                <Text style={[styles.rowLabel, { color: diskReady ? "#16A34A" : INK_MUTED }]}>
                   {t("modelDownload.settingsStatus")}
                 </Text>
               </View>
-              <View style={styles.rowDivider} />
-              <View style={styles.row}>
-                <View style={styles.rowIconWrap}>
-                  <MaterialCommunityIcons name="wifi-off" size={18} color={INK_MUTED} />
-                </View>
-                <Text style={styles.rowLabel}>{t("modelDownload.preferOfflineLabel")}</Text>
-                <Switch
-                  value={preferOffline}
-                  onValueChange={setPreferOffline}
-                  trackColor={{ true: "#1B3A28" }}
-                  thumbColor="#FFFFFF"
-                />
-              </View>
+              {diskReady ? (
+                <>
+                  <View style={styles.rowDivider} />
+                  <View style={styles.row}>
+                    <View style={styles.rowIconWrap}>
+                      <MaterialCommunityIcons name="wifi-off" size={18} color={INK_MUTED} />
+                    </View>
+                    <Text style={styles.rowLabel}>{t("modelDownload.preferOfflineLabel")}</Text>
+                    <Switch
+                      value={preferOffline}
+                      onValueChange={setPreferOffline}
+                      trackColor={{ true: "#1B3A28" }}
+                      thumbColor="#FFFFFF"
+                    />
+                  </View>
+                </>
+              ) : null}
             </>
           )}
         </View>

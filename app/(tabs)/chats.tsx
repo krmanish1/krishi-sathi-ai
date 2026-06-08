@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useAuthReady, useFarmerId } from "@/shared/auth/AuthProvider";
-import { useConnectivityUi } from "@/shared/network";
+import { useConnectivityUi, NetworkBanner } from "@/shared/network";
 import {
   useChatStore,
   useFarmerConversations,
@@ -28,7 +28,7 @@ export default function ChatsListScreen() {
   const farmerId = useFarmerId();
   const ready = useAuthReady();
   const ui = useConnectivityUi();
-  const connectivity = ui.connectivity;
+  const connectivity = ui.apiConnectivity;
   const conversationId = useChatStore((s) => s.conversationId);
 
   const { openSession, deleteSession } = useChatSessionActions({
@@ -132,6 +132,7 @@ export default function ChatsListScreen() {
         <Text className="font-display text-lg text-title-green">{t("chat.sessionsTitle")}</Text>
         <Text className="mt-1 font-body text-xs text-ink-muted">{t("chat.listTabSubtitle")}</Text>
       </View>
+      <NetworkBanner />
 
       {!ui.backendReachable ? (
         ui.onDeviceModelReady ? (

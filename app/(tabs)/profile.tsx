@@ -19,7 +19,7 @@ import { useFarmerId, useSupabaseAuth, useSupabaseSession } from "@/shared/auth"
 import { greetingFirstName, useDisplayName, useFarmerTwin } from "@/features/twin";
 import i18n from "@/shared/i18n";
 import type { Language } from "@/shared/config/constants";
-import { useConnectivityUi } from "@/shared/network";
+import { useConnectivityUi, NetworkBanner } from "@/shared/network";
 import { SidebarDrawer } from "@/shared/ui/primitives";
 
 const APP_LANG: Language[] = ["en", "hi"];
@@ -205,6 +205,7 @@ export default function ProfileScreen() {
           </View>
         </Pressable>
       </View>
+      <NetworkBanner />
 
       <ScrollView
         showsVerticalScrollIndicator={false}

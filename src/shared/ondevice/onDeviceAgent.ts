@@ -3,6 +3,11 @@ import { getBackend } from "./gemma";
 import { PLANNER_SYSTEM } from "./prompts/planner";
 import { SYNTHESIZER_SYSTEM } from "./prompts/synthesizer";
 import { offlineFallback } from "./offlineFallback";
+import { logOnDevice } from "./ondeviceLog";
+import { getModelPath } from "./modelState";
+import { modelVariantFromFilename, modelVariantToOnDeviceModelId } from "./localGemmaModelFile";
+import { buildFallbackPlan, parsePlannerJson, type PlannerPlan } from "./plannerParse";
+import { toNativeFilesystemPath } from "./nativeModelPath";
 import {
   querySchemes,
   queryMandiPrices,
@@ -10,11 +15,14 @@ import {
   queryWeatherHistory,
 } from "@/shared/storage/offlineData";
 import type { AgentQuery, AgentResponse } from "@/shared/api/routing";
-
-const MAX_GEN_MS = 45_000;
+import { callGemmaWithTimeout, isAbortError, isGemmaTimeoutError } from "./gemmaCall";
 
 type ToolCall = { tool: string; params?: Record<string, string | undefined> };
-type PlanResult = { intent: string; tools: ToolCall[]; safe: boolean };
+
+function activeOnDeviceModelId(): "gemma-4-e4b-it" | "gemma-4-e2b-it" {
+  const fromPath = modelVariantFromFilename(getModelPath());
+  return modelVariantToOnDeviceModelId(fromPath ?? "e2b");
+}
 
 function sanitizeForPrompt(input: unknown, maxLen = 800): string {
   const raw = typeof input === "string" ? input : String(input ?? "");
@@ -31,55 +39,6 @@ function safeJsonForPrompt(value: unknown, maxLen = 1500): string {
     return sanitizeForPrompt(JSON.stringify(value), maxLen);
   } catch {
     return sanitizeForPrompt(String(value), maxLen);
-  }
-}
-
-/** Merge an external AbortSignal with an internal one (for timeout). */
-function mergeSignals(outer?: AbortSignal, inner?: AbortSignal): AbortSignal {
-  const ac = new AbortController();
-  const abort = () => ac.abort();
-  outer?.addEventListener("abort", abort);
-  inner?.addEventListener("abort", abort);
-  if (outer?.aborted || inner?.aborted) ac.abort();
-  return ac.signal;
-}
-
-async function callGemmaWithTimeout(
-  prompt: string,
-  signal?: AbortSignal,
-  onToken?: (token: string) => void,
-): Promise<string> {
-  const backend = getBackend();
-  if (!backend) throw new Error("Gemma backend not set");
-
-  const timeoutAc = new AbortController();
-  const timer = setTimeout(() => timeoutAc.abort(), MAX_GEN_MS);
-  const merged = mergeSignals(signal, timeoutAc.signal);
-
-  try {
-    if (merged.aborted) throw new DOMException("Aborted", "AbortError");
-    const result = await backend.generate({
-      prompt,
-      language: "hi",
-      intent: "general",
-      ...(onToken !== undefined ? { onToken } : {}),
-    });
-    if (merged.aborted) throw new DOMException("Aborted", "AbortError");
-    return result.text;
-  } finally {
-    clearTimeout(timer);
-  }
-}
-
-function parseJsonSafe(text: string): PlanResult | null {
-  const trimmed = text.trim();
-  const start = trimmed.indexOf("{");
-  const end = trimmed.lastIndexOf("}");
-  if (start === -1 || end === -1) return null;
-  try {
-    return JSON.parse(trimmed.slice(start, end + 1)) as PlanResult;
-  } catch {
-    return null;
   }
 }
 
@@ -144,7 +103,7 @@ async function dispatchTool(
         .catch((e: unknown) => ({
           text: String(e),
           confidence: 0,
-          modelUsed: "gemma-4-e4b-it" as const,
+          modelUsed: activeOnDeviceModelId(),
         }));
       return { tool: "vision", result: { analysis: out.text } };
     }
@@ -171,26 +130,41 @@ Query: ${sanitizeForPrompt(query.text)}`;
       planText = await callGemmaWithTimeout(plannerPrompt, signal);
     } catch (e) {
       if (signal?.aborted) throw e;
-      // Timeout or crash — use rule-based fallback
-      return offlineFallback(query);
+      logOnDevice("planner_fail", {
+        error: e instanceof Error ? e.message : String(e),
+        path: getModelPath() ? toNativeFilesystemPath(getModelPath()) : null,
+      });
+      return offlineFallback(query, undefined, { reason: "inference_failed", error: e });
     }
 
     if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
 
-    const plan = parseJsonSafe(planText);
-    if (!plan || plan.safe === false) {
+    let plan: PlannerPlan | null = parsePlannerJson(planText);
+    if (!plan) {
+      plan = buildFallbackPlan(query.intent, { hasImage: !!query.imageBase64 });
+      logOnDevice("planner_fallback", {
+        intent: query.intent,
+        preview: planText.trim().slice(0, 160),
+      });
+    }
+
+    if (!plan.safe) {
+      logOnDevice("planner_unsafe", { intent: plan.intent, preview: planText.trim().slice(0, 120) });
       return {
         text: i18next.t("chat.safetyBlock"),
         confidence: 0,
         source: "ondevice",
-        modelUsed: "gemma-4-e4b-it",
+        modelUsed: activeOnDeviceModelId(),
         canEscalate: true,
       };
     }
 
     // Stage B: Tool execution (no LLM, pure SQLite/rules)
     const toolTrace: { tool: string; result: unknown }[] = [];
-    const tools: ToolCall[] = Array.isArray(plan.tools) ? plan.tools : [];
+    let tools: ToolCall[] = Array.isArray(plan.tools) ? plan.tools : [];
+    if (tools.length === 0) {
+      tools = buildFallbackPlan(query.intent, { hasImage: !!query.imageBase64 }).tools;
+    }
 
     for (const toolCall of tools.slice(0, 4)) {
       if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
@@ -213,21 +187,45 @@ Write a helpful response:`;
     try {
       finalText = await callGemmaWithTimeout(synthPrompt, signal, query.onToken);
     } catch (e) {
-      if (signal?.aborted) throw e;
-      // Timeout — return tool results as fallback
+      if (isAbortError(e) || signal?.aborted) throw e;
+      logOnDevice("generate_fail", {
+        reason: isGemmaTimeoutError(e) ? "timeout" : "error",
+        error: e instanceof Error ? e.message : String(e),
+        path: getModelPath() ? toNativeFilesystemPath(getModelPath()) : null,
+      });
       const summary = toolTrace
         .map((t) => `${t.tool}: ${JSON.stringify(t.result).slice(0, 200)}`)
         .join("\n");
-      finalText = summary || i18next.t("offline.modelDownloadingGeneral");
+      finalText =
+        summary ||
+        (isGemmaTimeoutError(e)
+          ? i18next.t("offline.generationTimeout")
+          : i18next.t("offline.modelDownloadingGeneral"));
     }
 
-    if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+    const trimmed = (finalText ?? "").trim();
+    if (signal?.aborted && !trimmed) {
+      throw new DOMException("Aborted", "AbortError");
+    }
+
+    const text =
+      trimmed ||
+      toolTrace
+        .map((t) => `${t.tool}: ${JSON.stringify(t.result).slice(0, 200)}`)
+        .join("\n") ||
+      i18next.t("offline.generationTimeout");
+
+    logOnDevice("agent_reply", {
+      source: "ondevice",
+      textLength: text.length,
+      preview: text.slice(0, 160),
+    });
 
     return {
-      text: finalText,
+      text,
       confidence: 0.72,
       source: "ondevice",
-      modelUsed: "gemma-4-e4b-it",
+      modelUsed: activeOnDeviceModelId(),
       canEscalate: false,
       toolTrace,
     };

@@ -22,7 +22,7 @@ export async function listThreadMessages(
   return d.getAllAsync<ChatMessageRow>(
     `SELECT id, thread_id, role, text, source, confidence, created_at,
             image_local_uri AS imageLocalUri
-     FROM chat_messages WHERE thread_id = ? ORDER BY created_at ASC`,
+     FROM chat_messages WHERE thread_id = ? ORDER BY created_at ASC, id ASC`,
     [threadId],
   );
 }
@@ -62,6 +62,11 @@ export async function appendMessage(input: AppendInput): Promise<ChatMessageRow>
     created_at: created,
     ...(img ? { imageLocalUri: img } : {}),
   };
+}
+
+export async function updateMessageText(id: string, text: string): Promise<void> {
+  const d = getDb();
+  await d.runAsync("UPDATE chat_messages SET text = ? WHERE id = ?", [text, id]);
 }
 
 export async function clearThread(threadId: string = MAIN_THREAD_ID): Promise<void> {
